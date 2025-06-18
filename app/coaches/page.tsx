@@ -26,47 +26,34 @@ import {
 import { Header } from '@/components/sections/Header';
 import { Footer } from '@/components/sections/Footer';
 
+// Updated coaching plan as per new model
 const coachingPlans = [
   {
-    name: 'Starter Coach',
-    price: '$49',
+    name: 'CoachCast Pro',
+    price: '$79',
     period: '/month',
     features: [
-      'Up to 10 clients',
-      'Basic AI clone creation',
-      'Cal.com integration',
-      'Stripe payment processing',
-      'Session analytics',
-      'Email support'
-    ]
-  },
-  {
-    name: 'Professional Coach',
-    price: '$99',
-    period: '/month',
-    features: [
-      'Up to 50 clients',
-      'Advanced AI voice cloning',
-      'Video AI cloning (Tavus)',
-      'Priority support',
-      'Advanced analytics',
-      'Custom branding',
-      'API access'
+      // Pricing & Revenue Model
+      'Set your own human coaching session fees and keep 90% (10% platform fee)',
+      'Earn 25% revenue share from client AI credit spend on your Digital Twin (audio or video)',
+      'Earn 10% revenue share on AI coaching credits purchased by coachees you refer',
+      // Core Features: Digital Twin Creation & Hosting
+      'Create and host your own Digital Twin: AudioCoach (audio) & VideoCoach (video)',
+      'Guided setup for recording intro video and uploading training materials',
+      'Review and approve your AI-generated AudioCoach and VideoCoach before launch',
+      // Practice Management Suite
+      'Integrated scheduling with Cal.com',
+      'Stripe payment processing for secure payments',
+      'Client management dashboard for feedback and earnings',
+      'Secure document sharing with clients',
+      // Lead Generation & Client Onboarding
+      'Public marketplace profile to attract new clients',
+      'Personal Magic Link for direct client onboarding and scheduling',
+      // Advanced AI & Professional Development (coming soon)
+      'In-session learning: Digital Twin can observe live sessions (with permission) to improve accuracy',
+      'AI-powered feedback on your live coaching sessions, referencing ICF best practices'
     ],
     popular: true
-  },
-  {
-    name: 'Enterprise Coach',
-    price: '$199',
-    period: '/month',
-    features: [
-      'Unlimited clients',
-      'White-label solution',
-      'Custom integrations',
-      'Dedicated success manager',
-      'Custom AI training',
-      'Revenue sharing program'
-    ]
   }
 ];
 
@@ -132,14 +119,12 @@ export default function CoachesPage() {
         
         <div className="space-y-2">
           <Label htmlFor="plan">Choose Your Plan</Label>
-          <Select defaultValue="professional">
+          <Select defaultValue="pro">
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="starter">Starter Coach - $49/month</SelectItem>
-              <SelectItem value="professional">Professional Coach - $99/month</SelectItem>
-              <SelectItem value="enterprise">Enterprise Coach - $199/month</SelectItem>
+              <SelectItem value="pro">CoachCast Pro - $79/month</SelectItem>
             </SelectContent>
           </Select>
         </div>
