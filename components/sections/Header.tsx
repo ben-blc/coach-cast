@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Mic, Video, Users } from 'lucide-react';
+import { SupabaseConnectButton } from '@/components/ui/supabase-connect-button';
+import { Menu, X, Mic } from 'lucide-react';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -32,6 +33,7 @@ export function Header() {
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
+            <SupabaseConnectButton />
             <Button variant="ghost" asChild>
               <Link href="/auth">Sign In</Link>
             </Button>
@@ -61,6 +63,7 @@ export function Header() {
                 For Coaches
               </Link>
               <div className="flex flex-col space-y-2 pt-4">
+                <SupabaseConnectButton />
                 <Button variant="ghost" asChild>
                   <Link href="/auth">Sign In</Link>
                 </Button>
