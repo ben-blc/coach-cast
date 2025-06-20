@@ -32,6 +32,7 @@ export type AICoach = {
   specialty: string;
   description: string;
   voice_id?: string;
+  agent_id?: string; // ElevenLabs ConvAI agent ID
   personality_prompt: string;
   avatar_url?: string;
   is_active: boolean;
@@ -410,5 +411,129 @@ export async function completeOnboarding(userId: string): Promise<boolean> {
   } catch (error) {
     console.error('Unexpected error in completeOnboarding:', error);
     return false;
+  }
+}
+
+// Admin functions for managing data (requires service role or admin privileges)
+export async function createAICoach(coach: Partial<AICoach>): Promise<AICoach | null> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_coaches')
+      .insert([coach])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating AI coach:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in createAICoach:', error);
+    return null;
+  }
+}
+
+export async function updateAICoach(coachId: string, updates: Partial<AICoach>): Promise<AICoach | null> {
+  try {
+    const { data, error } = await supabase
+      .from('ai_coaches')
+      .update(updates)
+      .eq('id', coachId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating AI coach:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in updateAICoach:', error);
+    return null;
+  }
+}
+
+export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<HumanCoach | null> {
+  try {
+    const { data, error } = await supabase
+      .from('human_coaches')
+      .insert([coach])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating human coach:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in createHumanCoach:', error);
+    return null;
+  }
+}
+
+export async function updateHumanCoach(coachId: string, updates: Partial<HumanCoach>): Promise<HumanCoach | null> {
+  try {
+    const { data, error } = await supabase
+      .from('human_coaches')
+      .update(updates)
+      .eq('id', coachId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating human coach:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in updateHumanCoach:', error);
+    return null;
+  }
+}
+
+// Analytics functions
+export async function getSessionAnalytics(sessionId: string): Promise<SessionAnalytics | null> {
+  try {
+    const { data, error } = await supabase
+      .from('session_analytics')
+      .select('*')
+      .eq('session_id', sessionId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching session analytics:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in getSessionAnalytics:', error);
+    return null;
+  }
+}
+
+export async function createSessionAnalytics(analytics: Partial<SessionAnalytics>): Promise<SessionAnalytics | null> {
+  try {
+    const { data, error } = await supabase
+      .from('session_analytics')
+      .insert([analytics])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating session analytics:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in createSessionAnalytics:', error);
+    return null;
   }
 }
