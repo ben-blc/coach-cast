@@ -78,9 +78,9 @@ export default function AISpecialistSessionPage() {
     };
   }, [timerStarted, sessionActive]);
 
-  // Script loading effect - only loads once when session becomes active
+  // Script loading effect - only loads when timer is started
   useEffect(() => {
-    if (sessionActive && !scriptLoadedRef.current && !scriptLoaded) {
+    if (timerStarted && !scriptLoadedRef.current && !scriptLoaded) {
       const loadScript = () => {
         // Check if script already exists
         const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
@@ -118,7 +118,7 @@ export default function AISpecialistSessionPage() {
         clearTimeout(timer);
       };
     }
-  }, [sessionActive, scriptLoaded]);
+  }, [timerStarted, scriptLoaded]);
 
   // Calculate tokens based on session time
   const calculateTokens = (seconds: number): number => {
@@ -174,6 +174,8 @@ export default function AISpecialistSessionPage() {
         setTokensUsed(0);
         setScriptError(false);
         setEndingSession(false);
+        setScriptLoaded(false);
+        scriptLoadedRef.current = false;
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -377,107 +379,38 @@ export default function AISpecialistSessionPage() {
 
               {/* Main ConvAI Widget Area */}
               <div className="p-8">
-                {scriptError ? (
+                {!timerStarted ? (
                   <div className="text-center py-12">
-                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Connection Error</h3>
-                    <p className="text-gray-600 mb-4">
-                      Unable to load the AI coach. This might be due to network issues or the agent being temporarily unavailable.
+                    <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-6">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <span className="text-blue-800 text-sm font-medium">Session Ready</span>
+                    </div>
+                    
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                      Ready to Start Your AI Coaching Session?
+                    </h3>
+                    
+                    <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+                      You're about to begin a conversation with {selectedCoach.name}, your AI specialist coach. 
+                      Click "Start Session" below to activate the AI coaching interface and begin your timer.
                     </p>
-                    <Button onClick={retryScriptLoad} className="bg-blue-600 hover:bg-blue-700">
-                      Try Again
-                    </Button>
-                  </div>
-                ) : !scriptLoaded ? (
-                  <div className="text-center py-12">
-                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading AI Coach...</p>
-                    <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {!timerStarted && (
-                      <div className="text-center mb-8">
-                        <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-4">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                          <span className="text-blue-800 text-sm font-medium">Ready to Begin</span>
-                        </div>
-                        <p className="text-gray-600 mb-4">
-                          Start your conversation with the AI coach below. Click "Start Timer" when you begin to track your session time.
-                        </p>
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                          <div className="flex items-center justify-center space-x-2 text-yellow-800">
-                            <Coins className="w-4 h-4" />
-                            <span className="text-sm font-medium">Token Usage Policy</span>
-                          </div>
-                          <p className="text-yellow-700 text-sm mt-2">
-                            • Sessions under 15 seconds are free<br/>
-                            • Sessions over 15 seconds are rounded up to the nearest minute<br/>
-                            • 1 token = 1 minute of coaching time
-                          </p>
-                        </div>
-                        <Button 
-                          onClick={startTimer}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          size="lg"
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          Start Timer
-                        </Button>
-                      </div>
-                    )}
 
-                    {/* Token Usage Display */}
-                    {timerStarted && (
-                      <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="flex items-center space-x-2">
-                              <Clock className="w-4 h-4 text-gray-600" />
-                              <span className="text-sm font-medium text-gray-900">
-                                Session Time: {formatTime(sessionTime)}
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Coins className={`w-4 h-4 ${tokenDisplay.color}`} />
-                              <span className={`text-sm font-medium ${tokenDisplay.color}`}>
-                                {tokenDisplay.message}
-                              </span>
-                            </div>
-                          </div>
-                          {sessionTime <= 15 && (
-                            <Badge className="bg-green-100 text-green-800 text-xs">
-                              Free Trial
-                            </Badge>
-                          )}
-                        </div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 max-w-2xl mx-auto">
+                      <div className="flex items-center justify-center space-x-2 text-yellow-800 mb-2">
+                        <Coins className="w-4 h-4" />
+                        <span className="text-sm font-medium">Token Usage Policy</span>
                       </div>
-                    )}
-
-                    {/* ElevenLabs ConvAI Widget - Centered */}
-                    <div className="flex justify-center">
-                      <div 
-                        className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4"
-                        style={{ minHeight: '500px' }}
-                      >
-                        <elevenlabs-convai 
-                          agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
-                          style={{
-                            width: '100%',
-                            height: '480px',
-                            border: 'none',
-                            borderRadius: '12px',
-                            display: 'block'
-                          }}
-                        />
+                      <div className="text-yellow-700 text-sm space-y-1">
+                        <p>• Sessions under 15 seconds are completely free</p>
+                        <p>• Sessions over 15 seconds are rounded up to the nearest minute</p>
+                        <p>• 1 token = 1 minute of coaching time</p>
                       </div>
                     </div>
 
-                    {/* Coach Information */}
-                    <div className="bg-gray-50 rounded-xl p-6 mt-8">
-                      <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
+                    <div className="bg-gray-50 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
+                      <h4 className="font-semibold text-gray-900 mb-2">About {selectedCoach.name}</h4>
                       <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
                         <div className="flex items-center space-x-1">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                           <span>Specialty: {selectedCoach.specialty}</span>
@@ -488,6 +421,98 @@ export default function AISpecialistSessionPage() {
                         </div>
                       </div>
                     </div>
+                    
+                    <Button 
+                      onClick={startTimer}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      size="lg"
+                    >
+                      <Play className="w-5 h-5 mr-2" />
+                      Start Session
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {scriptError ? (
+                      <div className="text-center py-12">
+                        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Connection Error</h3>
+                        <p className="text-gray-600 mb-4">
+                          Unable to load the AI coach. This might be due to network issues or the agent being temporarily unavailable.
+                        </p>
+                        <Button onClick={retryScriptLoad} className="bg-blue-600 hover:bg-blue-700">
+                          Try Again
+                        </Button>
+                      </div>
+                    ) : !scriptLoaded ? (
+                      <div className="text-center py-12">
+                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading AI Coach...</p>
+                        <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Token Usage Display */}
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex items-center space-x-2">
+                                <Clock className="w-4 h-4 text-gray-600" />
+                                <span className="text-sm font-medium text-gray-900">
+                                  Session Time: {formatTime(sessionTime)}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Coins className={`w-4 h-4 ${tokenDisplay.color}`} />
+                                <span className={`text-sm font-medium ${tokenDisplay.color}`}>
+                                  {tokenDisplay.message}
+                                </span>
+                              </div>
+                            </div>
+                            {sessionTime <= 15 && (
+                              <Badge className="bg-green-100 text-green-800 text-xs">
+                                Free Trial
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ElevenLabs ConvAI Widget - Centered */}
+                        <div className="flex justify-center">
+                          <div 
+                            className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4"
+                            style={{ minHeight: '500px' }}
+                          >
+                            <elevenlabs-convai 
+                              agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
+                              style={{
+                                width: '100%',
+                                height: '480px',
+                                border: 'none',
+                                borderRadius: '12px',
+                                display: 'block'
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Coach Information */}
+                        <div className="bg-gray-50 rounded-xl p-6">
+                          <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
+                          <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
+                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            <div className="flex items-center space-x-1">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span>Specialty: {selectedCoach.specialty}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>Powered by ElevenLabs</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -514,20 +539,20 @@ export default function AISpecialistSessionPage() {
                 ) : (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span>Start your conversation and click "Start Timer" to begin tracking</span>
+                    <span>Click "Start Session" to begin your AI coaching session</span>
                   </div>
                 )}
               </div>
               
               <div className="flex items-center space-x-3">
-                {!timerStarted && scriptLoaded && !scriptError && (
+                {!timerStarted && (
                   <Button
                     onClick={startTimer}
                     className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={endingSession}
                   >
                     <Play className="w-4 h-4 mr-2" />
-                    Start Timer
+                    Start Session
                   </Button>
                 )}
                 <Button
