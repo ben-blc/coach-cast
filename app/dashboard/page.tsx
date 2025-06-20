@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,43 +29,94 @@ export default function DashboardPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [sessions, setSessions] = useState<CoachingSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    async function loadUserData() {
-      try {
-        const currentUser = await getCurrentUser();
-        if (!currentUser) {
-          router.push('/auth');
-          return;
-        }
+  // Function to load all user data
+  const loadUserData = async (showRefreshIndicator = false) => {
+    try {
+      if (showRefreshIndicator) {
+        setRefreshing(true);
+      }
 
-        setUser(currentUser);
-        
-        const [userProfile, userSubscription, userSessions] = await Promise.all([
-          getUserProfile(currentUser.id),
-          getUserSubscription(currentUser.id),
-          getUserSessions(currentUser.id)
-        ]);
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        router.push('/auth');
+        return;
+      }
 
-        setProfile(userProfile);
-        setSubscription(userSubscription);
-        setSessions(userSessions);
+      setUser(currentUser);
+      
+      const [userProfile, userSubscription, userSessions] = await Promise.all([
+        getUserProfile(currentUser.id),
+        getUserSubscription(currentUser.id),
+        getUserSessions(currentUser.id)
+      ]);
 
-        // Redirect to onboarding if not completed
-        if (userProfile && !userProfile.onboarding_completed) {
-          router.push('/onboarding');
-          return;
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      } finally {
-        setLoading(false);
+      setProfile(userProfile);
+      setSubscription(userSubscription);
+      setSessions(userSessions);
+
+      // Redirect to onboarding if not completed
+      if (userProfile && !userProfile.onboarding_completed) {
+        router.push('/onboarding');
+        return;
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+      if (showRefreshIndicator) {
+        setRefreshing(false);
       }
     }
+  };
 
+  useEffect(() => {
     loadUserData();
   }, [router]);
+
+  // Auto-refresh data when returning from a session
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !loading) {
+        console.log('Page became visible, refreshing data...');
+        loadUserData(true);
+      }
+    };
+
+    const handleFocus = () => {
+      if (!loading) {
+        console.log('Window focused, refreshing data...');
+        loadUserData(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loading]);
+
+  // Check URL params for refresh trigger
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const refresh = searchParams.get('refresh');
+    
+    if (refresh === 'true' || tab === 'sessions') {
+      console.log('URL indicates refresh needed, reloading data...');
+      loadUserData(true);
+    }
+  }, [searchParams]);
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    loadUserData(true);
+  };
 
   if (loading) {
     return (
@@ -124,13 +175,23 @@ export default function DashboardPage() {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {profile.full_name.split(' ')[0]}!</h1>
-          <p className="text-gray-600 mt-2">
-            {subscription.plan_type === 'free' 
-              ? `You have ${subscription.credits_remaining} minutes remaining in your free trial.`
-              : `You have ${subscription.credits_remaining} credits remaining this month.`
-            }
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Welcome back, {profile.full_name.split(' ')[0]}!</h1>
+              <p className="text-gray-600 mt-2">
+                {subscription.plan_type === 'free' 
+                  ? `You have ${subscription.credits_remaining} minutes remaining in your free trial.`
+                  : `You have ${subscription.credits_remaining} credits remaining this month.`
+                }
+              </p>
+            </div>
+            {refreshing && (
+              <div className="flex items-center space-x-2 text-blue-600">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm">Refreshing...</span>
+              </div>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
@@ -166,6 +227,15 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">
                     of {subscription.monthly_limit} {subscription.plan_type === 'free' ? 'minutes' : 'credits'}
                   </p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRefresh}
+                    className="mt-2 text-xs"
+                    disabled={refreshing}
+                  >
+                    {refreshing ? 'Refreshing...' : 'Refresh'}
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -260,12 +330,21 @@ export default function DashboardPage() {
           <TabsContent value="sessions" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900">My Sessions</h2>
-              <Button asChild>
-                <a href="/discovery">
-                  <Play className="h-4 w-4 mr-2" />
-                  New Session
-                </a>
-              </Button>
+              <div className="flex items-center space-x-3">
+                <Button 
+                  variant="outline" 
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                >
+                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                </Button>
+                <Button asChild>
+                  <a href="/discovery">
+                    <Play className="h-4 w-4 mr-2" />
+                    New Session
+                  </a>
+                </Button>
+              </div>
             </div>
 
             {sessions.length > 0 ? (

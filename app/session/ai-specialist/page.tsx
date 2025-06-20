@@ -203,7 +203,7 @@ export default function AISpecialistSessionPage() {
       if (!sessionId) {
         console.error('No session ID found when ending session');
         // Still redirect to dashboard even if we can't update the session
-        router.push('/dashboard?tab=sessions');
+        router.push('/dashboard?tab=sessions&refresh=true');
         return;
       }
 
@@ -242,9 +242,9 @@ export default function AISpecialistSessionPage() {
       setEndingSession(false);
       scriptLoadedRef.current = false;
       
-      // Navigate to dashboard
+      // Navigate to dashboard with refresh parameter
       console.log('Redirecting to dashboard...');
-      router.push('/dashboard?tab=sessions');
+      router.push('/dashboard?tab=sessions&refresh=true');
       
     } catch (error) {
       console.error('Error ending session:', error);
@@ -252,7 +252,7 @@ export default function AISpecialistSessionPage() {
       
       // Even if there's an error, try to redirect to dashboard
       // The user shouldn't be stuck on the session page
-      router.push('/dashboard?tab=sessions');
+      router.push('/dashboard?tab=sessions&refresh=true');
     }
   };
 
