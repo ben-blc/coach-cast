@@ -93,7 +93,6 @@ export default function AuthPage() {
               className="w-12 h-12 rounded-xl object-cover"
             />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Coach Cast</h1>
           <p className="text-gray-600 mt-2">Transform your life with personalized coaching</p>
         </div>
 
