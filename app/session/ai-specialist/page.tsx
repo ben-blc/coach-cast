@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, Play, Square, ArrowLeft, Clock, Volume2, AlertCircle, Coins } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits } from '@/lib/database';
-import type { AICoach } from '@/lib/database';
+import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits, getUserSubscription } from '@/lib/database';
+import type { AICoach, Subscription } from '@/lib/database';
 
 // Declare the ElevenLabs ConvAI widget type
 declare global {
@@ -28,6 +29,7 @@ export default function AISpecialistSessionPage() {
   const [aiCoaches, setAICoaches] = useState<AICoach[]>([]);
   const [sessionTime, setSessionTime] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionActive, setSessionActive] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
@@ -35,7 +37,9 @@ export default function AISpecialistSessionPage() {
   const [scriptError, setScriptError] = useState(false);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
+  const [timeExceeded, setTimeExceeded] = useState(false);
   const scriptLoadedRef = useRef(false);
+  const timeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,8 +51,18 @@ export default function AISpecialistSessionPage() {
           return;
         }
 
-        const coaches = await getAICoaches();
+        const [coaches, userSubscription] = await Promise.all([
+          getAICoaches(),
+          getUserSubscription(user.id)
+        ]);
+        
         setAICoaches(coaches);
+        setSubscription(userSubscription);
+
+        // Check if user has credits
+        if (userSubscription && userSubscription.credits_remaining <= 0) {
+          setTimeExceeded(true);
+        }
       } catch (error) {
         console.error('Error loading AI coaches:', error);
       } finally {
@@ -62,7 +76,7 @@ export default function AISpecialistSessionPage() {
   // Timer effect - only runs when both conditions are true
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (timerStarted && sessionActive) {
+    if (timerStarted && sessionActive && !timeExceeded) {
       interval = setInterval(() => {
         setSessionTime(prev => {
           const newTime = prev + 1;
@@ -76,7 +90,40 @@ export default function AISpecialistSessionPage() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [timerStarted, sessionActive]);
+  }, [timerStarted, sessionActive, timeExceeded]);
+
+  // Credit monitoring effect - check every 30 seconds if user has exceeded their limit
+  useEffect(() => {
+    if (timerStarted && sessionActive && subscription) {
+      timeCheckIntervalRef.current = setInterval(async () => {
+        try {
+          const user = await getCurrentUser();
+          if (!user) return;
+
+          const currentSubscription = await getUserSubscription(user.id);
+          if (currentSubscription) {
+            const tokensWillUse = calculateTokens(sessionTime + 30); // Check 30 seconds ahead
+            const creditsRemaining = currentSubscription.credits_remaining;
+            
+            // If the user will exceed their limit in the next 30 seconds, end the session
+            if (creditsRemaining <= tokensWillUse && sessionTime > 15) {
+              console.log('User will exceed credit limit, ending session...');
+              setTimeExceeded(true);
+              await endSession(true); // Force end with time exceeded flag
+            }
+          }
+        } catch (error) {
+          console.error('Error checking credit limits:', error);
+        }
+      }, 30000); // Check every 30 seconds
+
+      return () => {
+        if (timeCheckIntervalRef.current) {
+          clearInterval(timeCheckIntervalRef.current);
+        }
+      };
+    }
+  }, [timerStarted, sessionActive, subscription, sessionTime]);
 
   // Script loading effect - only loads when timer is started
   useEffect(() => {
@@ -152,8 +199,17 @@ export default function AISpecialistSessionPage() {
     }
   };
 
+  const canStartSession = () => {
+    return subscription && subscription.credits_remaining > 0;
+  };
+
   const startSession = async (coach: AICoach) => {
     try {
+      if (!canStartSession()) {
+        setTimeExceeded(true);
+        return;
+      }
+
       const user = await getCurrentUser();
       if (!user) return;
 
@@ -174,6 +230,7 @@ export default function AISpecialistSessionPage() {
         setTokensUsed(0);
         setScriptError(false);
         setEndingSession(false);
+        setTimeExceeded(false);
         setScriptLoaded(false);
         scriptLoadedRef.current = false;
       }
@@ -183,17 +240,17 @@ export default function AISpecialistSessionPage() {
   };
 
   const startTimer = () => {
-    if (!timerStarted) {
+    if (!timerStarted && canStartSession()) {
       setTimerStarted(true);
     }
   };
 
-  const endSession = async () => {
-    if (endingSession) return; // Prevent double-clicking
+  const endSession = async (forceEnd = false) => {
+    if (endingSession && !forceEnd) return; // Prevent double-clicking unless forced
     
     try {
       setEndingSession(true);
-      console.log('Ending session...', { sessionId, sessionTime });
+      console.log('Ending session...', { sessionId, sessionTime, forceEnd });
       
       const user = await getCurrentUser();
       if (!user) {
@@ -219,7 +276,7 @@ export default function AISpecialistSessionPage() {
         credits_used: finalTokens,
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
-        summary: `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Tokens used: ${finalTokens}.`,
+        summary: `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Tokens used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}`,
         transcription: 'Session transcription will be available soon.'
       };
 
@@ -242,7 +299,14 @@ export default function AISpecialistSessionPage() {
       setScriptLoaded(false);
       setScriptError(false);
       setEndingSession(false);
+      setTimeExceeded(false);
       scriptLoadedRef.current = false;
+      
+      // Clear the time check interval
+      if (timeCheckIntervalRef.current) {
+        clearInterval(timeCheckIntervalRef.current);
+        timeCheckIntervalRef.current = null;
+      }
       
       // Navigate to dashboard with refresh parameter
       console.log('Redirecting to dashboard...');
@@ -304,6 +368,29 @@ export default function AISpecialistSessionPage() {
     );
   }
 
+  // Show no credits message if user has no credits
+  if (timeExceeded || (subscription && subscription.credits_remaining <= 0)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">No Credits Available</h1>
+          <p className="text-gray-700 mb-6">
+            You've used all your available credits for this month. Upgrade your plan to continue coaching sessions.
+          </p>
+          <div className="space-y-3">
+            <Button asChild className="w-full">
+              <a href="/pricing">Upgrade Plan</a>
+            </Button>
+            <Button variant="outline" asChild className="w-full">
+              <a href="/dashboard">Back to Dashboard</a>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (sessionActive && selectedCoach) {
     const tokenDisplay = getTokenDisplay();
     
@@ -317,7 +404,7 @@ export default function AISpecialistSessionPage() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={endSession}
+                  onClick={() => endSession()}
                   disabled={endingSession}
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
@@ -352,6 +439,20 @@ export default function AISpecialistSessionPage() {
             </div>
           </div>
         </div>
+
+        {/* Time Exceeded Warning */}
+        {timeExceeded && (
+          <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 lg:px-8 py-3">
+            <div className="max-w-6xl mx-auto">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Your session will end soon due to credit limits. Please wrap up your conversation.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </div>
+        )}
 
         {/* Main Content Area */}
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
@@ -404,6 +505,7 @@ export default function AISpecialistSessionPage() {
                         <p>• Sessions under 15 seconds are completely free</p>
                         <p>• Sessions over 15 seconds are rounded up to the nearest minute</p>
                         <p>• 1 token = 1 minute of coaching time</p>
+                        <p>• You have {subscription?.credits_remaining || 0} credits remaining</p>
                       </div>
                     </div>
 
@@ -426,9 +528,10 @@ export default function AISpecialistSessionPage() {
                       onClick={startTimer}
                       className="bg-green-600 hover:bg-green-700 text-white"
                       size="lg"
+                      disabled={!canStartSession()}
                     >
                       <Play className="w-5 h-5 mr-2" />
-                      Start Session
+                      {canStartSession() ? 'Start Session' : 'No Credits Available'}
                     </Button>
                   </div>
                 ) : (
@@ -477,7 +580,7 @@ export default function AISpecialistSessionPage() {
                           </div>
                         </div>
 
-                        {/* ElevenLabs ConvAI Widget - Centered and Fully Visible, Vertically and Horizontally Centered */}
+                        {/* ElevenLabs ConvAI Widget - Centered and Fully Visible */}
                         <div className="flex justify-center">
                           <div 
                             className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4 flex justify-center items-center"
@@ -495,7 +598,7 @@ export default function AISpecialistSessionPage() {
                               }}
                             >
                               <elevenlabs-convai 
-                                agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
+                                agent-id={selectedCoach.agent_id || "agent_01jxwx5htbedvv36tk7v8g1b49"}
                                 style={{
                                   display: 'block',
                                   margin: '0 auto',
@@ -551,6 +654,9 @@ export default function AISpecialistSessionPage() {
                       <Coins className="w-4 h-4" />
                       <span>{tokenDisplay.message}</span>
                     </div>
+                    <div className="flex items-center space-x-2 text-gray-600">
+                      <span>Credits left: {subscription?.credits_remaining || 0}</span>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
@@ -565,14 +671,14 @@ export default function AISpecialistSessionPage() {
                   <Button
                     onClick={startTimer}
                     className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={endingSession}
+                    disabled={endingSession || !canStartSession()}
                   >
                     <Play className="w-4 h-4 mr-2" />
-                    Start Session
+                    {canStartSession() ? 'Start Session' : 'No Credits'}
                   </Button>
                 )}
                 <Button
-                  onClick={endSession}
+                  onClick={() => endSession()}
                   disabled={endingSession}
                   className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -604,6 +710,19 @@ export default function AISpecialistSessionPage() {
           </p>
         </div>
 
+        {/* Credits Warning */}
+        {subscription && subscription.credits_remaining <= 0 && (
+          <Alert className="mb-8">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You have no credits remaining. 
+              <a href="/pricing" className="text-blue-600 hover:underline ml-1">
+                Upgrade your plan
+              </a> to continue coaching sessions.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Token Usage Information */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
           <div className="flex items-center space-x-3 mb-4">
@@ -612,7 +731,9 @@ export default function AISpecialistSessionPage() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Token Usage</h3>
-              <p className="text-sm text-gray-600">How your free trial minutes are calculated</p>
+              <p className="text-sm text-gray-600">
+                You have {subscription?.credits_remaining || 0} credits remaining
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -635,7 +756,7 @@ export default function AISpecialistSessionPage() {
                 <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                 <span className="text-sm font-medium text-purple-800">1 Token = 1 Minute</span>
               </div>
-              <p className="text-xs text-purple-700">Deducted from your 7-minute trial</p>
+              <p className="text-xs text-purple-700">Deducted from your monthly allowance</p>
             </div>
           </div>
         </div>
@@ -673,9 +794,10 @@ export default function AISpecialistSessionPage() {
                 <Button 
                   className="w-full bg-blue-600 hover:bg-blue-700"
                   onClick={() => startSession(coach)}
+                  disabled={!canStartSession()}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  Start Voice Session
+                  {canStartSession() ? 'Start Voice Session' : 'No Credits Available'}
                 </Button>
               </CardContent>
             </Card>
