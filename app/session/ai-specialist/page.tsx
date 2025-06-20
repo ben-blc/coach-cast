@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mic, Play, Square, ArrowLeft, Clock, Volume2, AlertCircle } from 'lucide-react';
+import { Mic, Play, Square, ArrowLeft, Clock, Volume2, AlertCircle, Coins } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits } from '@/lib/database';
 import type { AICoach } from '@/lib/database';
@@ -33,6 +33,7 @@ export default function AISpecialistSessionPage() {
   const [timerStarted, setTimerStarted] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [scriptError, setScriptError] = useState(false);
+  const [tokensUsed, setTokensUsed] = useState(0);
   const scriptLoadedRef = useRef(false);
   const router = useRouter();
 
@@ -62,7 +63,13 @@ export default function AISpecialistSessionPage() {
     let interval: NodeJS.Timeout;
     if (timerStarted && sessionActive) {
       interval = setInterval(() => {
-        setSessionTime(prev => prev + 1);
+        setSessionTime(prev => {
+          const newTime = prev + 1;
+          // Calculate tokens based on session time
+          const calculatedTokens = calculateTokens(newTime);
+          setTokensUsed(calculatedTokens);
+          return newTime;
+        });
       }, 1000);
     }
     return () => {
@@ -112,10 +119,36 @@ export default function AISpecialistSessionPage() {
     }
   }, [sessionActive, scriptLoaded]);
 
+  // Calculate tokens based on session time
+  const calculateTokens = (seconds: number): number => {
+    if (seconds <= 15) {
+      return 0; // No charge for sessions 15 seconds or less
+    }
+    // Round up to the nearest minute for sessions over 15 seconds
+    return Math.ceil(seconds / 60);
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTokenDisplay = () => {
+    if (sessionTime <= 15) {
+      return {
+        tokens: 0,
+        message: "Free (under 15 seconds)",
+        color: "text-green-600"
+      };
+    } else {
+      const tokens = calculateTokens(sessionTime);
+      return {
+        tokens,
+        message: `${tokens} token${tokens !== 1 ? 's' : ''} (rounded up to minute)`,
+        color: "text-blue-600"
+      };
+    }
   };
 
   const startSession = async (coach: AICoach) => {
@@ -137,6 +170,7 @@ export default function AISpecialistSessionPage() {
         // Reset states
         setTimerStarted(false);
         setSessionTime(0);
+        setTokensUsed(0);
         setScriptError(false);
       }
     } catch (error) {
@@ -155,23 +189,29 @@ export default function AISpecialistSessionPage() {
       const user = await getCurrentUser();
       if (!user || !sessionId) return;
 
+      // Calculate final tokens
+      const finalTokens = calculateTokens(sessionTime);
+      
       // Update session with duration and completion
       await updateCoachingSession(sessionId, {
         duration_seconds: sessionTime,
+        credits_used: finalTokens,
         status: 'completed',
         completed_at: new Date().toISOString(),
-        summary: `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}.`,
+        summary: `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Tokens used: ${finalTokens}.`,
         transcription: 'Session transcription will be available soon.'
       });
 
-      // Update user credits (1 minute = 1 credit for free trial)
-      const creditsUsed = Math.ceil(sessionTime / 60);
-      await updateUserCredits(user.id, creditsUsed);
+      // Only deduct credits if session was over 15 seconds
+      if (finalTokens > 0) {
+        await updateUserCredits(user.id, finalTokens);
+      }
 
       // Reset all states
       setSessionActive(false);
       setTimerStarted(false);
       setSessionTime(0);
+      setTokensUsed(0);
       setScriptLoaded(false);
       setScriptError(false);
       scriptLoadedRef.current = false;
@@ -229,6 +269,8 @@ export default function AISpecialistSessionPage() {
   }
 
   if (sessionActive && selectedCoach) {
+    const tokenDisplay = getTokenDisplay();
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex flex-col">
         {/* Fixed Header */}
@@ -254,10 +296,16 @@ export default function AISpecialistSessionPage() {
                   {timerStarted ? 'Active' : 'Ready'}
                 </Badge>
                 {timerStarted && (
-                  <Badge className="bg-gray-100 text-gray-800">
-                    <Clock className="w-3 h-3 mr-1" />
-                    {formatTime(sessionTime)}
-                  </Badge>
+                  <>
+                    <Badge className="bg-gray-100 text-gray-800">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {formatTime(sessionTime)}
+                    </Badge>
+                    <Badge className={`${tokenDisplay.tokens > 0 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                      <Coins className="w-3 h-3 mr-1" />
+                      {tokenDisplay.tokens} tokens
+                    </Badge>
+                  </>
                 )}
               </div>
             </div>
@@ -315,9 +363,20 @@ export default function AISpecialistSessionPage() {
                           <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                           <span className="text-blue-800 text-sm font-medium">Ready to Begin</span>
                         </div>
-                        <p className="text-gray-600 mb-6">
+                        <p className="text-gray-600 mb-4">
                           Start your conversation with the AI coach below. Click "Start Timer" when you begin to track your session time.
                         </p>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                          <div className="flex items-center justify-center space-x-2 text-yellow-800">
+                            <Coins className="w-4 h-4" />
+                            <span className="text-sm font-medium">Token Usage Policy</span>
+                          </div>
+                          <p className="text-yellow-700 text-sm mt-2">
+                            • Sessions under 15 seconds are free<br/>
+                            • Sessions over 15 seconds are rounded up to the nearest minute<br/>
+                            • 1 token = 1 minute of coaching time
+                          </p>
+                        </div>
                         <Button 
                           onClick={startTimer}
                           className="bg-green-600 hover:bg-green-700 text-white"
@@ -326,6 +385,33 @@ export default function AISpecialistSessionPage() {
                           <Play className="w-4 h-4 mr-2" />
                           Start Timer
                         </Button>
+                      </div>
+                    )}
+
+                    {/* Token Usage Display */}
+                    {timerStarted && (
+                      <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              <Clock className="w-4 h-4 text-gray-600" />
+                              <span className="text-sm font-medium text-gray-900">
+                                Session Time: {formatTime(sessionTime)}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Coins className={`w-4 h-4 ${tokenDisplay.color}`} />
+                              <span className={`text-sm font-medium ${tokenDisplay.color}`}>
+                                {tokenDisplay.message}
+                              </span>
+                            </div>
+                          </div>
+                          {sessionTime <= 15 && (
+                            <Badge className="bg-green-100 text-green-800 text-xs">
+                              Free Trial
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -376,9 +462,15 @@ export default function AISpecialistSessionPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 {timerStarted ? (
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <Clock className="w-4 h-4" />
-                    <span>Session Time: {formatTime(sessionTime)}</span>
+                  <div className="flex items-center space-x-4 text-sm">
+                    <div className="flex items-center space-x-2 text-gray-600">
+                      <Clock className="w-4 h-4" />
+                      <span>Time: {formatTime(sessionTime)}</span>
+                    </div>
+                    <div className={`flex items-center space-x-2 ${tokenDisplay.color}`}>
+                      <Coins className="w-4 h-4" />
+                      <span>{tokenDisplay.message}</span>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
@@ -428,6 +520,42 @@ export default function AISpecialistSessionPage() {
           <p className="text-xl text-gray-600">
             Select an AI coach specialized in your area of interest for an immediate voice coaching session powered by ElevenLabs.
           </p>
+        </div>
+
+        {/* Token Usage Information */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+              <Coins className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Token Usage</h3>
+              <p className="text-sm text-gray-600">How your free trial minutes are calculated</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium text-green-800">Under 15 seconds</span>
+              </div>
+              <p className="text-xs text-green-700">Completely free - no tokens used</p>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm font-medium text-blue-800">Over 15 seconds</span>
+              </div>
+              <p className="text-xs text-blue-700">Rounded up to nearest minute</p>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <span className="text-sm font-medium text-purple-800">1 Token = 1 Minute</span>
+              </div>
+              <p className="text-xs text-purple-700">Deducted from your 7-minute trial</p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
