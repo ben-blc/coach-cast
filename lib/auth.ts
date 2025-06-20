@@ -43,6 +43,17 @@ export async function signOut() {
 }
 
 export async function getCurrentUser() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.user || null;
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Error getting session:', error);
+      return null;
+    }
+    
+    return session?.user || null;
+  } catch (error) {
+    console.error('Unexpected error in getCurrentUser:', error);
+    return null;
+  }
 }

@@ -82,143 +82,237 @@ export type SessionAnalytics = {
   created_at: string;
 };
 
-// Database functions
+// Database functions with better error handling
 export async function getUserProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return null;
+    }
 
-  if (error) {
-    console.error('Error fetching user profile:', error);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in getUserProfile:', error);
     return null;
   }
-
-  return data;
 }
 
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return null;
+    }
 
-  if (error) {
-    console.error('Error fetching user subscription:', error);
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user subscription:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in getUserSubscription:', error);
     return null;
   }
-
-  return data;
 }
 
 export async function getAICoaches(): Promise<AICoach[]> {
-  const { data, error } = await supabase
-    .from('ai_coaches')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at');
+  try {
+    const { data, error } = await supabase
+      .from('ai_coaches')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at');
 
-  if (error) {
-    console.error('Error fetching AI coaches:', error);
+    if (error) {
+      console.error('Error fetching AI coaches:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Unexpected error in getAICoaches:', error);
     return [];
   }
-
-  return data || [];
 }
 
 export async function getHumanCoaches(): Promise<HumanCoach[]> {
-  const { data, error } = await supabase
-    .from('human_coaches')
-    .select('*')
-    .eq('is_active', true)
-    .order('created_at');
+  try {
+    const { data, error } = await supabase
+      .from('human_coaches')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at');
 
-  if (error) {
-    console.error('Error fetching human coaches:', error);
+    if (error) {
+      console.error('Error fetching human coaches:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Unexpected error in getHumanCoaches:', error);
     return [];
   }
-
-  return data || [];
 }
 
 export async function createCoachingSession(session: Partial<CoachingSession>): Promise<CoachingSession | null> {
-  const { data, error } = await supabase
-    .from('coaching_sessions')
-    .insert([session])
-    .select()
-    .single();
+  try {
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    
+    if (!authSession) {
+      console.error('No active session found');
+      return null;
+    }
 
-  if (error) {
-    console.error('Error creating coaching session:', error);
+    const { data, error } = await supabase
+      .from('coaching_sessions')
+      .insert([session])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating coaching session:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in createCoachingSession:', error);
     return null;
   }
-
-  return data;
 }
 
 export async function updateCoachingSession(sessionId: string, updates: Partial<CoachingSession>): Promise<CoachingSession | null> {
-  const { data, error } = await supabase
-    .from('coaching_sessions')
-    .update(updates)
-    .eq('id', sessionId)
-    .select()
-    .single();
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return null;
+    }
 
-  if (error) {
-    console.error('Error updating coaching session:', error);
+    const { data, error } = await supabase
+      .from('coaching_sessions')
+      .update(updates)
+      .eq('id', sessionId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating coaching session:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in updateCoachingSession:', error);
     return null;
   }
-
-  return data;
 }
 
 export async function getUserSessions(userId: string): Promise<CoachingSession[]> {
-  const { data, error } = await supabase
-    .from('coaching_sessions')
-    .select(`
-      *,
-      ai_coaches(name, specialty),
-      human_coaches(name, specialty)
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return [];
+    }
 
-  if (error) {
-    console.error('Error fetching user sessions:', error);
+    const { data, error } = await supabase
+      .from('coaching_sessions')
+      .select(`
+        *,
+        ai_coaches(name, specialty),
+        human_coaches(name, specialty)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user sessions:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Unexpected error in getUserSessions:', error);
     return [];
   }
-
-  return data || [];
 }
 
 export async function updateUserCredits(userId: string, creditsUsed: number): Promise<boolean> {
-  const { error } = await supabase
-    .from('subscriptions')
-    .update({ 
-      credits_remaining: supabase.raw(`credits_remaining - ${creditsUsed}`)
-    })
-    .eq('user_id', userId);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return false;
+    }
 
-  if (error) {
-    console.error('Error updating user credits:', error);
+    const { error } = await supabase
+      .from('subscriptions')
+      .update({ 
+        credits_remaining: supabase.raw(`credits_remaining - ${creditsUsed}`)
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating user credits:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Unexpected error in updateUserCredits:', error);
     return false;
   }
-
-  return true;
 }
 
 export async function completeOnboarding(userId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ onboarding_completed: true })
-    .eq('user_id', userId);
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return false;
+    }
 
-  if (error) {
-    console.error('Error completing onboarding:', error);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ onboarding_completed: true })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error completing onboarding:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Unexpected error in completeOnboarding:', error);
     return false;
   }
-
-  return true;
 }
