@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Menu, X, User, Settings, LogOut, CreditCard, RefreshCw } from 'lucide-react';
-import { getCurrentUser, signOut } from '@/lib/auth';
+import { getCurrentUser, signOut, onAuthStateChange } from '@/lib/auth';
 import { getUserProfile, getUserSubscription } from '@/lib/database';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Profile, Subscription } from '@/lib/database';
@@ -26,6 +26,7 @@ export function Header() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -68,9 +69,35 @@ export function Header() {
     }
   };
 
-  // Initial load
+  // Initial load and auth state listener
   useEffect(() => {
+    let mounted = true;
+
+    // Initial load
     loadUserData();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = onAuthStateChange((user) => {
+      if (!mounted) return;
+      
+      console.log('Auth state changed in Header:', user?.id);
+      
+      if (user) {
+        // User signed in, load their data
+        loadUserData();
+      } else {
+        // User signed out, clear data
+        setUser(null);
+        setProfile(null);
+        setSubscription(null);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // Auto-refresh when returning from sessions or when page becomes visible
@@ -124,13 +151,38 @@ export function Header() {
 
   const handleSignOut = async () => {
     try {
+      setSigningOut(true);
+      console.log('Starting sign out process...');
+      
       await signOut();
+      
+      // Clear local state immediately
       setUser(null);
       setProfile(null);
       setSubscription(null);
+      
+      console.log('Sign out successful, redirecting to home...');
+      
+      // Force redirect to home page
       router.push('/');
+      
+      // Also force a page reload to ensure clean state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
+      
     } catch (error) {
       console.error('Error signing out:', error);
+      
+      // Even if there's an error, clear local state and redirect
+      setUser(null);
+      setProfile(null);
+      setSubscription(null);
+      
+      // Force redirect to home
+      window.location.href = '/';
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -271,9 +323,9 @@ export function Header() {
                     <span>{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuItem onClick={handleSignOut} disabled={signingOut}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                    <span>{signingOut ? 'Signing out...' : 'Log out'}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -357,8 +409,13 @@ export function Header() {
                   </div>
                 )}
                 <div className="pt-4">
-                  <Button variant="outline" onClick={handleSignOut} className="w-full">
-                    Sign Out
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSignOut} 
+                    className="w-full"
+                    disabled={signingOut}
+                  >
+                    {signingOut ? 'Signing out...' : 'Sign Out'}
                   </Button>
                 </div>
               </nav>

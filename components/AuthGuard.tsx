@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, onAuthStateChange } from '@/lib/auth';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -11,6 +11,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -19,36 +20,72 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/auth');
 
   useEffect(() => {
+    let mounted = true;
+
     async function checkAuth() {
       try {
-        const user = await getCurrentUser();
-        setIsAuthenticated(!!user);
+        const currentUser = await getCurrentUser();
+        
+        if (!mounted) return;
+        
+        setUser(currentUser);
+        setIsAuthenticated(!!currentUser);
         
         // If user is not authenticated and trying to access a protected route
-        if (!user && !isPublicRoute) {
+        if (!currentUser && !isPublicRoute) {
           console.log('User not authenticated, redirecting to sign in...');
           router.push('/auth?redirect=' + encodeURIComponent(pathname));
           return;
         }
         
         // If user is authenticated and trying to access auth page, redirect to dashboard
-        if (user && pathname === '/auth') {
+        if (currentUser && pathname === '/auth') {
           router.push('/dashboard');
           return;
         }
         
       } catch (error) {
         console.error('Error checking authentication:', error);
+        if (!mounted) return;
+        
         // On error, redirect to auth if not on public route
         if (!isPublicRoute) {
           router.push('/auth?redirect=' + encodeURIComponent(pathname));
         }
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     }
 
+    // Initial auth check
     checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = onAuthStateChange((user) => {
+      if (!mounted) return;
+      
+      console.log('Auth state changed in AuthGuard:', user?.id);
+      setUser(user);
+      setIsAuthenticated(!!user);
+      
+      // If user logged out and on protected route, redirect to home
+      if (!user && !isPublicRoute) {
+        console.log('User logged out, redirecting to home...');
+        router.push('/');
+      }
+      
+      // If user logged in and on auth page, redirect to dashboard
+      if (user && pathname === '/auth') {
+        router.push('/dashboard');
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, [pathname, router, isPublicRoute]);
 
   // Show loading state while checking authentication

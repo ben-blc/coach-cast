@@ -38,8 +38,48 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  try {
+    // Clear the session from Supabase
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('Error during sign out:', error);
+      throw error;
+    }
+
+    // Clear any local storage items that might contain auth data
+    if (typeof window !== 'undefined') {
+      // Clear Supabase auth tokens
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.removeItem('supabase.auth.token');
+      
+      // Clear any other auth-related items
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('sb-')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      
+      // Clear session storage as well
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith('sb-')) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      sessionKeysToRemove.forEach(key => sessionStorage.removeItem(key));
+    }
+
+    console.log('Successfully signed out');
+    return true;
+  } catch (error) {
+    console.error('Unexpected error during sign out:', error);
+    throw error;
+  }
 }
 
 export async function getCurrentUser() {
@@ -94,4 +134,22 @@ export function onAuthStateChange(callback: (user: any) => void) {
     console.log('Auth state changed:', event, session?.user?.id);
     callback(session?.user || null);
   });
+}
+
+// Function to force logout and redirect
+export async function forceLogout() {
+  try {
+    await signOut();
+    
+    // Force redirect to home page
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  } catch (error) {
+    console.error('Error during force logout:', error);
+    // Even if logout fails, redirect to home
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  }
 }

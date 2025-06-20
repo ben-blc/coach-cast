@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Bell, Settings, LogOut, User, CreditCard, RefreshCw } from 'lucide-react';
-import { signOut, getCurrentUser } from '@/lib/auth';
+import { signOut, getCurrentUser, onAuthStateChange } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/database';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -31,6 +31,7 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   const [user, setUser] = useState(initialUser);
   const [refreshing, setRefreshing] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
 
   // Function to refresh credits data
@@ -57,24 +58,40 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
 
   // Auto-refresh credits when page becomes visible
   useEffect(() => {
+    let mounted = true;
+
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && mounted) {
         refreshCredits();
       }
     };
 
     const handleFocus = () => {
-      refreshCredits();
+      if (mounted) {
+        refreshCredits();
+      }
     };
+
+    // Listen for auth state changes
+    const { data: { subscription } } = onAuthStateChange((authUser) => {
+      if (!mounted) return;
+      
+      if (!authUser) {
+        // User signed out, redirect to home
+        router.push('/');
+      }
+    });
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
 
     return () => {
+      mounted = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      subscription?.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   // Periodic refresh every 30 seconds
   useEffect(() => {
@@ -88,8 +105,30 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   }, []);
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
+    try {
+      setSigningOut(true);
+      console.log('Starting sign out from dashboard...');
+      
+      await signOut();
+      
+      console.log('Sign out successful, redirecting to home...');
+      
+      // Force redirect to home page
+      router.push('/');
+      
+      // Also force a page reload to ensure clean state
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error signing out from dashboard:', error);
+      
+      // Even if there's an error, force redirect to home
+      window.location.href = '/';
+    } finally {
+      setSigningOut(false);
+    }
   };
 
   return (
@@ -197,9 +236,9 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                   <span>{refreshing ? 'Refreshing...' : 'Refresh Credits'}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
+                <DropdownMenuItem onClick={handleSignOut} disabled={signingOut}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                  <span>{signingOut ? 'Signing out...' : 'Log out'}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
