@@ -355,7 +355,7 @@ export default function AISpecialistSessionPage() {
 
         {/* Main Content Area */}
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-          <div className="w-full max-w-4xl">
+          <div className="w-full max-w-5xl">
             {/* ConvAI Widget Container */}
             <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
               {/* Widget Header */}
@@ -378,7 +378,7 @@ export default function AISpecialistSessionPage() {
               </div>
 
               {/* Main ConvAI Widget Area */}
-              <div className="p-8">
+              <div className="p-6 sm:p-8">
                 {!timerStarted ? (
                   <div className="text-center py-12">
                     <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-6">
@@ -477,22 +477,43 @@ export default function AISpecialistSessionPage() {
                           </div>
                         </div>
 
-                        {/* ElevenLabs ConvAI Widget - Centered */}
-                        <div className="flex justify-center">
-                          <div 
-                            className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4"
-                            style={{ minHeight: '500px' }}
-                          >
-                            <elevenlabs-convai 
-                              agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
-                              style={{
-                                width: '100%',
-                                height: '480px',
-                                border: 'none',
-                                borderRadius: '12px',
-                                display: 'block'
+                        {/* ElevenLabs ConvAI Widget - Perfectly Centered and Constrained */}
+                        <div className="flex justify-center items-center">
+                          <div className="w-full max-w-4xl">
+                            <div 
+                              className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 shadow-inner border border-gray-200"
+                              style={{ 
+                                minHeight: '600px',
+                                maxHeight: '600px',
+                                overflow: 'hidden'
                               }}
-                            />
+                            >
+                              <div className="flex justify-center items-center h-full">
+                                <div 
+                                  className="w-full h-full flex justify-center items-center"
+                                  style={{
+                                    maxWidth: '100%',
+                                    maxHeight: '100%'
+                                  }}
+                                >
+                                  <elevenlabs-convai 
+                                    agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
+                                    style={{
+                                      width: '100%',
+                                      height: '550px',
+                                      maxWidth: '100%',
+                                      maxHeight: '550px',
+                                      border: 'none',
+                                      borderRadius: '12px',
+                                      display: 'block',
+                                      margin: '0 auto',
+                                      overflow: 'hidden',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
