@@ -13,10 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, X, Mic, User, Settings, LogOut, CreditCard } from 'lucide-react';
+import { Menu, X, Mic, User, Settings, LogOut, CreditCard, RefreshCw } from 'lucide-react';
 import { getCurrentUser, signOut } from '@/lib/auth';
 import { getUserProfile, getUserSubscription } from '@/lib/database';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import type { Profile, Subscription } from '@/lib/database';
 
 export function Header() {
@@ -25,32 +25,97 @@ export function Header() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    async function loadUserData() {
-      try {
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          
-          const [userProfile, userSubscription] = await Promise.all([
-            getUserProfile(currentUser.id),
-            getUserSubscription(currentUser.id)
-          ]);
-          
-          setProfile(userProfile);
-          setSubscription(userSubscription);
-        }
-      } catch (error) {
-        console.error('Error loading user data in header:', error);
-      } finally {
-        setLoading(false);
+  // Function to load user data
+  const loadUserData = async (showRefreshIndicator = false) => {
+    try {
+      if (showRefreshIndicator) {
+        setRefreshing(true);
+      }
+
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+        
+        const [userProfile, userSubscription] = await Promise.all([
+          getUserProfile(currentUser.id),
+          getUserSubscription(currentUser.id)
+        ]);
+        
+        setProfile(userProfile);
+        setSubscription(userSubscription);
+      } else {
+        // Clear user data if no current user
+        setUser(null);
+        setProfile(null);
+        setSubscription(null);
+      }
+    } catch (error) {
+      console.error('Error loading user data in header:', error);
+    } finally {
+      setLoading(false);
+      if (showRefreshIndicator) {
+        setRefreshing(false);
       }
     }
+  };
 
+  // Initial load
+  useEffect(() => {
     loadUserData();
   }, []);
+
+  // Auto-refresh when returning from sessions or when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user && !loading) {
+        console.log('Page became visible, refreshing header data...');
+        loadUserData(true);
+      }
+    };
+
+    const handleFocus = () => {
+      if (user && !loading) {
+        console.log('Window focused, refreshing header data...');
+        loadUserData(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user, loading]);
+
+  // Refresh data when navigating between pages (especially from sessions)
+  useEffect(() => {
+    if (user && !loading) {
+      // Refresh data when pathname changes, especially from session pages
+      if (pathname.includes('/session/') || pathname.includes('/dashboard')) {
+        console.log('Navigation detected, refreshing header data...');
+        loadUserData(true);
+      }
+    }
+  }, [pathname, user, loading]);
+
+  // Periodic refresh every 30 seconds when user is active
+  useEffect(() => {
+    if (user && !loading) {
+      const interval = setInterval(() => {
+        if (!document.hidden) {
+          loadUserData(false); // Silent refresh
+        }
+      }, 30000); // Every 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [user, loading]);
 
   const handleSignOut = async () => {
     try {
@@ -62,6 +127,10 @@ export function Header() {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  };
+
+  const handleRefresh = () => {
+    loadUserData(true);
   };
 
   const getPlanDisplayName = (planType: string) => {
@@ -107,9 +176,23 @@ export function Header() {
 
               <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
                 <span>Credits:</span>
-                <Badge variant="secondary">
+                <Badge variant="secondary" className="relative">
                   {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
+                  {refreshing && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3">
+                      <div className="w-2 h-2 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
                 </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="h-6 w-6 p-0"
+                >
+                  <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
 
               <DropdownMenu>
@@ -129,9 +212,14 @@ export function Header() {
                       <p className="text-xs leading-none text-muted-foreground">
                         {profile.email}
                       </p>
-                      <Badge variant="outline" className="text-xs w-fit mt-1">
-                        {subscription ? getPlanDisplayName(subscription.plan_type) : 'Free Trial'}
-                      </Badge>
+                      <div className="flex items-center justify-between mt-2">
+                        <Badge variant="outline" className="text-xs w-fit">
+                          {subscription ? getPlanDisplayName(subscription.plan_type) : 'Free Trial'}
+                        </Badge>
+                        <div className="text-xs text-muted-foreground">
+                          {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0} credits
+                        </div>
+                      </div>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -148,6 +236,11 @@ export function Header() {
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleRefresh} disabled={refreshing}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    <span>{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
@@ -216,11 +309,21 @@ export function Header() {
                 <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
                   For Coaches
                 </Link>
-                <div className="flex items-center space-x-2 text-sm text-gray-600 pt-2">
-                  <span>Credits:</span>
-                  <Badge variant="secondary">
-                    {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
-                  </Badge>
+                <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <span>Credits:</span>
+                    <Badge variant="secondary">
+                      {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
+                    </Badge>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  </Button>
                 </div>
                 <div className="pt-4">
                   <Button variant="outline" onClick={handleSignOut} className="w-full">

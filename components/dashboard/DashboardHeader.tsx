@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Settings, LogOut, User, CreditCard, Mic } from 'lucide-react';
-import { signOut } from '@/lib/auth';
+import { Bell, Settings, LogOut, User, CreditCard, Mic, RefreshCw } from 'lucide-react';
+import { signOut, getCurrentUser } from '@/lib/auth';
+import { getUserSubscription } from '@/lib/database';
 import { useRouter } from 'next/navigation';
 
 interface DashboardHeaderProps {
@@ -25,8 +27,64 @@ interface DashboardHeaderProps {
   };
 }
 
-export function DashboardHeader({ user }: DashboardHeaderProps) {
+export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
+  const [user, setUser] = useState(initialUser);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+
+  // Function to refresh credits data
+  const refreshCredits = async () => {
+    try {
+      setRefreshing(true);
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        const subscription = await getUserSubscription(currentUser.id);
+        if (subscription) {
+          setUser(prev => ({
+            ...prev,
+            creditsRemaining: Math.max(0, subscription.credits_remaining),
+            totalCredits: subscription.monthly_limit
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing credits:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Auto-refresh credits when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshCredits();
+      }
+    };
+
+    const handleFocus = () => {
+      refreshCredits();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  // Periodic refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        refreshCredits();
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -52,9 +110,23 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           <div className="flex items-center space-x-4">
             <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
               <span>Credits:</span>
-              <Badge variant="secondary">
+              <Badge variant="secondary" className="relative">
                 {user.creditsRemaining}/{user.totalCredits}
+                {refreshing && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3">
+                    <div className="w-2 h-2 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </Badge>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={refreshCredits}
+                disabled={refreshing}
+                className="h-6 w-6 p-0"
+              >
+                <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
 
             <Button variant="ghost" size="sm">
@@ -78,6 +150,14 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                     <p className="text-xs leading-none text-muted-foreground">
                       {user.email}
                     </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <Badge variant="outline" className="text-xs w-fit">
+                        {user.plan}
+                      </Badge>
+                      <div className="text-xs text-muted-foreground">
+                        {user.creditsRemaining}/{user.totalCredits} credits
+                      </div>
+                    </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -92,6 +172,11 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={refreshCredits} disabled={refreshing}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  <span>{refreshing ? 'Refreshing...' : 'Refresh Credits'}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
