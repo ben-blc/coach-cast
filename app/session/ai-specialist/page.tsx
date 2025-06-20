@@ -31,6 +31,7 @@ export default function AISpecialistSessionPage() {
   const [loading, setLoading] = useState(true);
   const [sessionActive, setSessionActive] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -65,12 +66,20 @@ export default function AISpecialistSessionPage() {
   }, [timerStarted, sessionActive]);
 
   useEffect(() => {
-    if (sessionActive) {
+    if (sessionActive && !scriptLoaded) {
       // Load ElevenLabs ConvAI script
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
       script.async = true;
       script.type = 'text/javascript';
+      
+      script.onload = () => {
+        setScriptLoaded(true);
+      };
+
+      script.onerror = () => {
+        console.error('Failed to load ElevenLabs script');
+      };
       
       document.head.appendChild(script);
 
@@ -80,9 +89,10 @@ export default function AISpecialistSessionPage() {
         if (existingScript) {
           document.head.removeChild(existingScript);
         }
+        setScriptLoaded(false);
       };
     }
-  }, [sessionActive]);
+  }, [sessionActive, scriptLoaded]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -138,6 +148,7 @@ export default function AISpecialistSessionPage() {
 
       setSessionActive(false);
       setTimerStarted(false);
+      setScriptLoaded(false);
       router.push('/dashboard?tab=sessions');
     } catch (error) {
       console.error('Error ending session:', error);
@@ -157,151 +168,178 @@ export default function AISpecialistSessionPage() {
 
   if (sessionActive && selectedCoach) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="flex items-center justify-center space-x-4 mb-4">
-              <Badge className={`${timerStarted ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                <div className={`w-2 h-2 ${timerStarted ? 'bg-green-500' : 'bg-blue-500'} rounded-full mr-2 animate-pulse`}></div>
-                {timerStarted ? 'Session Active' : 'Ready to Start'}
-              </Badge>
-              {timerStarted && (
-                <Badge className="bg-gray-100 text-gray-800">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {formatTime(sessionTime)}
-                </Badge>
-              )}
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">
-              AI Coaching with {selectedCoach.name}
-            </h1>
-            <p className="text-gray-600">{selectedCoach.specialty}</p>
-          </div>
-
-          {/* Main ConvAI Interface */}
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-green-600 p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <Mic className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold">{selectedCoach.name}</h2>
-                    <p className="text-blue-100">{selectedCoach.specialty} Specialist</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Volume2 className="w-5 h-5" />
-                  <span className="text-sm">ElevenLabs AI</span>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex flex-col">
+        {/* Fixed Header */}
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button variant="ghost" size="sm" onClick={() => router.back()}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">
+                    {selectedCoach.name}
+                  </h1>
+                  <p className="text-sm text-gray-600">{selectedCoach.specialty}</p>
                 </div>
               </div>
+              
+              <div className="flex items-center space-x-4">
+                <Badge className={`${timerStarted ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                  <div className={`w-2 h-2 ${timerStarted ? 'bg-green-500' : 'bg-blue-500'} rounded-full mr-2 animate-pulse`}></div>
+                  {timerStarted ? 'Active' : 'Ready'}
+                </Badge>
+                {timerStarted && (
+                  <Badge className="bg-gray-100 text-gray-800">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {formatTime(sessionTime)}
+                  </Badge>
+                )}
+              </div>
             </div>
+          </div>
+        </div>
 
+        {/* Main Content Area */}
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
+          <div className="w-full max-w-4xl">
             {/* ConvAI Widget Container */}
-            <div className="p-8">
-              <div className="space-y-6">
-                {!timerStarted && (
-                  <div className="text-center">
-                    <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-4">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span className="text-blue-800 text-sm font-medium">Ready to Begin</span>
+            <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
+              {/* Widget Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-green-600 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Mic className="w-6 h-6" />
                     </div>
-                    <p className="text-gray-600 mb-6">
-                      Click "Start Timer" when you begin your conversation to track your session time.
-                    </p>
-                    <Button 
-                      onClick={startTimer}
-                      className="bg-green-600 hover:bg-green-700 text-white mb-6"
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      Start Timer
-                    </Button>
+                    <div>
+                      <h2 className="text-xl font-semibold">{selectedCoach.name}</h2>
+                      <p className="text-blue-100">{selectedCoach.specialty} Specialist</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Volume2 className="w-5 h-5" />
+                    <span className="text-sm">ElevenLabs AI</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main ConvAI Widget Area */}
+              <div className="p-8">
+                {!scriptLoaded ? (
+                  <div className="text-center py-12">
+                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading AI Coach...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {!timerStarted && (
+                      <div className="text-center mb-8">
+                        <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-4">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                          <span className="text-blue-800 text-sm font-medium">Ready to Begin</span>
+                        </div>
+                        <p className="text-gray-600 mb-6">
+                          Click "Start Timer" when you begin your conversation to track your session time.
+                        </p>
+                        <Button 
+                          onClick={startTimer}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          size="lg"
+                        >
+                          <Play className="w-4 h-4 mr-2" />
+                          Start Timer
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* ElevenLabs ConvAI Widget - Centered */}
+                    <div className="flex justify-center">
+                      <div 
+                        className="w-full max-w-3xl"
+                        style={{
+                          minHeight: '500px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <elevenlabs-convai 
+                          agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
+                          style={{
+                            width: '100%',
+                            height: '500px',
+                            border: 'none',
+                            borderRadius: '16px',
+                            backgroundColor: '#f8fafc',
+                            display: 'block',
+                            margin: '0 auto'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Coach Information */}
+                    <div className="bg-gray-50 rounded-xl p-6 mt-8">
+                      <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
+                      <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <div className="flex items-center space-x-1">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span>Specialty: {selectedCoach.specialty}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>Powered by ElevenLabs</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
-
-                {/* Main ConvAI Widget */}
-                <div className="flex justify-center">
-                  <div className="w-full max-w-2xl">
-                    <elevenlabs-convai 
-                      agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
-                      style={{
-                        width: '100%',
-                        minHeight: '400px',
-                        border: 'none',
-                        borderRadius: '16px',
-                        backgroundColor: '#f8fafc'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Coach Information */}
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
-                  <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span>Specialty: {selectedCoach.specialty}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Powered by ElevenLabs</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Controls */}
-            <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {timerStarted ? (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <Clock className="w-4 h-4" />
-                      <span>Session Time: {formatTime(sessionTime)}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span>Click "Start Timer" to begin tracking your session</span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  {!timerStarted && (
-                    <Button
-                      onClick={startTimer}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      Start Timer
-                    </Button>
-                  )}
-                  <Button
-                    onClick={endSession}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    <Square className="w-4 h-4 mr-2" />
-                    End Session
-                  </Button>
-                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Session Info */}
-          <div className="text-center mt-6">
-            <p className="text-sm text-gray-500">
-              {timerStarted 
-                ? "Your session is being tracked. Click 'End Session' when you're finished."
-                : "Start the timer when you begin your conversation with the AI coach."
-              }
-            </p>
+        {/* Fixed Footer Controls */}
+        <div className="bg-white border-t border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                {timerStarted ? (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <Clock className="w-4 h-4" />
+                    <span>Session Time: {formatTime(sessionTime)}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span>Click "Start Timer" to begin tracking your session</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                {!timerStarted && scriptLoaded && (
+                  <Button
+                    onClick={startTimer}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Timer
+                  </Button>
+                )}
+                <Button
+                  onClick={endSession}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  End Session
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
