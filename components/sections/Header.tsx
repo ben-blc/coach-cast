@@ -29,6 +29,11 @@ export function Header() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Check if we're on the landing page
+  const isLandingPage = pathname === '/';
+  // Check if we should show credits (not on landing page and user is authenticated)
+  const shouldShowCredits = !isLandingPage && user && profile && subscription;
+
   // Function to load user data
   const loadUserData = async (showRefreshIndicator = false) => {
     try {
@@ -104,9 +109,9 @@ export function Header() {
     }
   }, [pathname, user, loading]);
 
-  // Periodic refresh every 30 seconds when user is active
+  // Periodic refresh every 30 seconds when user is active (but not on landing page)
   useEffect(() => {
-    if (user && !loading) {
+    if (user && !loading && !isLandingPage) {
       const interval = setInterval(() => {
         if (!document.hidden) {
           loadUserData(false); // Silent refresh
@@ -115,7 +120,7 @@ export function Header() {
 
       return () => clearInterval(interval);
     }
-  }, [user, loading]);
+  }, [user, loading, isLandingPage]);
 
   const handleSignOut = async () => {
     try {
@@ -174,26 +179,29 @@ export function Header() {
                 </Link>
               </nav>
 
-              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
-                <span>Credits:</span>
-                <Badge variant="secondary" className="relative">
-                  {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
-                  {refreshing && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3">
-                      <div className="w-2 h-2 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
-                </Badge>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="h-6 w-6 p-0"
-                >
-                  <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
-                </Button>
-              </div>
+              {/* Only show credits if not on landing page */}
+              {shouldShowCredits && (
+                <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
+                  <span>Credits:</span>
+                  <Badge variant="secondary" className="relative">
+                    {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
+                    {refreshing && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3">
+                        <div className="w-2 h-2 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </Badge>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="h-6 w-6 p-0"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+              )}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -212,14 +220,16 @@ export function Header() {
                       <p className="text-xs leading-none text-muted-foreground">
                         {profile.email}
                       </p>
-                      <div className="flex items-center justify-between mt-2">
-                        <Badge variant="outline" className="text-xs w-fit">
-                          {subscription ? getPlanDisplayName(subscription.plan_type) : 'Free Trial'}
-                        </Badge>
-                        <div className="text-xs text-muted-foreground">
-                          {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0} credits
+                      {subscription && (
+                        <div className="flex items-center justify-between mt-2">
+                          <Badge variant="outline" className="text-xs w-fit">
+                            {getPlanDisplayName(subscription.plan_type)}
+                          </Badge>
+                          <div className="text-xs text-muted-foreground">
+                            {calculateCreditsRemaining()}/{subscription.monthly_limit} credits
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -309,22 +319,25 @@ export function Header() {
                 <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
                   For Coaches
                 </Link>
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <span>Credits:</span>
-                    <Badge variant="secondary">
-                      {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
-                    </Badge>
+                {/* Only show credits in mobile menu if not on landing page */}
+                {shouldShowCredits && (
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <span>Credits:</span>
+                      <Badge variant="secondary">
+                        {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
+                      </Badge>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  </Button>
-                </div>
+                )}
                 <div className="pt-4">
                   <Button variant="outline" onClick={handleSignOut} className="w-full">
                     Sign Out
