@@ -34,9 +34,9 @@ export default function VerifyEmailPage() {
     const checkVerification = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email_confirmed_at) {
-        // User is already verified, redirect to dashboard
+        // User is already verified, redirect to discovery
         localStorage.removeItem('pendingVerificationEmail');
-        router.push('/dashboard');
+        router.push('/discovery');
       }
     };
 
@@ -48,9 +48,9 @@ export default function VerifyEmailPage() {
         localStorage.removeItem('pendingVerificationEmail');
         toast({
           title: 'Email verified successfully!',
-          description: 'Welcome to Coach Cast. Redirecting to your dashboard...',
+          description: 'Welcome to Coach Cast. Let\'s start your coaching journey!',
         });
-        router.push('/dashboard');
+        router.push('/discovery');
       }
     });
 
@@ -151,7 +151,7 @@ export default function VerifyEmailPage() {
                   <li>Check your email inbox</li>
                   <li>Look for an email from Coach Cast</li>
                   <li>Click the verification link in the email</li>
-                  <li>You'll be automatically redirected to your dashboard</li>
+                  <li>You'll be redirected to start your coaching journey</li>
                 </ol>
               </AlertDescription>
             </Alert>
