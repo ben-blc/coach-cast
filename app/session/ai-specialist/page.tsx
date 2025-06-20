@@ -26,12 +26,11 @@ declare global {
 export default function AISpecialistSessionPage() {
   const [selectedCoach, setSelectedCoach] = useState<AICoach | null>(null);
   const [aiCoaches, setAICoaches] = useState<AICoach[]>([]);
-  const [conversationStarted, setConversationStarted] = useState(false);
   const [sessionTime, setSessionTime] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [convaiLoaded, setConvaiLoaded] = useState(false);
   const [sessionActive, setSessionActive] = useState(false);
+  const [timerStarted, setTimerStarted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -56,81 +55,34 @@ export default function AISpecialistSessionPage() {
   }, [router]);
 
   useEffect(() => {
-    // Load ElevenLabs ConvAI script
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-    script.async = true;
-    script.type = 'text/javascript';
-    script.onload = () => {
-      setConvaiLoaded(true);
-      
-      // Listen for conversation events
-      const checkForConversation = () => {
-        // Listen for audio activity or widget events
-        const convaiElement = document.querySelector('elevenlabs-convai');
-        if (convaiElement) {
-          // Add event listeners for conversation start
-          convaiElement.addEventListener('conversationStarted', () => {
-            if (!conversationStarted) {
-              setConversationStarted(true);
-            }
-          });
-          
-          // Fallback: detect when user starts speaking
-          navigator.mediaDevices?.getUserMedia({ audio: true })
-            .then(stream => {
-              const audioContext = new AudioContext();
-              const analyser = audioContext.createAnalyser();
-              const microphone = audioContext.createMediaStreamSource(stream);
-              microphone.connect(analyser);
-              
-              const dataArray = new Uint8Array(analyser.frequencyBinCount);
-              
-              const detectSpeech = () => {
-                analyser.getByteFrequencyData(dataArray);
-                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-                
-                if (average > 20 && !conversationStarted) { // Threshold for speech detection
-                  setConversationStarted(true);
-                  stream.getTracks().forEach(track => track.stop()); // Stop monitoring
-                  return;
-                }
-                
-                if (sessionActive && !conversationStarted) {
-                  requestAnimationFrame(detectSpeech);
-                }
-              };
-              
-              detectSpeech();
-            })
-            .catch(console.error);
-        }
-      };
-      
-      // Check after a short delay to ensure widget is loaded
-      setTimeout(checkForConversation, 1000);
-    };
-    
-    document.head.appendChild(script);
-
-    return () => {
-      // Cleanup script on unmount
-      const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
-      if (existingScript) {
-        document.head.removeChild(existingScript);
-      }
-    };
-  }, [sessionActive, conversationStarted]);
-
-  useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (conversationStarted && sessionActive) {
+    if (timerStarted && sessionActive) {
       interval = setInterval(() => {
         setSessionTime(prev => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [conversationStarted, sessionActive]);
+  }, [timerStarted, sessionActive]);
+
+  useEffect(() => {
+    if (sessionActive) {
+      // Load ElevenLabs ConvAI script
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+      script.async = true;
+      script.type = 'text/javascript';
+      
+      document.head.appendChild(script);
+
+      return () => {
+        // Cleanup script on unmount
+        const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
+        if (existingScript) {
+          document.head.removeChild(existingScript);
+        }
+      };
+    }
+  }, [sessionActive]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -160,6 +112,12 @@ export default function AISpecialistSessionPage() {
     }
   };
 
+  const startTimer = () => {
+    if (!timerStarted) {
+      setTimerStarted(true);
+    }
+  };
+
   const endSession = async () => {
     try {
       const user = await getCurrentUser();
@@ -179,7 +137,7 @@ export default function AISpecialistSessionPage() {
       await updateUserCredits(user.id, creditsUsed);
 
       setSessionActive(false);
-      setConversationStarted(false);
+      setTimerStarted(false);
       router.push('/dashboard?tab=sessions');
     } catch (error) {
       console.error('Error ending session:', error);
@@ -204,12 +162,12 @@ export default function AISpecialistSessionPage() {
           {/* Header */}
           <div className="text-center mb-6">
             <div className="flex items-center justify-center space-x-4 mb-4">
-              <Badge className={`${conversationStarted ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                <div className={`w-2 h-2 ${conversationStarted ? 'bg-green-500' : 'bg-yellow-500'} rounded-full mr-2 animate-pulse`}></div>
-                {conversationStarted ? 'Conversation Active' : 'Ready to Start'}
+              <Badge className={`${timerStarted ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                <div className={`w-2 h-2 ${timerStarted ? 'bg-green-500' : 'bg-blue-500'} rounded-full mr-2 animate-pulse`}></div>
+                {timerStarted ? 'Session Active' : 'Ready to Start'}
               </Badge>
-              {conversationStarted && (
-                <Badge className="bg-blue-100 text-blue-800">
+              {timerStarted && (
+                <Badge className="bg-gray-100 text-gray-800">
                   <Clock className="w-3 h-3 mr-1" />
                   {formatTime(sessionTime)}
                 </Badge>
@@ -236,97 +194,102 @@ export default function AISpecialistSessionPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Volume2 className="w-5 h-5" />
-                  <span className="text-sm">Voice AI Active</span>
+                  <span className="text-sm">ElevenLabs AI</span>
                 </div>
               </div>
             </div>
 
             {/* ConvAI Widget Container */}
             <div className="p-8">
-              {convaiLoaded ? (
-                <div className="space-y-6">
+              <div className="space-y-6">
+                {!timerStarted && (
                   <div className="text-center">
                     <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-4">
                       <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span className="text-blue-800 text-sm font-medium">ElevenLabs ConvAI Ready</span>
+                      <span className="text-blue-800 text-sm font-medium">Ready to Begin</span>
                     </div>
-                    {!conversationStarted && (
-                      <p className="text-gray-600 mb-6">
-                        Start speaking to begin your coaching session. The timer will start automatically when the conversation begins.
-                      </p>
-                    )}
+                    <p className="text-gray-600 mb-6">
+                      Click "Start Timer" when you begin your conversation to track your session time.
+                    </p>
+                    <Button 
+                      onClick={startTimer}
+                      className="bg-green-600 hover:bg-green-700 text-white mb-6"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Timer
+                    </Button>
                   </div>
+                )}
 
-                  {/* Main ConvAI Widget */}
-                  <div className="flex justify-center">
-                    <div className="w-full max-w-2xl">
-                      <elevenlabs-convai 
-                        agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
-                        style={{
-                          width: '100%',
-                          minHeight: '400px',
-                          border: 'none',
-                          borderRadius: '16px',
-                          backgroundColor: '#f8fafc'
-                        }}
-                      />
+                {/* Main ConvAI Widget */}
+                <div className="flex justify-center">
+                  <div className="w-full max-w-2xl">
+                    <elevenlabs-convai 
+                      agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
+                      style={{
+                        width: '100%',
+                        minHeight: '400px',
+                        border: 'none',
+                        borderRadius: '16px',
+                        backgroundColor: '#f8fafc'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Coach Information */}
+                <div className="bg-gray-50 rounded-xl p-6">
+                  <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
+                  <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
+                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span>Specialty: {selectedCoach.specialty}</span>
                     </div>
-                  </div>
-
-                  {/* Coach Information */}
-                  <div className="bg-gray-50 rounded-xl p-6 mt-6">
-                    <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
-                    <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span>Specialty: {selectedCoach.specialty}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span>Powered by ElevenLabs</span>
-                      </div>
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Powered by ElevenLabs</span>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="flex items-center justify-center mb-4">
-                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mr-3"></div>
-                    <p className="text-blue-800 font-medium text-lg">Initializing AI Coach...</p>
-                  </div>
-                  <p className="text-gray-600">
-                    Please wait while we set up your personalized coaching session.
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
 
             {/* Footer Controls */}
             <div className="bg-gray-50 px-8 py-6 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  {conversationStarted && (
+                  {timerStarted ? (
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <Clock className="w-4 h-4" />
                       <span>Session Time: {formatTime(sessionTime)}</span>
                     </div>
-                  )}
-                  {!conversationStarted && (
+                  ) : (
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                      <span>Waiting for conversation to start...</span>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <span>Click "Start Timer" to begin tracking your session</span>
                     </div>
                   )}
                 </div>
                 
-                <Button
-                  onClick={endSession}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <Square className="w-4 h-4 mr-2" />
-                  End Session
-                </Button>
+                <div className="flex items-center space-x-3">
+                  {!timerStarted && (
+                    <Button
+                      onClick={startTimer}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Start Timer
+                    </Button>
+                  )}
+                  <Button
+                    onClick={endSession}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <Square className="w-4 h-4 mr-2" />
+                    End Session
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -334,9 +297,9 @@ export default function AISpecialistSessionPage() {
           {/* Session Info */}
           <div className="text-center mt-6">
             <p className="text-sm text-gray-500">
-              {conversationStarted 
-                ? "Your session is being recorded for quality and progress tracking."
-                : "The timer will start automatically when you begin speaking with the AI coach."
+              {timerStarted 
+                ? "Your session is being tracked. Click 'End Session' when you're finished."
+                : "Start the timer when you begin your conversation with the AI coach."
               }
             </p>
           </div>
@@ -421,8 +384,8 @@ export default function AISpecialistSessionPage() {
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 font-bold">2</span>
                 </div>
-                <p className="font-medium">Start Speaking</p>
-                <p className="text-gray-600">Timer starts when conversation begins</p>
+                <p className="font-medium">Start Session</p>
+                <p className="text-gray-600">Begin conversation and start timer</p>
               </div>
               <div className="text-center">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
