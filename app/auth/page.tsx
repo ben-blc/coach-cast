@@ -52,22 +52,35 @@ export default function AuthPage() {
           return;
         }
         
-        await signUp(formData.email, formData.password, formData.fullName);
+        const { user } = await signUp(formData.email, formData.password, formData.fullName);
+        
+        // Check if email confirmation is required
+        if (user && !user.email_confirmed_at) {
+          // Redirect to email verification page
+          router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+          return;
+        }
+        
+        // If email is already confirmed (shouldn't happen with new signups, but just in case)
         toast({
           title: 'Account created successfully!',
           description: 'Welcome to Coach Cast. Redirecting to your dashboard...',
         });
+        
+        // Redirect to the intended page or dashboard
+        const destination = redirectTo || '/dashboard';
+        router.push(destination);
       } else {
         await signIn(formData.email, formData.password);
         toast({
           title: 'Welcome back!',
           description: 'Successfully signed in to your account.',
         });
+        
+        // Redirect to the intended page or dashboard
+        const destination = redirectTo || '/dashboard';
+        router.push(destination);
       }
-      
-      // Redirect to the intended page or dashboard
-      const destination = redirectTo || '/dashboard';
-      router.push(destination);
     } catch (error: any) {
       setError(error.message || 'An error occurred during authentication');
     } finally {
@@ -244,6 +257,12 @@ export default function AuthPage() {
                       <AlertDescription>{error}</AlertDescription>
                     </Alert>
                   )}
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> You'll need to verify your email address before you can access your account.
+                    </p>
+                  </div>
 
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Creating account...' : 'Create Account'}

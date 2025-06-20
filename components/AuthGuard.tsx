@@ -16,8 +16,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/', '/auth', '/pricing', '/coaches'];
-  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/auth');
+  const publicRoutes = ['/', '/auth', '/pricing', '/coaches', '/verify-email'];
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/auth') || pathname.startsWith('/verify-email');
 
   useEffect(() => {
     let mounted = true;
@@ -40,6 +40,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
         
         // If user is authenticated and trying to access auth page, redirect to dashboard
         if (currentUser && pathname === '/auth') {
+          router.push('/dashboard');
+          return;
+        }
+        
+        // If user is authenticated but email not confirmed and trying to access protected routes
+        if (currentUser && !currentUser.email_confirmed_at && !isPublicRoute && pathname !== '/verify-email') {
+          console.log('User email not confirmed, redirecting to verification...');
+          router.push(`/verify-email?email=${encodeURIComponent(currentUser.email || '')}`);
+          return;
+        }
+        
+        // If user is authenticated with confirmed email and on verify-email page, redirect to dashboard
+        if (currentUser && currentUser.email_confirmed_at && pathname === '/verify-email') {
           router.push('/dashboard');
           return;
         }
@@ -78,6 +91,17 @@ export function AuthGuard({ children }: AuthGuardProps) {
       
       // If user logged in and on auth page, redirect to dashboard
       if (user && pathname === '/auth') {
+        router.push('/dashboard');
+      }
+      
+      // Handle email verification flow
+      if (user && !user.email_confirmed_at && !isPublicRoute && pathname !== '/verify-email') {
+        console.log('User email not confirmed, redirecting to verification...');
+        router.push(`/verify-email?email=${encodeURIComponent(user.email || '')}`);
+      }
+      
+      // If user verified email and on verify page, redirect to dashboard
+      if (user && user.email_confirmed_at && pathname === '/verify-email') {
         router.push('/dashboard');
       }
     });
