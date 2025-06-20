@@ -15,7 +15,8 @@ import {
   Calendar,
   BarChart3,
   Settings,
-  CreditCard
+  CreditCard,
+  RefreshCw
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { SessionCard } from '@/components/dashboard/SessionCard';
@@ -32,6 +33,27 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Calculate credits used from sessions
+  const calculateCreditsUsed = (sessions: CoachingSession[]): number => {
+    return sessions.reduce((total, session) => {
+      // Only count completed sessions
+      if (session.status === 'completed') {
+        return total + (session.credits_used || 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  // Calculate actual credits remaining
+  const calculateCreditsRemaining = (subscription: Subscription | null, sessions: CoachingSession[]): number => {
+    if (!subscription) return 0;
+    
+    const creditsUsed = calculateCreditsUsed(sessions);
+    const remaining = subscription.monthly_limit - creditsUsed;
+    
+    return Math.max(0, remaining); // Ensure it doesn't go below 0
+  };
 
   // Function to load all user data
   const loadUserData = async (showRefreshIndicator = false) => {
@@ -158,8 +180,11 @@ export default function DashboardPage() {
     }
   };
 
+  // Calculate session statistics
   const totalSessionTime = sessions.reduce((total, session) => total + session.duration_seconds, 0);
   const totalMinutes = Math.floor(totalSessionTime / 60);
+  const creditsUsed = calculateCreditsUsed(sessions);
+  const creditsRemaining = calculateCreditsRemaining(subscription, sessions);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -168,7 +193,7 @@ export default function DashboardPage() {
           name: profile.full_name,
           email: profile.email,
           plan: getPlanDisplayName(subscription.plan_type),
-          creditsRemaining: subscription.credits_remaining,
+          creditsRemaining: creditsRemaining,
           totalCredits: subscription.monthly_limit
         }}
       />
@@ -180,10 +205,15 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-bold text-gray-900">Welcome back, {profile.full_name.split(' ')[0]}!</h1>
               <p className="text-gray-600 mt-2">
                 {subscription.plan_type === 'free' 
-                  ? `You have ${subscription.credits_remaining} minutes remaining in your free trial.`
-                  : `You have ${subscription.credits_remaining} credits remaining this month.`
+                  ? `You have ${creditsRemaining} minutes remaining in your free trial.`
+                  : `You have ${creditsRemaining} credits remaining this month.`
                 }
               </p>
+              {creditsUsed > 0 && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {creditsUsed} {subscription.plan_type === 'free' ? 'minutes' : 'credits'} used from {sessions.filter(s => s.status === 'completed').length} completed sessions
+                </p>
+              )}
             </div>
             {refreshing && (
               <div className="flex items-center space-x-2 text-blue-600">
@@ -219,11 +249,24 @@ export default function DashboardPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Credits Used</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{creditsUsed}</div>
+                  <p className="text-xs text-muted-foreground">
+                    from {sessions.filter(s => s.status === 'completed').length} completed sessions
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Credits Remaining</CardTitle>
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{subscription.credits_remaining}</div>
+                  <div className="text-2xl font-bold">{creditsRemaining}</div>
                   <p className="text-xs text-muted-foreground">
                     of {subscription.monthly_limit} {subscription.plan_type === 'free' ? 'minutes' : 'credits'}
                   </p>
@@ -234,6 +277,7 @@ export default function DashboardPage() {
                     className="mt-2 text-xs"
                     disabled={refreshing}
                   >
+                    <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
                     {refreshing ? 'Refreshing...' : 'Refresh'}
                   </Button>
                 </CardContent>
@@ -248,19 +292,6 @@ export default function DashboardPage() {
                   <div className="text-2xl font-bold">{getPlanDisplayName(subscription.plan_type)}</div>
                   <p className="text-xs text-muted-foreground">
                     {subscription.status === 'trialing' ? 'Trial active' : 'Active subscription'}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Next Session</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">-</div>
-                  <p className="text-xs text-muted-foreground">
-                    No scheduled sessions
                   </p>
                 </CardContent>
               </Card>
@@ -309,8 +340,11 @@ export default function DashboardPage() {
                                session.session_type === 'human_voice_ai' ? 'Human Voice AI' : 'Live Human'}
                             </p>
                             <p className="text-xs text-gray-600">
-                              {Math.floor(session.duration_seconds / 60)} minutes • {new Date(session.created_at).toLocaleDateString()}
+                              {Math.floor(session.duration_seconds / 60)} minutes • {session.credits_used || 0} credits • {new Date(session.created_at).toLocaleDateString()}
                             </p>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {session.status === 'completed' ? '✓' : session.status === 'active' ? '⏳' : '✗'}
                           </div>
                         </div>
                       ))}
@@ -325,6 +359,49 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Credit Usage Breakdown */}
+            {sessions.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Credit Usage Breakdown</CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Detailed view of how your credits have been used
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-green-800">Free Sessions (≤15 seconds)</p>
+                        <p className="text-xs text-green-600">
+                          {sessions.filter(s => s.status === 'completed' && s.duration_seconds <= 15).length} sessions
+                        </p>
+                      </div>
+                      <div className="text-green-800 font-bold">0 credits</div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-blue-800">Paid Sessions (>15 seconds)</p>
+                        <p className="text-xs text-blue-600">
+                          {sessions.filter(s => s.status === 'completed' && s.duration_seconds > 15).length} sessions
+                        </p>
+                      </div>
+                      <div className="text-blue-800 font-bold">{creditsUsed} credits</div>
+                    </div>
+
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-t">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Remaining Credits</p>
+                        <p className="text-xs text-gray-600">Available for use</p>
+                      </div>
+                      <div className="text-gray-800 font-bold">{creditsRemaining} credits</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="sessions" className="space-y-6">
@@ -336,6 +413,7 @@ export default function DashboardPage() {
                   onClick={handleRefresh}
                   disabled={refreshing}
                 >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                   {refreshing ? 'Refreshing...' : 'Refresh'}
                 </Button>
                 <Button asChild>
