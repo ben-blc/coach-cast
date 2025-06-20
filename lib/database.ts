@@ -82,6 +82,88 @@ export type SessionAnalytics = {
   created_at: string;
 };
 
+// Helper function to create profile manually if it doesn't exist
+export async function ensureUserProfile(userId: string, email: string, fullName: string): Promise<Profile | null> {
+  try {
+    // First try to get existing profile
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (existingProfile) {
+      return existingProfile;
+    }
+
+    // If no profile exists, create one
+    const { data: newProfile, error } = await supabase
+      .from('profiles')
+      .insert([{
+        user_id: userId,
+        email: email,
+        full_name: fullName,
+        user_type: 'client',
+        onboarding_completed: false
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating profile:', error);
+      return null;
+    }
+
+    // Also ensure subscription exists
+    await ensureUserSubscription(userId);
+
+    return newProfile;
+  } catch (error) {
+    console.error('Unexpected error in ensureUserProfile:', error);
+    return null;
+  }
+}
+
+// Helper function to create subscription manually if it doesn't exist
+export async function ensureUserSubscription(userId: string): Promise<Subscription | null> {
+  try {
+    // First try to get existing subscription
+    const { data: existingSubscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (existingSubscription) {
+      return existingSubscription;
+    }
+
+    // If no subscription exists, create one
+    const { data: newSubscription, error } = await supabase
+      .from('subscriptions')
+      .insert([{
+        user_id: userId,
+        plan_type: 'free',
+        credits_remaining: 7,
+        monthly_limit: 7,
+        live_sessions_remaining: 0,
+        status: 'trialing'
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating subscription:', error);
+      return null;
+    }
+
+    return newSubscription;
+  } catch (error) {
+    console.error('Unexpected error in ensureUserSubscription:', error);
+    return null;
+  }
+}
+
 // Database functions with better error handling
 export async function getUserProfile(userId: string): Promise<Profile | null> {
   try {
@@ -100,6 +182,13 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
 
     if (error) {
       console.error('Error fetching user profile:', error);
+      
+      // If profile doesn't exist, try to create it
+      if (error.code === 'PGRST116') {
+        console.log('Profile not found, attempting to create one...');
+        return await ensureUserProfile(userId, session.user.email || '', session.user.user_metadata?.full_name || 'User');
+      }
+      
       return null;
     }
 
@@ -127,6 +216,13 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
 
     if (error) {
       console.error('Error fetching user subscription:', error);
+      
+      // If subscription doesn't exist, try to create it
+      if (error.code === 'PGRST116') {
+        console.log('Subscription not found, attempting to create one...');
+        return await ensureUserSubscription(userId);
+      }
+      
       return null;
     }
 
