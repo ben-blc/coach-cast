@@ -55,6 +55,26 @@ export default function DashboardPage() {
     return Math.max(0, remaining); // Ensure it doesn't go below 0
   };
 
+  // Format session duration for display (rounds up to minute if >15 seconds)
+  const formatSessionDuration = (durationSeconds: number): string => {
+    if (durationSeconds <= 15) {
+      return `${durationSeconds}s`;
+    } else {
+      // Round up to the nearest minute for sessions over 15 seconds
+      const minutes = Math.ceil(durationSeconds / 60);
+      return `${minutes} min`;
+    }
+  };
+
+  // Get display minutes for session (consistent with credit calculation)
+  const getSessionDisplayMinutes = (durationSeconds: number): number => {
+    if (durationSeconds <= 15) {
+      return 0; // Show as 0 minutes for free sessions
+    } else {
+      return Math.ceil(durationSeconds / 60); // Round up to nearest minute
+    }
+  };
+
   // Function to load all user data
   const loadUserData = async (showRefreshIndicator = false) => {
     try {
@@ -340,7 +360,7 @@ export default function DashboardPage() {
                                session.session_type === 'human_voice_ai' ? 'Human Voice AI' : 'Live Human'}
                             </p>
                             <p className="text-xs text-gray-600">
-                              {Math.floor(session.duration_seconds / 60)} minutes • {session.credits_used || 0} credits • {new Date(session.created_at).toLocaleDateString()}
+                              {formatSessionDuration(session.duration_seconds)} • {session.credits_used || 0} credits • {new Date(session.created_at).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="text-xs text-gray-500">
@@ -435,7 +455,7 @@ export default function DashboardPage() {
                           session.session_type === 'human_voice_ai' ? 'Human Voice AI' : 'Live Human',
                     coach: session.ai_coach_id ? 'AI Coach' : 'Human Coach',
                     date: session.created_at,
-                    duration: Math.floor(session.duration_seconds / 60),
+                    duration: getSessionDisplayMinutes(session.duration_seconds),
                     summary: session.summary || 'Session completed successfully.',
                     goals: session.goals || []
                   }} detailed />
