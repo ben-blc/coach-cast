@@ -477,22 +477,38 @@ export default function AISpecialistSessionPage() {
                           </div>
                         </div>
 
-                        {/* ElevenLabs ConvAI Widget - Centered */}
+                        {/* ElevenLabs ConvAI Widget - Centered and Fully Visible, Vertically and Horizontally Centered */}
                         <div className="flex justify-center">
                           <div 
-                            className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4"
-                            style={{ minHeight: '500px' }}
+                            className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4 flex justify-center items-center"
+                            style={{ minHeight: '600px', position: 'relative' }}
                           >
-                            <elevenlabs-convai 
-                              agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
+                            <div
+                              className="flex justify-center items-center w-full"
                               style={{
-                                width: '100%',
-                                height: '480px',
-                                border: 'none',
-                                borderRadius: '12px',
-                                display: 'block'
+                                height: '520px',
+                                position: 'relative',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minHeight: '520px',
                               }}
-                            />
+                            >
+                              <elevenlabs-convai 
+                                agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
+                                style={{
+                                  display: 'block',
+                                  margin: '0 auto',
+                                  width: '100%',
+                                  maxWidth: '400px',
+                                  height: '500px',
+                                  border: 'none',
+                                  borderRadius: '12px',
+                                  boxSizing: 'border-box',
+                                  position: 'relative',
+                                }}
+                              />
+                            </div>
                           </div>
                         </div>
 
