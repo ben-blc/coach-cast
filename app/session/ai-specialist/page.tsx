@@ -34,6 +34,7 @@ export default function AISpecialistSessionPage() {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [scriptError, setScriptError] = useState(false);
   const [tokensUsed, setTokensUsed] = useState(0);
+  const [endingSession, setEndingSession] = useState(false);
   const scriptLoadedRef = useRef(false);
   const router = useRouter();
 
@@ -172,6 +173,7 @@ export default function AISpecialistSessionPage() {
         setSessionTime(0);
         setTokensUsed(0);
         setScriptError(false);
+        setEndingSession(false);
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -185,26 +187,49 @@ export default function AISpecialistSessionPage() {
   };
 
   const endSession = async () => {
+    if (endingSession) return; // Prevent double-clicking
+    
     try {
+      setEndingSession(true);
+      console.log('Ending session...', { sessionId, sessionTime });
+      
       const user = await getCurrentUser();
-      if (!user || !sessionId) return;
+      if (!user) {
+        console.error('No user found when ending session');
+        router.push('/auth');
+        return;
+      }
+
+      if (!sessionId) {
+        console.error('No session ID found when ending session');
+        // Still redirect to dashboard even if we can't update the session
+        router.push('/dashboard?tab=sessions');
+        return;
+      }
 
       // Calculate final tokens
       const finalTokens = calculateTokens(sessionTime);
+      console.log('Final tokens calculated:', finalTokens);
       
       // Update session with duration and completion
-      await updateCoachingSession(sessionId, {
+      const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
-        status: 'completed',
+        status: 'completed' as const,
         completed_at: new Date().toISOString(),
         summary: `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Tokens used: ${finalTokens}.`,
         transcription: 'Session transcription will be available soon.'
-      });
+      };
+
+      console.log('Updating session with:', sessionUpdate);
+      const updatedSession = await updateCoachingSession(sessionId, sessionUpdate);
+      console.log('Session updated:', updatedSession);
 
       // Only deduct credits if session was over 15 seconds
       if (finalTokens > 0) {
-        await updateUserCredits(user.id, finalTokens);
+        console.log('Deducting credits:', finalTokens);
+        const creditsUpdated = await updateUserCredits(user.id, finalTokens);
+        console.log('Credits updated:', creditsUpdated);
       }
 
       // Reset all states
@@ -214,11 +239,20 @@ export default function AISpecialistSessionPage() {
       setTokensUsed(0);
       setScriptLoaded(false);
       setScriptError(false);
+      setEndingSession(false);
       scriptLoadedRef.current = false;
       
+      // Navigate to dashboard
+      console.log('Redirecting to dashboard...');
       router.push('/dashboard?tab=sessions');
+      
     } catch (error) {
       console.error('Error ending session:', error);
+      setEndingSession(false);
+      
+      // Even if there's an error, try to redirect to dashboard
+      // The user shouldn't be stuck on the session page
+      router.push('/dashboard?tab=sessions');
     }
   };
 
@@ -278,9 +312,14 @@ export default function AISpecialistSessionPage() {
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Button variant="ghost" size="sm" onClick={endSession}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={endSession}
+                  disabled={endingSession}
+                >
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
+                  {endingSession ? 'Ending...' : 'Back'}
                 </Button>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">
@@ -485,6 +524,7 @@ export default function AISpecialistSessionPage() {
                   <Button
                     onClick={startTimer}
                     className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={endingSession}
                   >
                     <Play className="w-4 h-4 mr-2" />
                     Start Timer
@@ -492,10 +532,11 @@ export default function AISpecialistSessionPage() {
                 )}
                 <Button
                   onClick={endSession}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={endingSession}
+                  className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Square className="w-4 h-4 mr-2" />
-                  End Session
+                  {endingSession ? 'Ending...' : 'End Session'}
                 </Button>
               </div>
             </div>
