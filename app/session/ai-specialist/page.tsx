@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mic, Play, Square, ArrowLeft, Clock, Volume2 } from 'lucide-react';
+import { Mic, Play, Square, ArrowLeft, Clock, Volume2, AlertCircle } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits } from '@/lib/database';
 import type { AICoach } from '@/lib/database';
@@ -32,6 +32,8 @@ export default function AISpecialistSessionPage() {
   const [sessionActive, setSessionActive] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [scriptError, setScriptError] = useState(false);
+  const scriptLoadedRef = useRef(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function AISpecialistSessionPage() {
     loadCoaches();
   }, [router]);
 
+  // Timer effect - only runs when both conditions are true
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timerStarted && sessionActive) {
@@ -62,34 +65,49 @@ export default function AISpecialistSessionPage() {
         setSessionTime(prev => prev + 1);
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [timerStarted, sessionActive]);
 
+  // Script loading effect - only loads once when session becomes active
   useEffect(() => {
-    if (sessionActive && !scriptLoaded) {
-      // Load ElevenLabs ConvAI script
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-      script.async = true;
-      script.type = 'text/javascript';
-      
-      script.onload = () => {
-        setScriptLoaded(true);
-      };
-
-      script.onerror = () => {
-        console.error('Failed to load ElevenLabs script');
-      };
-      
-      document.head.appendChild(script);
-
-      return () => {
-        // Cleanup script on unmount
+    if (sessionActive && !scriptLoadedRef.current && !scriptLoaded) {
+      const loadScript = () => {
+        // Check if script already exists
         const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
         if (existingScript) {
-          document.head.removeChild(existingScript);
+          setScriptLoaded(true);
+          scriptLoadedRef.current = true;
+          return;
         }
-        setScriptLoaded(false);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+        script.async = true;
+        script.type = 'text/javascript';
+        
+        script.onload = () => {
+          console.log('ElevenLabs script loaded successfully');
+          setScriptLoaded(true);
+          scriptLoadedRef.current = true;
+          setScriptError(false);
+        };
+
+        script.onerror = (error) => {
+          console.error('Failed to load ElevenLabs script:', error);
+          setScriptError(true);
+          setScriptLoaded(false);
+        };
+        
+        document.head.appendChild(script);
+      };
+
+      // Small delay to prevent immediate loading issues
+      const timer = setTimeout(loadScript, 100);
+      
+      return () => {
+        clearTimeout(timer);
       };
     }
   }, [sessionActive, scriptLoaded]);
@@ -116,6 +134,10 @@ export default function AISpecialistSessionPage() {
         setSessionId(session.id);
         setSelectedCoach(coach);
         setSessionActive(true);
+        // Reset states
+        setTimerStarted(false);
+        setSessionTime(0);
+        setScriptError(false);
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -146,13 +168,53 @@ export default function AISpecialistSessionPage() {
       const creditsUsed = Math.ceil(sessionTime / 60);
       await updateUserCredits(user.id, creditsUsed);
 
+      // Reset all states
       setSessionActive(false);
       setTimerStarted(false);
+      setSessionTime(0);
       setScriptLoaded(false);
+      setScriptError(false);
+      scriptLoadedRef.current = false;
+      
       router.push('/dashboard?tab=sessions');
     } catch (error) {
       console.error('Error ending session:', error);
     }
+  };
+
+  const retryScriptLoad = () => {
+    setScriptError(false);
+    setScriptLoaded(false);
+    scriptLoadedRef.current = false;
+    
+    // Remove existing script if any
+    const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
+    if (existingScript) {
+      document.head.removeChild(existingScript);
+    }
+    
+    // Trigger reload
+    setTimeout(() => {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+      script.async = true;
+      script.type = 'text/javascript';
+      
+      script.onload = () => {
+        console.log('ElevenLabs script loaded successfully on retry');
+        setScriptLoaded(true);
+        scriptLoadedRef.current = true;
+        setScriptError(false);
+      };
+
+      script.onerror = (error) => {
+        console.error('Failed to load ElevenLabs script on retry:', error);
+        setScriptError(true);
+        setScriptLoaded(false);
+      };
+      
+      document.head.appendChild(script);
+    }, 500);
   };
 
   if (loading) {
@@ -174,7 +236,7 @@ export default function AISpecialistSessionPage() {
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Button variant="ghost" size="sm" onClick={() => router.back()}>
+                <Button variant="ghost" size="sm" onClick={endSession}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
@@ -228,10 +290,22 @@ export default function AISpecialistSessionPage() {
 
               {/* Main ConvAI Widget Area */}
               <div className="p-8">
-                {!scriptLoaded ? (
+                {scriptError ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Connection Error</h3>
+                    <p className="text-gray-600 mb-4">
+                      Unable to load the AI coach. This might be due to network issues or the agent being temporarily unavailable.
+                    </p>
+                    <Button onClick={retryScriptLoad} className="bg-blue-600 hover:bg-blue-700">
+                      Try Again
+                    </Button>
+                  </div>
+                ) : !scriptLoaded ? (
                   <div className="text-center py-12">
                     <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-gray-600">Loading AI Coach...</p>
+                    <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -242,7 +316,7 @@ export default function AISpecialistSessionPage() {
                           <span className="text-blue-800 text-sm font-medium">Ready to Begin</span>
                         </div>
                         <p className="text-gray-600 mb-6">
-                          Click "Start Timer" when you begin your conversation to track your session time.
+                          Start your conversation with the AI coach below. Click "Start Timer" when you begin to track your session time.
                         </p>
                         <Button 
                           onClick={startTimer}
@@ -258,24 +332,17 @@ export default function AISpecialistSessionPage() {
                     {/* ElevenLabs ConvAI Widget - Centered */}
                     <div className="flex justify-center">
                       <div 
-                        className="w-full max-w-3xl"
-                        style={{
-                          minHeight: '500px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4"
+                        style={{ minHeight: '500px' }}
                       >
                         <elevenlabs-convai 
                           agent-id="agent_01jxwx5htbedvv36tk7v8g1b49"
                           style={{
                             width: '100%',
-                            height: '500px',
+                            height: '480px',
                             border: 'none',
-                            borderRadius: '16px',
-                            backgroundColor: '#f8fafc',
-                            display: 'block',
-                            margin: '0 auto'
+                            borderRadius: '12px',
+                            display: 'block'
                           }}
                         />
                       </div>
@@ -316,13 +383,13 @@ export default function AISpecialistSessionPage() {
                 ) : (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span>Click "Start Timer" to begin tracking your session</span>
+                    <span>Start your conversation and click "Start Timer" to begin tracking</span>
                   </div>
                 )}
               </div>
               
               <div className="flex items-center space-x-3">
-                {!timerStarted && scriptLoaded && (
+                {!timerStarted && scriptLoaded && !scriptError && (
                   <Button
                     onClick={startTimer}
                     className="bg-green-600 hover:bg-green-700 text-white"
