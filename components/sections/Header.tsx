@@ -177,7 +177,7 @@ export function Header() {
                 alt="Bolt.new" 
                 className="w-4 h-4"
               />
-              <span>Made with Bolt</span>
+              <span>Bolt hackathon</span>
             </a>
           </div>
 

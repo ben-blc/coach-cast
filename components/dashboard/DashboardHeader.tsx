@@ -116,7 +116,7 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                 alt="Bolt.new" 
                 className="w-4 h-4"
               />
-              <span>Made with Bolt</span>
+              <span>Bolt hackathon</span>
             </a>
             
             <Badge variant="outline" className="text-xs">
