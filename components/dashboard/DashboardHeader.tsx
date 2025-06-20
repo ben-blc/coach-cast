@@ -16,6 +16,7 @@ import { Bell, Settings, LogOut, User, CreditCard, Mic, RefreshCw } from 'lucide
 import { signOut, getCurrentUser } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/database';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface DashboardHeaderProps {
   user: {
@@ -96,12 +97,28 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
+            <Link href="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-green-600 rounded-lg flex items-center justify-center">
                 <Mic className="w-5 h-5 text-white" />
               </div>
               <span className="text-lg font-bold text-gray-900">Coach Cast</span>
-            </div>
+            </Link>
+            
+            {/* Bolt.new Hackathon Badge */}
+            <a 
+              href="https://bolt.new" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 bg-black text-white px-3 py-1.5 rounded-full text-xs font-medium hover:bg-gray-800 transition-colors"
+            >
+              <img 
+                src="/bolt-badge.png" 
+                alt="Bolt.new" 
+                className="w-4 h-4"
+              />
+              <span>Made with Bolt</span>
+            </a>
+            
             <Badge variant="outline" className="text-xs">
               {user.plan}
             </Badge>
