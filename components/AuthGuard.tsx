@@ -1,0 +1,79 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { getCurrentUser } from '@/lib/auth';
+
+interface AuthGuardProps {
+  children: React.ReactNode;
+}
+
+export function AuthGuard({ children }: AuthGuardProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Define public routes that don't require authentication
+  const publicRoutes = ['/', '/auth', '/pricing', '/coaches'];
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/auth');
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const user = await getCurrentUser();
+        setIsAuthenticated(!!user);
+        
+        // If user is not authenticated and trying to access a protected route
+        if (!user && !isPublicRoute) {
+          console.log('User not authenticated, redirecting to sign in...');
+          router.push('/auth?redirect=' + encodeURIComponent(pathname));
+          return;
+        }
+        
+        // If user is authenticated and trying to access auth page, redirect to dashboard
+        if (user && pathname === '/auth') {
+          router.push('/dashboard');
+          return;
+        }
+        
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        // On error, redirect to auth if not on public route
+        if (!isPublicRoute) {
+          router.push('/auth?redirect=' + encodeURIComponent(pathname));
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    checkAuth();
+  }, [pathname, router, isPublicRoute]);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // For protected routes, only render if authenticated
+  if (!isPublicRoute && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}

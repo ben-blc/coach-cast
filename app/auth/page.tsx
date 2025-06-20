@@ -27,6 +27,7 @@ export default function AuthPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode');
+  const redirectTo = searchParams.get('redirect');
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState(mode === 'signup' ? 'signup' : 'signin');
@@ -64,7 +65,9 @@ export default function AuthPage() {
         });
       }
       
-      router.push('/dashboard');
+      // Redirect to the intended page or dashboard
+      const destination = redirectTo || '/dashboard';
+      router.push(destination);
     } catch (error: any) {
       setError(error.message || 'An error occurred during authentication');
     } finally {
@@ -94,6 +97,13 @@ export default function AuthPage() {
             />
           </div>
           <p className="text-gray-600 mt-2">Transform your life with personalized coaching</p>
+          {redirectTo && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                Please sign in to continue to your requested page.
+              </p>
+            </div>
+          )}
         </div>
 
         <Card className="shadow-lg border-0">

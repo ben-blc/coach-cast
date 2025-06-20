@@ -57,3 +57,41 @@ export async function getCurrentUser() {
     return null;
   }
 }
+
+// Function to check if user session is valid and refresh if needed
+export async function validateSession() {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Error validating session:', error);
+      return null;
+    }
+    
+    // If session exists but is expired, try to refresh
+    if (session && session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+      console.log('Session expired, attempting to refresh...');
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('Error refreshing session:', refreshError);
+        return null;
+      }
+      
+      return refreshData.session?.user || null;
+    }
+    
+    return session?.user || null;
+  } catch (error) {
+    console.error('Unexpected error in validateSession:', error);
+    return null;
+  }
+}
+
+// Function to handle auth state changes
+export function onAuthStateChange(callback: (user: any) => void) {
+  return supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state changed:', event, session?.user?.id);
+    callback(session?.user || null);
+  });
+}
