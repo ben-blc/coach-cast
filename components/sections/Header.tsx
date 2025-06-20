@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, X, Mic, User, Settings, LogOut, CreditCard, RefreshCw } from 'lucide-react';
+import { Menu, X, User, Settings, LogOut, CreditCard, RefreshCw } from 'lucide-react';
 import { getCurrentUser, signOut } from '@/lib/auth';
 import { getUserProfile, getUserSubscription } from '@/lib/database';
 import { useRouter, usePathname } from 'next/navigation';
@@ -159,9 +159,11 @@ export function Header() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-green-600 rounded-xl flex items-center justify-center">
-                <Mic className="w-6 h-6 text-white" />
-              </div>
+              <img 
+                src="/coachcast-logo.jpeg" 
+                alt="Coach Cast" 
+                className="w-10 h-10 rounded-xl object-cover"
+              />
               <span className="text-xl font-bold text-gray-900">Coach Cast</span>
             </Link>
             

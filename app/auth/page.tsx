@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, Mail, Lock, User, Mic } from 'lucide-react';
+import { AlertCircle, Mail, Lock, User } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { signUp, signIn, signInWithGoogle } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -87,9 +87,11 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-green-600 rounded-xl flex items-center justify-center">
-              <Mic className="w-6 h-6 text-white" />
-            </div>
+            <img 
+              src="/coachcast-logo.jpeg" 
+              alt="Coach Cast" 
+              className="w-12 h-12 rounded-xl object-cover"
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Coach Cast</h1>
           <p className="text-gray-600 mt-2">Transform your life with personalized coaching</p>

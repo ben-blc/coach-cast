@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Settings, LogOut, User, CreditCard, Mic, RefreshCw } from 'lucide-react';
+import { Bell, Settings, LogOut, User, CreditCard, RefreshCw } from 'lucide-react';
 import { signOut, getCurrentUser } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/database';
 import { useRouter } from 'next/navigation';
@@ -98,9 +98,11 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-green-600 rounded-lg flex items-center justify-center">
-                <Mic className="w-5 h-5 text-white" />
-              </div>
+              <img 
+                src="/coachcast-logo.jpeg" 
+                alt="Coach Cast" 
+                className="w-8 h-8 rounded-lg object-cover"
+              />
               <span className="text-lg font-bold text-gray-900">Coach Cast</span>
             </Link>
             
