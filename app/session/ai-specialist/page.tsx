@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Play, Square, ArrowLeft, Clock, Volume2, AlertCircle, Coins } from 'lucide-react';
+import { Mic, Play, Square, ArrowLeft, Clock, Volume2, AlertCircle, Coins, ExternalLink, Copy, CheckCircle } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits, getUserSubscription } from '@/lib/database';
-import { ConversationWidget } from '@/components/elevenlabs/ConversationWidget';
+import { getConversationTranscript, getConversationDetails, isApiKeyConfigured } from '@/lib/elevenlabs';
 import type { AICoach, Subscription } from '@/lib/database';
 
 export default function AISpecialistSessionPage() {
@@ -24,12 +24,63 @@ export default function AISpecialistSessionPage() {
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
   const [timeExceeded, setTimeExceeded] = useState(false);
+  
+  // ElevenLabs conversation state
   const [conversationId, setConversationId] = useState<string>('');
   const [conversationTranscript, setConversationTranscript] = useState<string>('');
   const [conversationActive, setConversationActive] = useState(false);
+  const [conversationDetails, setConversationDetails] = useState<any>(null);
+  const [isConversationLoading, setIsConversationLoading] = useState(false);
+  const [conversationError, setConversationError] = useState<string>('');
+  const [copied, setCopied] = useState(false);
+  
+  // ElevenLabs client ref
+  const elevenLabsClientRef = useRef<any>(null);
+  const [sdkLoaded, setSdkLoaded] = useState(false);
   
   const timeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+
+  // Check if ElevenLabs API key is available
+  const hasApiKey = isApiKeyConfigured();
+
+  // Load ElevenLabs SDK
+  useEffect(() => {
+    const loadElevenLabsSDK = async () => {
+      try {
+        console.log('🎯 Loading ElevenLabs SDK...');
+        
+        // Dynamically import the ElevenLabs package
+        const ElevenLabsModule = await import('elevenlabs');
+        
+        // Get the ElevenLabs class from the module
+        const ElevenLabs = ElevenLabsModule.ElevenLabs || ElevenLabsModule.default;
+        
+        if (!ElevenLabs) {
+          throw new Error('ElevenLabs class not found in module');
+        }
+
+        // Initialize the client
+        const client = new ElevenLabs({
+          apiKey: process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || ''
+        });
+
+        // Store the client for later use
+        elevenLabsClientRef.current = client;
+
+        console.log('✅ ElevenLabs SDK loaded successfully');
+        setSdkLoaded(true);
+        setConversationError('');
+        
+      } catch (error) {
+        console.error('❌ Failed to load ElevenLabs SDK:', error);
+        setConversationError(`Failed to load ElevenLabs SDK: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        setSdkLoaded(false);
+      }
+    };
+
+    loadElevenLabsSDK();
+  }, []);
 
   useEffect(() => {
     async function loadCoaches() {
@@ -180,6 +231,8 @@ export default function AISpecialistSessionPage() {
         setConversationId('');
         setConversationTranscript('');
         setConversationActive(false);
+        setConversationDetails(null);
+        setConversationError('');
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -192,50 +245,93 @@ export default function AISpecialistSessionPage() {
     }
   };
 
-  // Handle conversation start from ElevenLabs - ONLY with REAL conversation IDs
-  const handleConversationStart = (convId: string) => {
-    console.log('🎯 ElevenLabs conversation started with REAL ID:', convId);
-    
-    // ONLY proceed if we have a REAL conversation ID
-    if (!convId || !convId.startsWith('conv_')) {
-      console.warn('🚫 Invalid conversation ID received, ignoring:', convId);
+  // Start ElevenLabs conversation
+  const startElevenLabsConversation = async () => {
+    if (!sdkLoaded || !elevenLabsClientRef.current || !selectedCoach) {
+      console.warn('🚫 Cannot start ElevenLabs conversation - SDK not ready');
       return;
     }
-    
-    setConversationId(convId);
-    setConversationActive(true);
-    
-    // Start the timer when conversation begins
-    if (!timerStarted) {
-      setTimerStarted(true);
+
+    try {
+      setIsConversationLoading(true);
+      setConversationError('');
+      console.log('🎯 Starting ElevenLabs conversation with agent:', selectedCoach.agent_id);
+      
+      // Use the ElevenLabs SDK to create a conversation
+      const response = await elevenLabsClientRef.current.conversationalAi.createConversation({
+        agent_id: selectedCoach.agent_id || "agent_01jxwx5htbedvv36tk7v8g1b49"
+      });
+      
+      const realConversationId = response.conversation_id;
+      
+      console.log('✅ ElevenLabs conversation started with REAL ID:', realConversationId);
+      
+      // Validate that we got a real conversation ID
+      if (!realConversationId || !realConversationId.startsWith('conv_')) {
+        throw new Error(`Invalid conversation ID received: ${realConversationId}`);
+      }
+      
+      setConversationId(realConversationId);
+      setConversationActive(true);
+      
+      // Start the timer when conversation begins
+      if (!timerStarted) {
+        setTimerStarted(true);
+      }
+      
+      // Fetch conversation details if API key is available
+      if (hasApiKey) {
+        try {
+          console.log('🎯 Fetching conversation details for REAL ID:', realConversationId);
+          const details = await getConversationDetails(realConversationId);
+          if (details) {
+            setConversationDetails(details);
+            console.log('✅ Conversation details loaded for REAL ID:', realConversationId, details);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching conversation details:', error);
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Failed to start ElevenLabs conversation:', error);
+      setConversationError(error.message || 'Failed to start conversation');
+    } finally {
+      setIsConversationLoading(false);
     }
   };
 
-  // Handle conversation end from ElevenLabs - ONLY with REAL conversation IDs
-  const handleConversationEnd = (convId: string, transcript?: string) => {
-    console.log('🎯 ElevenLabs conversation ended with REAL ID:', convId, transcript);
-    
-    // ONLY proceed if we have a REAL conversation ID
-    if (!convId || !convId.startsWith('conv_')) {
-      console.warn('🚫 Invalid conversation ID for end event, ignoring:', convId);
+  // End ElevenLabs conversation
+  const endElevenLabsConversation = async () => {
+    if (!conversationId) {
+      console.warn('🚫 No conversation to end');
       return;
     }
-    
-    setConversationActive(false);
-    if (transcript) {
-      setConversationTranscript(transcript);
-    }
-    
-    // Automatically end the session when conversation ends
-    setTimeout(() => {
-      endSession();
-    }, 1000);
-  };
 
-  // Handle ElevenLabs errors
-  const handleConversationError = (error: string) => {
-    console.error('ElevenLabs conversation error:', error);
-    // You could show an error message to the user here
+    try {
+      console.log('🎯 Ending ElevenLabs conversation with REAL ID:', conversationId);
+
+      // Get final transcript from ElevenLabs API if available
+      if (hasApiKey && conversationId) {
+        try {
+          console.log('🎯 Fetching final transcript for REAL ID:', conversationId);
+          const apiTranscript = await getConversationTranscript(conversationId);
+          if (apiTranscript) {
+            setConversationTranscript(apiTranscript);
+            console.log('✅ Final transcript loaded for REAL ID:', conversationId);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching transcript from API:', error);
+        }
+      }
+
+      setConversationActive(false);
+      console.log('✅ ElevenLabs conversation ended successfully with REAL ID:', conversationId);
+      
+    } catch (error: any) {
+      console.error('❌ Error ending ElevenLabs conversation:', error);
+      setConversationError(error.message || 'Failed to end conversation');
+    }
   };
 
   const endSession = async (forceEnd = false) => {
@@ -244,6 +340,11 @@ export default function AISpecialistSessionPage() {
     try {
       setEndingSession(true);
       console.log('🎯 Ending session...', { sessionId, sessionTime, forceEnd, conversationId });
+      
+      // End ElevenLabs conversation first
+      if (conversationActive) {
+        await endElevenLabsConversation();
+      }
       
       const user = await getCurrentUser();
       if (!user) {
@@ -299,6 +400,8 @@ export default function AISpecialistSessionPage() {
       setConversationId('');
       setConversationTranscript('');
       setConversationActive(false);
+      setConversationDetails(null);
+      setConversationError('');
       
       // Clear the time check interval
       if (timeCheckIntervalRef.current) {
@@ -317,6 +420,19 @@ export default function AISpecialistSessionPage() {
       // Even if there's an error, try to redirect to dashboard
       // The user shouldn't be stuck on the session page
       router.push('/dashboard?tab=sessions&refresh=true');
+    }
+  };
+
+  // Copy conversation ID to clipboard
+  const copyConversationId = async () => {
+    if (conversationId) {
+      try {
+        await navigator.clipboard.writeText(conversationId);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error('Failed to copy conversation ID:', error);
+      }
     }
   };
 
@@ -431,7 +547,7 @@ export default function AISpecialistSessionPage() {
         {/* Main Content Area */}
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
           <div className="w-full max-w-4xl">
-            {/* ConvAI Widget Container */}
+            {/* ElevenLabs Widget Container */}
             <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
               {/* Widget Header */}
               <div className="bg-gradient-to-r from-blue-600 to-green-600 p-6 text-white">
@@ -452,7 +568,7 @@ export default function AISpecialistSessionPage() {
                 </div>
               </div>
 
-              {/* Main ConvAI Widget Area */}
+              {/* Main ElevenLabs Widget Area */}
               <div className="p-8">
                 {!timerStarted ? (
                   <div className="text-center py-12">
@@ -552,14 +668,154 @@ export default function AISpecialistSessionPage() {
                       </div>
                     </div>
 
-                    {/* ElevenLabs Conversation Widget */}
-                    <ConversationWidget
-                      agentId={selectedCoach.agent_id || "agent_01jxwx5htbedvv36tk7v8g1b49"}
-                      onConversationStart={handleConversationStart}
-                      onConversationEnd={handleConversationEnd}
-                      onError={handleConversationError}
-                      disabled={!canStartSession()}
-                    />
+                    {/* ElevenLabs Conversation Interface */}
+                    {!conversationActive ? (
+                      <div className="text-center py-8">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6 mx-auto">
+                          <Mic className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                          Start Your AI Conversation
+                        </h3>
+                        <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                          Click the button below to begin your conversation with {selectedCoach.name}. 
+                          We'll capture the real conversation ID from ElevenLabs.
+                        </p>
+                        
+                        {/* API Key Status */}
+                        <Alert className="mb-4 max-w-md mx-auto">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="text-sm">
+                            {hasApiKey ? (
+                              <span><strong>ElevenLabs API Connected:</strong> Real conversation IDs, transcripts and audio will be captured.</span>
+                            ) : (
+                              <span><strong>Demo Mode:</strong> ElevenLabs API key not configured. Only conversation IDs will be captured.</span>
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                        
+                        {conversationError && (
+                          <Alert className="mb-4 max-w-md mx-auto" variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription className="text-sm">
+                              {conversationError}
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
+                        <Button 
+                          onClick={startElevenLabsConversation}
+                          disabled={isConversationLoading || !sdkLoaded}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          {isConversationLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                              Starting...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 mr-2" />
+                              Start Conversation
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Active Conversation Display */}
+                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                            <div>
+                              <p className="font-medium text-green-800">✅ REAL Conversation Active</p>
+                              <p className="text-sm text-green-600 font-mono">ID: {conversationId}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge className="bg-green-100 text-green-800">
+                              <Volume2 className="w-3 h-3 mr-1" />
+                              Live
+                            </Badge>
+                            <Badge className="bg-blue-100 text-blue-800 text-xs">
+                              ✅ ElevenLabs SDK
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Conversation ID Actions */}
+                        <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                          <div>
+                            <p className="text-sm font-medium text-yellow-800">✅ ElevenLabs Conversation ID</p>
+                            <p className="font-mono text-xs text-yellow-700 break-all">{conversationId}</p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={copyConversationId}
+                              className="text-yellow-700 border-yellow-300"
+                            >
+                              {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="text-yellow-700 border-yellow-300"
+                            >
+                              <a href={`https://elevenlabs.io/conversations/${conversationId}`} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Conversation Details */}
+                        {conversationDetails && (
+                          <div className="bg-blue-50 p-4 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-blue-800">✅ Live Conversation Details</p>
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                ElevenLabs API
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <p className="text-blue-600">Status:</p>
+                                <p className="font-medium text-blue-800">{conversationDetails.status}</p>
+                              </div>
+                              <div>
+                                <p className="text-blue-600">Agent ID:</p>
+                                <p className="font-mono text-blue-800">{conversationDetails.agent_id}</p>
+                              </div>
+                              {conversationDetails.metadata && (
+                                <>
+                                  <div>
+                                    <p className="text-blue-600">Messages:</p>
+                                    <p className="font-medium text-blue-800">{conversationDetails.metadata.messageCount || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-blue-600">Language:</p>
+                                    <p className="font-medium text-blue-800">{conversationDetails.metadata.language || 'en'}</p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Live Transcript */}
+                        {conversationTranscript && (
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <p className="text-sm font-medium text-gray-800 mb-2">Live Transcript</p>
+                            <div className="max-h-32 overflow-y-auto">
+                              <pre className="text-xs text-gray-700 whitespace-pre-wrap">{conversationTranscript}</pre>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Coach Information */}
                     <div className="bg-gray-50 rounded-xl p-6">
