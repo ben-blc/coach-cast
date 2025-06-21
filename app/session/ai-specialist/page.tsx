@@ -22,6 +22,15 @@ declare global {
       };
     }
   }
+  
+  interface Window {
+    ElevenLabsConvAI?: {
+      on?: (event: string, callback: (data: any) => void) => void;
+      off?: (event: string, callback: (data: any) => void) => void;
+      getSessionData?: () => any;
+      getTranscript?: () => string;
+    };
+  }
 }
 
 export default function AISpecialistSessionPage() {
@@ -38,8 +47,14 @@ export default function AISpecialistSessionPage() {
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
   const [timeExceeded, setTimeExceeded] = useState(false);
+  const [conversationStarted, setConversationStarted] = useState(false);
+  const [sessionTranscript, setSessionTranscript] = useState<string>('');
+  const [conversationData, setConversationData] = useState<any>(null);
+  
   const scriptLoadedRef = useRef(false);
   const timeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const conversationStartTimeRef = useRef<number | null>(null);
+  const elevenLabsCallbacksRef = useRef<{[key: string]: (data: any) => void}>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -134,6 +149,7 @@ export default function AISpecialistSessionPage() {
         if (existingScript) {
           setScriptLoaded(true);
           scriptLoadedRef.current = true;
+          setupElevenLabsListeners();
           return;
         }
 
@@ -147,6 +163,11 @@ export default function AISpecialistSessionPage() {
           setScriptLoaded(true);
           scriptLoadedRef.current = true;
           setScriptError(false);
+          
+          // Setup event listeners after script loads
+          setTimeout(() => {
+            setupElevenLabsListeners();
+          }, 1000);
         };
 
         script.onerror = (error) => {
@@ -166,6 +187,96 @@ export default function AISpecialistSessionPage() {
       };
     }
   }, [timerStarted, scriptLoaded]);
+
+  // Setup ElevenLabs event listeners
+  const setupElevenLabsListeners = () => {
+    try {
+      // Wait for the widget to be available
+      const checkWidget = () => {
+        const widget = document.querySelector('elevenlabs-convai');
+        if (widget && window.ElevenLabsConvAI) {
+          console.log('ElevenLabs widget found, setting up listeners...');
+          
+          // Listen for conversation start
+          const onConversationStart = (data: any) => {
+            console.log('Conversation started:', data);
+            setConversationStarted(true);
+            conversationStartTimeRef.current = Date.now();
+            setConversationData(data);
+          };
+
+          // Listen for conversation messages
+          const onMessage = (data: any) => {
+            console.log('Message received:', data);
+            if (data.transcript) {
+              setSessionTranscript(prev => prev + '\n' + data.transcript);
+            }
+          };
+
+          // Listen for conversation end
+          const onConversationEnd = (data: any) => {
+            console.log('Conversation ended:', data);
+            setConversationData(prev => ({ ...prev, ...data }));
+            if (data.transcript) {
+              setSessionTranscript(data.transcript);
+            }
+          };
+
+          // Store callbacks for cleanup
+          elevenLabsCallbacksRef.current = {
+            onConversationStart,
+            onMessage,
+            onConversationEnd
+          };
+
+          // Try to attach listeners if the API is available
+          if (window.ElevenLabsConvAI?.on) {
+            window.ElevenLabsConvAI.on('conversation_start', onConversationStart);
+            window.ElevenLabsConvAI.on('message', onMessage);
+            window.ElevenLabsConvAI.on('conversation_end', onConversationEnd);
+          } else {
+            // Fallback: Listen for custom events on the widget element
+            widget.addEventListener('conversation_start', onConversationStart);
+            widget.addEventListener('message', onMessage);
+            widget.addEventListener('conversation_end', onConversationEnd);
+          }
+        } else {
+          // Retry after a short delay
+          setTimeout(checkWidget, 500);
+        }
+      };
+
+      checkWidget();
+    } catch (error) {
+      console.error('Error setting up ElevenLabs listeners:', error);
+    }
+  };
+
+  // Cleanup ElevenLabs listeners
+  useEffect(() => {
+    return () => {
+      try {
+        const widget = document.querySelector('elevenlabs-convai');
+        const callbacks = elevenLabsCallbacksRef.current;
+        
+        if (window.ElevenLabsConvAI?.off) {
+          // Remove listeners using API
+          Object.entries(callbacks).forEach(([event, callback]) => {
+            const eventName = event.replace('on', '').toLowerCase().replace('conversation', 'conversation_');
+            window.ElevenLabsConvAI?.off?.(eventName, callback);
+          });
+        } else if (widget) {
+          // Remove listeners from widget element
+          Object.entries(callbacks).forEach(([event, callback]) => {
+            const eventName = event.replace('on', '').toLowerCase().replace('conversation', 'conversation_');
+            widget.removeEventListener(eventName, callback);
+          });
+        }
+      } catch (error) {
+        console.error('Error cleaning up ElevenLabs listeners:', error);
+      }
+    };
+  }, []);
 
   // Calculate tokens based on session time
   const calculateTokens = (seconds: number): number => {
@@ -232,7 +343,11 @@ export default function AISpecialistSessionPage() {
         setEndingSession(false);
         setTimeExceeded(false);
         setScriptLoaded(false);
+        setConversationStarted(false);
+        setSessionTranscript('');
+        setConversationData(null);
         scriptLoadedRef.current = false;
+        conversationStartTimeRef.current = null;
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -270,14 +385,31 @@ export default function AISpecialistSessionPage() {
       const finalTokens = calculateTokens(sessionTime);
       console.log('Final tokens calculated:', finalTokens);
       
+      // Try to get final transcript from ElevenLabs
+      let finalTranscript = sessionTranscript;
+      try {
+        if (window.ElevenLabsConvAI?.getTranscript) {
+          const elevenLabsTranscript = window.ElevenLabsConvAI.getTranscript();
+          if (elevenLabsTranscript) {
+            finalTranscript = elevenLabsTranscript;
+          }
+        }
+      } catch (error) {
+        console.log('Could not get transcript from ElevenLabs:', error);
+      }
+
+      // Create session summary
+      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationStarted ? ' Conversation was active.' : ' No conversation detected.'}`;
+      
       // Update session with duration and completion
       const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
-        summary: `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Tokens used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}`,
-        transcription: 'Session transcription will be available soon.'
+        summary: sessionSummary,
+        transcription: finalTranscript || 'Session transcript not available.',
+        goals: conversationStarted ? ['Engaged in AI coaching conversation'] : ['Session started but no conversation detected']
       };
 
       console.log('Updating session with:', sessionUpdate);
@@ -300,7 +432,11 @@ export default function AISpecialistSessionPage() {
       setScriptError(false);
       setEndingSession(false);
       setTimeExceeded(false);
+      setConversationStarted(false);
+      setSessionTranscript('');
+      setConversationData(null);
       scriptLoadedRef.current = false;
+      conversationStartTimeRef.current = null;
       
       // Clear the time check interval
       if (timeCheckIntervalRef.current) {
@@ -345,6 +481,9 @@ export default function AISpecialistSessionPage() {
         setScriptLoaded(true);
         scriptLoadedRef.current = true;
         setScriptError(false);
+        setTimeout(() => {
+          setupElevenLabsListeners();
+        }, 1000);
       };
 
       script.onerror = (error) => {
@@ -423,6 +562,12 @@ export default function AISpecialistSessionPage() {
                   <div className={`w-2 h-2 ${timerStarted ? 'bg-green-500' : 'bg-blue-500'} rounded-full mr-2 animate-pulse`}></div>
                   {timerStarted ? 'Active' : 'Ready'}
                 </Badge>
+                {conversationStarted && (
+                  <Badge className="bg-purple-100 text-purple-800">
+                    <Mic className="w-3 h-3 mr-1" />
+                    Conversation Active
+                  </Badge>
+                )}
                 {timerStarted && (
                   <>
                     <Badge className="bg-gray-100 text-gray-800">
@@ -517,6 +662,10 @@ export default function AISpecialistSessionPage() {
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                           <span>Specialty: {selectedCoach.specialty}</span>
                         </div>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>Powered by ElevenLabs</span>
+                        </div>
                       </div>
                     </div>
                     
@@ -551,7 +700,7 @@ export default function AISpecialistSessionPage() {
                       </div>
                     ) : (
                       <div className="space-y-6">
-                        {/* Token Usage Display */}
+                        {/* Session Status Display */}
                         <div className="bg-gray-50 rounded-xl p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
@@ -567,6 +716,14 @@ export default function AISpecialistSessionPage() {
                                   {tokenDisplay.message}
                                 </span>
                               </div>
+                              {conversationStarted && (
+                                <div className="flex items-center space-x-2">
+                                  <Mic className="w-4 h-4 text-purple-600" />
+                                  <span className="text-sm font-medium text-purple-600">
+                                    Conversation Active
+                                  </span>
+                                </div>
+                              )}
                             </div>
                             {sessionTime <= 15 && (
                               <Badge className="bg-green-100 text-green-800 text-xs">
@@ -620,6 +777,10 @@ export default function AISpecialistSessionPage() {
                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                               <span>Specialty: {selectedCoach.specialty}</span>
                             </div>
+                            <div className="flex items-center space-x-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>Powered by ElevenLabs</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -649,6 +810,12 @@ export default function AISpecialistSessionPage() {
                     <div className="flex items-center space-x-2 text-gray-600">
                       <span>Credits left: {subscription?.credits_remaining || 0}</span>
                     </div>
+                    {conversationStarted && (
+                      <div className="flex items-center space-x-2 text-purple-600">
+                        <Mic className="w-4 h-4" />
+                        <span>Recording conversation</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
