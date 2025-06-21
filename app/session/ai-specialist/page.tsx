@@ -9,30 +9,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, Play, Square, ArrowLeft, Clock, Volume2, AlertCircle, Coins } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits, getUserSubscription } from '@/lib/database';
+import { ConversationWidget } from '@/components/elevenlabs/ConversationWidget';
 import type { AICoach, Subscription } from '@/lib/database';
-
-// Declare the ElevenLabs ConvAI widget type
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'elevenlabs-convai': {
-        'agent-id': string;
-        style?: React.CSSProperties;
-        children?: React.ReactNode;
-      };
-    }
-  }
-  
-  interface Window {
-    ElevenLabsConvAI?: {
-      on?: (event: string, callback: (data: any) => void) => void;
-      off?: (event: string, callback: (data: any) => void) => void;
-      getSessionData?: () => any;
-      getTranscript?: () => string;
-      getConversationId?: () => string;
-    };
-  }
-}
 
 export default function AISpecialistSessionPage() {
   const [selectedCoach, setSelectedCoach] = useState<AICoach | null>(null);
@@ -43,20 +21,14 @@ export default function AISpecialistSessionPage() {
   const [loading, setLoading] = useState(true);
   const [sessionActive, setSessionActive] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [scriptError, setScriptError] = useState(false);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
   const [timeExceeded, setTimeExceeded] = useState(false);
-  const [conversationStarted, setConversationStarted] = useState(false);
-  const [sessionTranscript, setSessionTranscript] = useState<string>('');
-  const [conversationData, setConversationData] = useState<any>(null);
-  const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string>('');
+  const [conversationId, setConversationId] = useState<string>('');
+  const [conversationTranscript, setConversationTranscript] = useState<string>('');
+  const [conversationActive, setConversationActive] = useState(false);
   
-  const scriptLoadedRef = useRef(false);
   const timeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const conversationStartTimeRef = useRef<number | null>(null);
-  const elevenLabsCallbacksRef = useRef<{[key: string]: (data: any) => void}>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -142,165 +114,6 @@ export default function AISpecialistSessionPage() {
     }
   }, [timerStarted, sessionActive, subscription, sessionTime]);
 
-  // Script loading effect - only loads when timer is started
-  useEffect(() => {
-    if (timerStarted && !scriptLoadedRef.current && !scriptLoaded) {
-      const loadScript = () => {
-        // Check if script already exists
-        const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
-        if (existingScript) {
-          setScriptLoaded(true);
-          scriptLoadedRef.current = true;
-          setupElevenLabsListeners();
-          return;
-        }
-
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-        script.async = true;
-        script.type = 'text/javascript';
-        
-        script.onload = () => {
-          console.log('ElevenLabs script loaded successfully');
-          setScriptLoaded(true);
-          scriptLoadedRef.current = true;
-          setScriptError(false);
-          
-          // Setup event listeners after script loads
-          setTimeout(() => {
-            setupElevenLabsListeners();
-          }, 1000);
-        };
-
-        script.onerror = (error) => {
-          console.error('Failed to load ElevenLabs script:', error);
-          setScriptError(true);
-          setScriptLoaded(false);
-        };
-        
-        document.head.appendChild(script);
-      };
-
-      // Small delay to prevent immediate loading issues
-      const timer = setTimeout(loadScript, 100);
-      
-      return () => {
-        clearTimeout(timer);
-      };
-    }
-  }, [timerStarted, scriptLoaded]);
-
-  // Setup ElevenLabs event listeners
-  const setupElevenLabsListeners = () => {
-    try {
-      // Wait for the widget to be available
-      const checkWidget = () => {
-        const widget = document.querySelector('elevenlabs-convai');
-        if (widget && window.ElevenLabsConvAI) {
-          console.log('ElevenLabs widget found, setting up listeners...');
-          
-          // Listen for conversation start
-          const onConversationStart = (data: any) => {
-            console.log('Conversation started:', data);
-            setConversationStarted(true);
-            conversationStartTimeRef.current = Date.now();
-            setConversationData(data);
-            
-            // Try to capture conversation ID
-            if (data.conversationId || data.conversation_id) {
-              const convId = data.conversationId || data.conversation_id;
-              console.log('Captured conversation ID:', convId);
-              setElevenLabsConversationId(convId);
-            }
-          };
-
-          // Listen for conversation messages
-          const onMessage = (data: any) => {
-            console.log('Message received:', data);
-            if (data.transcript) {
-              setSessionTranscript(prev => prev + '\n' + data.transcript);
-            }
-            
-            // Try to capture conversation ID from message data
-            if (!elevenLabsConversationId && (data.conversationId || data.conversation_id)) {
-              const convId = data.conversationId || data.conversation_id;
-              console.log('Captured conversation ID from message:', convId);
-              setElevenLabsConversationId(convId);
-            }
-          };
-
-          // Listen for conversation end
-          const onConversationEnd = (data: any) => {
-            console.log('Conversation ended:', data);
-            setConversationData(prev => ({ ...prev, ...data }));
-            if (data.transcript) {
-              setSessionTranscript(data.transcript);
-            }
-            
-            // Try to capture conversation ID from end data
-            if (!elevenLabsConversationId && (data.conversationId || data.conversation_id)) {
-              const convId = data.conversationId || data.conversation_id;
-              console.log('Captured conversation ID from end:', convId);
-              setElevenLabsConversationId(convId);
-            }
-          };
-
-          // Store callbacks for cleanup
-          elevenLabsCallbacksRef.current = {
-            onConversationStart,
-            onMessage,
-            onConversationEnd
-          };
-
-          // Try to attach listeners if the API is available
-          if (window.ElevenLabsConvAI?.on) {
-            window.ElevenLabsConvAI.on('conversation_start', onConversationStart);
-            window.ElevenLabsConvAI.on('message', onMessage);
-            window.ElevenLabsConvAI.on('conversation_end', onConversationEnd);
-          } else {
-            // Fallback: Listen for custom events on the widget element
-            widget.addEventListener('conversation_start', onConversationStart);
-            widget.addEventListener('message', onMessage);
-            widget.addEventListener('conversation_end', onConversationEnd);
-          }
-        } else {
-          // Retry after a short delay
-          setTimeout(checkWidget, 500);
-        }
-      };
-
-      checkWidget();
-    } catch (error) {
-      console.error('Error setting up ElevenLabs listeners:', error);
-    }
-  };
-
-  // Cleanup ElevenLabs listeners
-  useEffect(() => {
-    return () => {
-      try {
-        const widget = document.querySelector('elevenlabs-convai');
-        const callbacks = elevenLabsCallbacksRef.current;
-        
-        if (window.ElevenLabsConvAI?.off) {
-          // Remove listeners using API
-          Object.entries(callbacks).forEach(([event, callback]) => {
-            const eventName = event.replace('on', '').toLowerCase().replace('conversation', 'conversation_');
-            window.ElevenLabsConvAI?.off?.(eventName, callback);
-          });
-        } else if (widget) {
-          // Remove listeners from widget element
-          Object.entries(callbacks).forEach(([event, callback]) => {
-            const eventName = event.replace('on', '').toLowerCase().replace('conversation', 'conversation_');
-            widget.removeEventListener(eventName, callback);
-          });
-        }
-      } catch (error) {
-        console.error('Error cleaning up ElevenLabs listeners:', error);
-      }
-    };
-  }, []);
-
   // Calculate tokens based on session time
   const calculateTokens = (seconds: number): number => {
     if (seconds <= 15) {
@@ -362,16 +175,11 @@ export default function AISpecialistSessionPage() {
         setTimerStarted(false);
         setSessionTime(0);
         setTokensUsed(0);
-        setScriptError(false);
         setEndingSession(false);
         setTimeExceeded(false);
-        setConversationStarted(false);
-        setSessionTranscript('');
-        setConversationData(null);
-        setElevenLabsConversationId('');
-        setScriptLoaded(false);
-        scriptLoadedRef.current = false;
-        conversationStartTimeRef.current = null;
+        setConversationId('');
+        setConversationTranscript('');
+        setConversationActive(false);
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -384,12 +192,44 @@ export default function AISpecialistSessionPage() {
     }
   };
 
+  // Handle conversation start from ElevenLabs
+  const handleConversationStart = (convId: string) => {
+    console.log('ElevenLabs conversation started:', convId);
+    setConversationId(convId);
+    setConversationActive(true);
+    
+    // Start the timer when conversation begins
+    if (!timerStarted) {
+      setTimerStarted(true);
+    }
+  };
+
+  // Handle conversation end from ElevenLabs
+  const handleConversationEnd = (convId: string, transcript?: string) => {
+    console.log('ElevenLabs conversation ended:', convId, transcript);
+    setConversationActive(false);
+    if (transcript) {
+      setConversationTranscript(transcript);
+    }
+    
+    // Automatically end the session when conversation ends
+    setTimeout(() => {
+      endSession();
+    }, 1000);
+  };
+
+  // Handle ElevenLabs errors
+  const handleConversationError = (error: string) => {
+    console.error('ElevenLabs conversation error:', error);
+    // You could show an error message to the user here
+  };
+
   const endSession = async (forceEnd = false) => {
     if (endingSession && !forceEnd) return; // Prevent double-clicking unless forced
     
     try {
       setEndingSession(true);
-      console.log('Ending session...', { sessionId, sessionTime, forceEnd, elevenLabsConversationId });
+      console.log('Ending session...', { sessionId, sessionTime, forceEnd, conversationId });
       
       const user = await getCurrentUser();
       if (!user) {
@@ -408,43 +248,20 @@ export default function AISpecialistSessionPage() {
       // Calculate final tokens
       const finalTokens = calculateTokens(sessionTime);
       console.log('Final tokens calculated:', finalTokens);
-      
-      // Try to get final transcript and conversation ID from ElevenLabs
-      let finalTranscript = sessionTranscript;
-      let finalConversationId = elevenLabsConversationId;
-      
-      try {
-        if (window.ElevenLabsConvAI?.getTranscript) {
-          const elevenLabsTranscript = window.ElevenLabsConvAI.getTranscript();
-          if (elevenLabsTranscript) {
-            finalTranscript = elevenLabsTranscript;
-          }
-        }
-        
-        if (window.ElevenLabsConvAI?.getConversationId) {
-          const elevenLabsConvId = window.ElevenLabsConvAI.getConversationId();
-          if (elevenLabsConvId) {
-            finalConversationId = elevenLabsConvId;
-            console.log('Retrieved conversation ID from ElevenLabs API:', elevenLabsConvId);
-          }
-        }
-      } catch (error) {
-        console.log('Could not get data from ElevenLabs API:', error);
-      }
 
       // Create session summary
-      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationStarted ? ' Conversation was active.' : ' No conversation detected.'}${finalConversationId ? ` ElevenLabs Conversation ID: ${finalConversationId}` : ''}`;
+      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationActive ? ' ElevenLabs conversation was active.' : ' No active conversation detected.'}${conversationId ? ` Conversation ID: ${conversationId}` : ''}`;
       
       // Update session with duration and completion
       const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
-        conversation_id: finalConversationId || null,
+        conversation_id: conversationId || null,
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
         summary: sessionSummary,
-        transcription: finalTranscript || 'Session transcript not available.',
-        goals: conversationStarted ? ['Engaged in AI coaching conversation'] : ['Session started but no conversation detected']
+        transcription: conversationTranscript || 'Session transcript not available.',
+        goals: conversationActive ? ['Engaged in AI coaching conversation'] : ['Session started but no conversation detected']
       };
 
       console.log('Updating session with:', sessionUpdate);
@@ -463,16 +280,11 @@ export default function AISpecialistSessionPage() {
       setTimerStarted(false);
       setSessionTime(0);
       setTokensUsed(0);
-      setScriptLoaded(false);
-      setScriptError(false);
       setEndingSession(false);
       setTimeExceeded(false);
-      setConversationStarted(false);
-      setSessionTranscript('');
-      setConversationData(null);
-      setElevenLabsConversationId('');
-      scriptLoadedRef.current = false;
-      conversationStartTimeRef.current = null;
+      setConversationId('');
+      setConversationTranscript('');
+      setConversationActive(false);
       
       // Clear the time check interval
       if (timeCheckIntervalRef.current) {
@@ -492,44 +304,6 @@ export default function AISpecialistSessionPage() {
       // The user shouldn't be stuck on the session page
       router.push('/dashboard?tab=sessions&refresh=true');
     }
-  };
-
-  const retryScriptLoad = () => {
-    setScriptError(false);
-    setScriptLoaded(false);
-    scriptLoadedRef.current = false;
-    
-    // Remove existing script if any
-    const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
-    if (existingScript) {
-      document.head.removeChild(existingScript);
-    }
-    
-    // Trigger reload
-    setTimeout(() => {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-      script.async = true;
-      script.type = 'text/javascript';
-      
-      script.onload = () => {
-        console.log('ElevenLabs script loaded successfully on retry');
-        setScriptLoaded(true);
-        scriptLoadedRef.current = true;
-        setScriptError(false);
-        setTimeout(() => {
-          setupElevenLabsListeners();
-        }, 1000);
-      };
-
-      script.onerror = (error) => {
-        console.error('Failed to load ElevenLabs script on retry:', error);
-        setScriptError(true);
-        setScriptLoaded(false);
-      };
-      
-      document.head.appendChild(script);
-    }, 500);
   };
 
   if (loading) {
@@ -598,7 +372,7 @@ export default function AISpecialistSessionPage() {
                   <div className={`w-2 h-2 ${timerStarted ? 'bg-green-500' : 'bg-blue-500'} rounded-full mr-2 animate-pulse`}></div>
                   {timerStarted ? 'Active' : 'Ready'}
                 </Badge>
-                {conversationStarted && (
+                {conversationActive && (
                   <Badge className="bg-purple-100 text-purple-800">
                     <Mic className="w-3 h-3 mr-1" />
                     Conversation Active
@@ -616,9 +390,9 @@ export default function AISpecialistSessionPage() {
                     </Badge>
                   </>
                 )}
-                {elevenLabsConversationId && (
+                {conversationId && (
                   <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                    ID: {elevenLabsConversationId.slice(-6)}
+                    ID: {conversationId.slice(-6)}
                   </Badge>
                 )}
               </div>
@@ -723,124 +497,77 @@ export default function AISpecialistSessionPage() {
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {scriptError ? (
-                      <div className="text-center py-12">
-                        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Connection Error</h3>
-                        <p className="text-gray-600 mb-4">
-                          Unable to load the AI coach. This might be due to network issues or the agent being temporarily unavailable.
-                        </p>
-                        <Button onClick={retryScriptLoad} className="bg-blue-600 hover:bg-blue-700">
-                          Try Again
-                        </Button>
-                      </div>
-                    ) : !scriptLoaded ? (
-                      <div className="text-center py-12">
-                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-gray-600">Loading AI Coach...</p>
-                        <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        {/* Session Status Display */}
-                        <div className="bg-gray-50 rounded-xl p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="flex items-center space-x-2">
-                                <Clock className="w-4 h-4 text-gray-600" />
-                                <span className="text-sm font-medium text-gray-900">
-                                  Session Time: {formatTime(sessionTime)}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Coins className={`w-4 h-4 ${tokenDisplay.color}`} />
-                                <span className={`text-sm font-medium ${tokenDisplay.color}`}>
-                                  {tokenDisplay.message}
-                                </span>
-                              </div>
-                              {conversationStarted && (
-                                <div className="flex items-center space-x-2">
-                                  <Mic className="w-4 h-4 text-purple-600" />
-                                  <span className="text-sm font-medium text-purple-600">
-                                    Conversation Active
-                                  </span>
-                                </div>
-                              )}
-                              {elevenLabsConversationId && (
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                  <span className="text-xs text-gray-600">
-                                    ID: {elevenLabsConversationId}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            {sessionTime <= 15 && (
-                              <Badge className="bg-green-100 text-green-800 text-xs">
-                                Free Trial
-                              </Badge>
-                            )}
+                    {/* Session Status Display */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="w-4 h-4 text-gray-600" />
+                            <span className="text-sm font-medium text-gray-900">
+                              Session Time: {formatTime(sessionTime)}
+                            </span>
                           </div>
+                          <div className="flex items-center space-x-2">
+                            <Coins className={`w-4 h-4 ${tokenDisplay.color}`} />
+                            <span className={`text-sm font-medium ${tokenDisplay.color}`}>
+                              {tokenDisplay.message}
+                            </span>
+                          </div>
+                          {conversationActive && (
+                            <div className="flex items-center space-x-2">
+                              <Mic className="w-4 h-4 text-purple-600" />
+                              <span className="text-sm font-medium text-purple-600">
+                                Conversation Active
+                              </span>
+                            </div>
+                          )}
+                          {conversationId && (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span className="text-xs text-gray-600">
+                                ID: {conversationId}
+                              </span>
+                            </div>
+                          )}
                         </div>
+                        {sessionTime <= 15 && (
+                          <Badge className="bg-green-100 text-green-800 text-xs">
+                            Free Trial
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
 
-                        {/* ElevenLabs ConvAI Widget - Centered and Fully Visible */}
-                        <div className="flex justify-center">
-                          <div 
-                            className="w-full max-w-3xl bg-gray-50 rounded-2xl p-4 flex justify-center items-center"
-                            style={{ minHeight: '600px', position: 'relative' }}
-                          >
-                            <div
-                              className="flex justify-center items-center w-full"
-                              style={{
-                                height: '520px',
-                                position: 'relative',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                minHeight: '520px',
-                              }}
-                            >
-                              <elevenlabs-convai 
-                                agent-id={selectedCoach.agent_id || "agent_01jxwx5htbedvv36tk7v8g1b49"}
-                                style={{
-                                  display: 'block',
-                                  margin: '0 auto',
-                                  width: '100%',
-                                  maxWidth: '400px',
-                                  height: '500px',
-                                  border: 'none',
-                                  borderRadius: '12px',
-                                  boxSizing: 'border-box',
-                                  position: 'relative',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
+                    {/* ElevenLabs Conversation Widget */}
+                    <ConversationWidget
+                      agentId={selectedCoach.agent_id || "agent_01jxwx5htbedvv36tk7v8g1b49"}
+                      onConversationStart={handleConversationStart}
+                      onConversationEnd={handleConversationEnd}
+                      onError={handleConversationError}
+                      disabled={!canStartSession()}
+                    />
 
-                        {/* Coach Information */}
-                        <div className="bg-gray-50 rounded-xl p-6">
-                          <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
-                          <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            <div className="flex items-center space-x-1">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <span>Specialty: {selectedCoach.specialty}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span>Powered by ElevenLabs</span>
-                            </div>
-                            {elevenLabsConversationId && (
-                              <div className="flex items-center space-x-1">
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                <span>Conv ID: {elevenLabsConversationId.slice(-8)}</span>
-                              </div>
-                            )}
-                          </div>
+                    {/* Coach Information */}
+                    <div className="bg-gray-50 rounded-xl p-6">
+                      <h3 className="font-semibold text-gray-900 mb-2">About Your AI Coach</h3>
+                      <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <div className="flex items-center space-x-1">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span>Specialty: {selectedCoach.specialty}</span>
                         </div>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span>Powered by ElevenLabs</span>
+                        </div>
+                        {conversationId && (
+                          <div className="flex items-center space-x-1">
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                            <span>Conv ID: {conversationId.slice(-8)}</span>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -866,16 +593,16 @@ export default function AISpecialistSessionPage() {
                     <div className="flex items-center space-x-2 text-gray-600">
                       <span>Credits left: {subscription?.credits_remaining || 0}</span>
                     </div>
-                    {conversationStarted && (
+                    {conversationActive && (
                       <div className="flex items-center space-x-2 text-purple-600">
                         <Mic className="w-4 h-4" />
                         <span>Recording conversation</span>
                       </div>
                     )}
-                    {elevenLabsConversationId && (
+                    {conversationId && (
                       <div className="flex items-center space-x-2 text-yellow-600">
                         <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                        <span className="text-xs">ID: {elevenLabsConversationId}</span>
+                        <span className="text-xs">ID: {conversationId}</span>
                       </div>
                     )}
                   </div>

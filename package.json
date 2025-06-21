@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@elevenlabs/react": "^0.1.9",
+    "@elevenlabs/client": "^0.7.1",
     "@hookform/resolvers": "^3.9.0",
     "@next/swc-wasm-nodejs": "13.5.1",
     "@radix-ui/react-accordion": "^1.2.0",
