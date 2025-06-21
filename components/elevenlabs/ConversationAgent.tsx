@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Conversation } from '@elevenlabs/react';
+import { useState } from 'react';
+import { useConversation } from '@elevenlabs/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -43,6 +43,24 @@ export function ConversationAgent({
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
+
+  // Use the ElevenLabs useConversation hook with options
+  const conversation = useConversation({
+    agentId: coach.agent_id,
+    onConnect: (props: { conversationId: string }) => {
+      handleConversationStart(props.conversationId);
+    },
+    onDisconnect: () => {
+      handleConversationEnd();
+    },
+    onError: (err: string) => {
+      handleConversationError(err);
+    },
+    onMessage: (message: any) => {
+      console.log('📨 Message received:', message);
+    },
+    // You can add more options here if needed (clientTools, overrides, textOnly, etc.)
+  });
 
   // Handle conversation start
   const handleConversationStart = async (id: string) => {
@@ -126,6 +144,34 @@ export function ConversationAgent({
     }
   };
 
+  // Start a new conversation session using the new API
+  const handleStartConversation = async () => {
+    setConversationError('');
+    try {
+      // You can pass a URL or other options if needed
+      // For demonstration, we'll just call startSession with an empty object
+      // If you have a specific URL, pass { url }
+      const id = await conversation.startSession({});
+      handleConversationStart(id);
+    } catch (error: any) {
+      setConversationError(error?.message || 'Failed to start conversation');
+    }
+  };
+
+  // End the conversation session
+  const handleEndConversation = async () => {
+    try {
+      await conversation.endSession();
+      handleConversationEnd();
+    } catch (error: any) {
+      setConversationError(error?.message || 'Failed to end conversation');
+    }
+  };
+
+  // Status helpers
+  const status = conversation.status || '';
+  const conversationHookError = conversation.error || '';
+
   if (!isSessionActive) {
     return (
       <div className="text-center py-8">
@@ -197,11 +243,11 @@ export function ConversationAgent({
       </Alert>
 
       {/* Error Display */}
-      {conversationError && (
+      {(conversationError || conversationHookError) && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            {conversationError}
+            {conversationError || conversationHookError}
           </AlertDescription>
         </Alert>
       )}
@@ -221,20 +267,14 @@ export function ConversationAgent({
           </p>
           
           <div className="mb-6">
-            <Conversation
-              agentId={coach.agent_id || "agent_01jxwx5htbedvv36tk7v8g1b49"}
-              onConnect={handleConversationStart}
-              onDisconnect={handleConversationEnd}
-              onError={handleConversationError}
-              onMessage={(message) => {
-                console.log('📨 Message received:', message);
-              }}
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleStartConversation}
+              disabled={status === 'connecting' || status === 'connected'}
             >
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Play className="w-4 h-4 mr-2" />
-                Start Conversation
-              </Button>
-            </Conversation>
+              <Play className="w-4 h-4 mr-2" />
+              {status === 'connecting' ? 'Connecting...' : 'Start Conversation'}
+            </Button>
           </div>
         </div>
       ) : (
@@ -334,29 +374,20 @@ export function ConversationAgent({
 
           {/* ElevenLabs Conversation Component (Active State) */}
           <div className="bg-white border-2 border-green-200 rounded-lg p-4">
-            <Conversation
-              agentId={coach.agent_id || "agent_01jxwx5htbedvv36tk7v8g1b49"}
-              onConnect={handleConversationStart}
-              onDisconnect={handleConversationEnd}
-              onError={handleConversationError}
-              onMessage={(message) => {
-                console.log('📨 Message received:', message);
-              }}
-            >
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-4">
-                  Conversation is active. Use the microphone to speak with {coach.name}.
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={handleConversationEnd}
-                  className="bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
-                >
-                  <Square className="w-4 h-4 mr-2" />
-                  End Conversation
-                </Button>
-              </div>
-            </Conversation>
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-4">
+                Conversation is active. Use the microphone to speak with {coach.name}.
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={handleEndConversation}
+                className="bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
+                disabled={status === 'disconnecting'}
+              >
+                <Square className="w-4 h-4 mr-2" />
+                {status === 'disconnecting' ? 'Ending...' : 'End Conversation'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
