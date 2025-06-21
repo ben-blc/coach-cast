@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,8 +15,7 @@ import {
   Calendar,
   BarChart3,
   Settings,
-  CreditCard,
-  RefreshCw
+  CreditCard
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { SessionCard } from '@/components/dashboard/SessionCard';
@@ -30,9 +29,7 @@ export default function DashboardPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [sessions, setSessions] = useState<CoachingSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // Calculate credits used from sessions
   const calculateCreditsUsed = (sessions: CoachingSession[]): number => {
@@ -76,12 +73,8 @@ export default function DashboardPage() {
   };
 
   // Function to load all user data
-  const loadUserData = async (showRefreshIndicator = false) => {
+  const loadUserData = async () => {
     try {
-      if (showRefreshIndicator) {
-        setRefreshing(true);
-      }
-
       const currentUser = await getCurrentUser();
       if (!currentUser) {
         router.push('/auth');
@@ -130,56 +123,13 @@ export default function DashboardPage() {
       router.push('/discovery');
     } finally {
       setLoading(false);
-      if (showRefreshIndicator) {
-        setRefreshing(false);
-      }
     }
   };
 
   useEffect(() => {
     loadUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
-
-  // Auto-refresh data when returning from a session
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && !loading) {
-        console.log('Page became visible, refreshing data...');
-        loadUserData(true);
-      }
-    };
-
-    const handleFocus = () => {
-      if (!loading) {
-        console.log('Window focused, refreshing data...');
-        loadUserData(true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [loading]);
-
-  // Check URL params for refresh trigger
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    const refresh = searchParams.get('refresh');
-    
-    if (refresh === 'true' || tab === 'sessions') {
-      console.log('URL indicates refresh needed, reloading data...');
-      loadUserData(true);
-    }
-  }, [searchParams]);
-
-  // Manual refresh function
-  const handleRefresh = () => {
-    loadUserData(true);
-  };
 
   if (loading) {
     return (
@@ -256,12 +206,6 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            {refreshing && (
-              <div className="flex items-center space-x-2 text-blue-600">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm">Refreshing...</span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -311,16 +255,6 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">
                     of {subscription.monthly_limit} {subscription.plan_type === 'free' ? 'minutes' : 'credits'}
                   </p>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={handleRefresh}
-                    className="mt-2 text-xs"
-                    disabled={refreshing}
-                  >
-                    <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
-                    {refreshing ? 'Refreshing...' : 'Refresh'}
-                  </Button>
                 </CardContent>
               </Card>
 
@@ -449,14 +383,6 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900">My Sessions</h2>
               <div className="flex items-center space-x-3">
-                <Button 
-                  variant="outline" 
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Refreshing...' : 'Refresh'}
-                </Button>
                 <Button asChild>
                   <a href="/discovery">
                     <Play className="h-4 w-4 mr-2" />
@@ -467,19 +393,21 @@ export default function DashboardPage() {
             </div>
 
             {sessions.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-6">
                 {sessions.map((session) => (
-                  <SessionCard key={session.id} session={{
-                    id: session.id,
-                    type: session.session_type === 'ai_specialist' ? 'AI Specialist' : 
-                          session.session_type === 'digital_chemistry' ? 'Digital Chemistry' :
-                          session.session_type === 'human_voice_ai' ? 'Human Voice AI' : 'Live Human',
-                    coach: session.ai_coach_id ? 'AI Coach' : 'Human Coach',
-                    date: session.created_at,
-                    duration: getSessionDisplayMinutes(session.duration_seconds),
-                    summary: session.summary || 'Session completed successfully.',
-                    goals: session.goals || []
-                  }} detailed />
+                  <div key={session.id}>
+                    <SessionCard session={{
+                      id: session.id,
+                      type: session.session_type === 'ai_specialist' ? 'AI Specialist' : 
+                            session.session_type === 'digital_chemistry' ? 'Digital Chemistry' :
+                            session.session_type === 'human_voice_ai' ? 'Human Voice AI' : 'Live Human',
+                      coach: session.ai_coach_id ? 'AI Coach' : 'Human Coach',
+                      date: session.created_at,
+                      duration: getSessionDisplayMinutes(session.duration_seconds),
+                      summary: session.summary || 'Session completed successfully.',
+                      goals: session.goals || []
+                    }} detailed />
+                  </div>
                 ))}
               </div>
             ) : (

@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Video, Users, Play, Sparkles, ArrowRight, AlertCircle, Coins } from 'lucide-react';
+import { Mic, Video, Users, Play, Sparkles, ArrowRight, Coins } from 'lucide-react';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getHumanCoaches, getUserProfile, getUserSubscription, ensureUserProfile, ensureUserSubscription } from '@/lib/database';
@@ -111,22 +110,22 @@ export default function DiscoveryPage() {
     loadData();
   }, [router]);
 
-  const calculateCreditsRemaining = () => {
-    if (!subscription) return 0;
-    return Math.max(0, subscription.credits_remaining);
-  };
+  // Remove credits logic
+  // const calculateCreditsRemaining = () => {
+  //   if (!subscription) return 0;
+  //   return Math.max(0, subscription.credits_remaining);
+  // };
 
-  const canStartSession = () => {
-    return calculateCreditsRemaining() > 0;
-  };
+  // const canStartSession = () => {
+  //   return calculateCreditsRemaining() > 0;
+  // };
+
+  // Always allow session start
+  const canStartSession = () => true;
 
   const handleStartSession = async (optionId: string, route: string) => {
     try {
-      if (!canStartSession()) {
-        return; // Prevent starting session if no credits
-      }
-
-      // Navigate to the specific session type
+      // No credit check
       router.push(route);
     } catch (error) {
       console.error('Error starting session:', error);
@@ -160,7 +159,7 @@ export default function DiscoveryPage() {
     );
   }
 
-  const creditsRemaining = calculateCreditsRemaining();
+  // const creditsRemaining = calculateCreditsRemaining();
   const getPlanDisplayName = (planType: string) => {
     switch (planType) {
       case 'free': return 'Free Trial';
@@ -191,36 +190,17 @@ export default function DiscoveryPage() {
           
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-6">
             {isNewUser 
-              ? `Welcome ${profile.full_name.split(' ')[0]}! You have ${creditsRemaining} minutes of free coaching to explore our platform.`
-              : `You have ${creditsRemaining} credits remaining. Choose how you'd like to continue your coaching journey.`
+              ? `Welcome ${profile.full_name.split(' ')[0]}! Explore our platform with a free trial.`
+              : `Choose how you'd like to continue your coaching journey.`
             }
           </p>
 
-          {/* Credits and Plan Info */}
+          {/* Plan Info Only */}
           <div className="flex justify-center items-center space-x-4 mb-8">
             <Badge variant="outline" className="text-sm">
               {getPlanDisplayName(subscription.plan_type)}
             </Badge>
-            <div className="flex items-center space-x-2">
-              <Coins className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-medium">
-                {creditsRemaining}/{subscription.monthly_limit} credits remaining
-              </span>
-            </div>
           </div>
-
-          {/* No Credits Warning */}
-          {!canStartSession() && (
-            <Alert className="max-w-2xl mx-auto mb-8">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You've used all your available credits for this month. 
-                <Link href="/pricing" className="text-blue-600 hover:underline ml-1">
-                  Upgrade your plan
-                </Link> to continue coaching sessions.
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
@@ -229,8 +209,8 @@ export default function DiscoveryPage() {
               key={option.id}
               className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
                 selectedOption === option.id ? 'ring-2 ring-blue-500 shadow-lg' : ''
-              } ${!canStartSession() ? 'opacity-50' : ''}`}
-              onClick={() => canStartSession() && setSelectedOption(option.id)}
+              }`}
+              onClick={() => setSelectedOption(option.id)}
             >
               <CardHeader className="text-center pb-4">
                 <div className="flex justify-center mb-4">
@@ -301,61 +281,26 @@ export default function DiscoveryPage() {
                     e.stopPropagation();
                     handleStartSession(option.id, option.route);
                   }}
-                  disabled={!canStartSession()}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  {canStartSession() ? 'Start Session' : 'No Credits Available'}
+                  Start Session
                 </Button>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Credit Usage Information */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Coins className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Credit Usage</h3>
-              <p className="text-sm text-gray-600">How your coaching minutes are calculated</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-green-800">Under 15 seconds</span>
-              </div>
-              <p className="text-xs text-green-700">Completely free - no credits used</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium text-blue-800">Over 15 seconds</span>
-              </div>
-              <p className="text-xs text-blue-700">Rounded up to nearest minute</p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span className="text-sm font-medium text-purple-800">1 Credit = 1 Minute</span>
-              </div>
-              <p className="text-xs text-purple-700">Deducted from your monthly allowance</p>
-            </div>
-          </div>
-        </div>
+        {/* Credit Usage Information removed */}
 
         <div className="text-center">
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 max-w-2xl mx-auto">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              {isNewUser ? 'Ready to Begin?' : 'Need More Credits?'}
+              {isNewUser ? 'Ready to Begin?' : 'Explore More'}
             </h3>
             <p className="text-gray-600 mb-6">
               {isNewUser 
-                ? `Your ${creditsRemaining}-minute free trial starts as soon as you choose an option above. No credit card required.`
-                : 'Upgrade your plan to get more coaching credits and unlock additional features.'
+                ? `Your free trial starts as soon as you choose an option above. No credit card required.`
+                : 'Upgrade your plan to unlock additional features.'
               }
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
