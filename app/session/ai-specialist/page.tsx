@@ -29,6 +29,7 @@ declare global {
       off?: (event: string, callback: (data: any) => void) => void;
       getSessionData?: () => any;
       getTranscript?: () => string;
+      getConversationId?: () => string;
     };
   }
 }
@@ -50,6 +51,7 @@ export default function AISpecialistSessionPage() {
   const [conversationStarted, setConversationStarted] = useState(false);
   const [sessionTranscript, setSessionTranscript] = useState<string>('');
   const [conversationData, setConversationData] = useState<any>(null);
+  const [elevenLabsConversationId, setElevenLabsConversationId] = useState<string>('');
   
   const scriptLoadedRef = useRef(false);
   const timeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -203,6 +205,13 @@ export default function AISpecialistSessionPage() {
             setConversationStarted(true);
             conversationStartTimeRef.current = Date.now();
             setConversationData(data);
+            
+            // Try to capture conversation ID
+            if (data.conversationId || data.conversation_id) {
+              const convId = data.conversationId || data.conversation_id;
+              console.log('Captured conversation ID:', convId);
+              setElevenLabsConversationId(convId);
+            }
           };
 
           // Listen for conversation messages
@@ -210,6 +219,13 @@ export default function AISpecialistSessionPage() {
             console.log('Message received:', data);
             if (data.transcript) {
               setSessionTranscript(prev => prev + '\n' + data.transcript);
+            }
+            
+            // Try to capture conversation ID from message data
+            if (!elevenLabsConversationId && (data.conversationId || data.conversation_id)) {
+              const convId = data.conversationId || data.conversation_id;
+              console.log('Captured conversation ID from message:', convId);
+              setElevenLabsConversationId(convId);
             }
           };
 
@@ -219,6 +235,13 @@ export default function AISpecialistSessionPage() {
             setConversationData(prev => ({ ...prev, ...data }));
             if (data.transcript) {
               setSessionTranscript(data.transcript);
+            }
+            
+            // Try to capture conversation ID from end data
+            if (!elevenLabsConversationId && (data.conversationId || data.conversation_id)) {
+              const convId = data.conversationId || data.conversation_id;
+              console.log('Captured conversation ID from end:', convId);
+              setElevenLabsConversationId(convId);
             }
           };
 
@@ -342,10 +365,11 @@ export default function AISpecialistSessionPage() {
         setScriptError(false);
         setEndingSession(false);
         setTimeExceeded(false);
-        setScriptLoaded(false);
         setConversationStarted(false);
         setSessionTranscript('');
         setConversationData(null);
+        setElevenLabsConversationId('');
+        setScriptLoaded(false);
         scriptLoadedRef.current = false;
         conversationStartTimeRef.current = null;
       }
@@ -365,7 +389,7 @@ export default function AISpecialistSessionPage() {
     
     try {
       setEndingSession(true);
-      console.log('Ending session...', { sessionId, sessionTime, forceEnd });
+      console.log('Ending session...', { sessionId, sessionTime, forceEnd, elevenLabsConversationId });
       
       const user = await getCurrentUser();
       if (!user) {
@@ -385,8 +409,10 @@ export default function AISpecialistSessionPage() {
       const finalTokens = calculateTokens(sessionTime);
       console.log('Final tokens calculated:', finalTokens);
       
-      // Try to get final transcript from ElevenLabs
+      // Try to get final transcript and conversation ID from ElevenLabs
       let finalTranscript = sessionTranscript;
+      let finalConversationId = elevenLabsConversationId;
+      
       try {
         if (window.ElevenLabsConvAI?.getTranscript) {
           const elevenLabsTranscript = window.ElevenLabsConvAI.getTranscript();
@@ -394,17 +420,26 @@ export default function AISpecialistSessionPage() {
             finalTranscript = elevenLabsTranscript;
           }
         }
+        
+        if (window.ElevenLabsConvAI?.getConversationId) {
+          const elevenLabsConvId = window.ElevenLabsConvAI.getConversationId();
+          if (elevenLabsConvId) {
+            finalConversationId = elevenLabsConvId;
+            console.log('Retrieved conversation ID from ElevenLabs API:', elevenLabsConvId);
+          }
+        }
       } catch (error) {
-        console.log('Could not get transcript from ElevenLabs:', error);
+        console.log('Could not get data from ElevenLabs API:', error);
       }
 
       // Create session summary
-      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationStarted ? ' Conversation was active.' : ' No conversation detected.'}`;
+      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationStarted ? ' Conversation was active.' : ' No conversation detected.'}${finalConversationId ? ` ElevenLabs Conversation ID: ${finalConversationId}` : ''}`;
       
       // Update session with duration and completion
       const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
+        conversation_id: finalConversationId || null,
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
         summary: sessionSummary,
@@ -435,6 +470,7 @@ export default function AISpecialistSessionPage() {
       setConversationStarted(false);
       setSessionTranscript('');
       setConversationData(null);
+      setElevenLabsConversationId('');
       scriptLoadedRef.current = false;
       conversationStartTimeRef.current = null;
       
@@ -580,6 +616,11 @@ export default function AISpecialistSessionPage() {
                     </Badge>
                   </>
                 )}
+                {elevenLabsConversationId && (
+                  <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                    ID: {elevenLabsConversationId.slice(-6)}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -651,6 +692,7 @@ export default function AISpecialistSessionPage() {
                         <p>• Sessions over 15 seconds are rounded up to the nearest minute</p>
                         <p>• 1 token = 1 minute of coaching time</p>
                         <p>• You have {subscription?.credits_remaining || 0} credits remaining</p>
+                        <p>• ElevenLabs conversation IDs are automatically captured</p>
                       </div>
                     </div>
 
@@ -724,6 +766,14 @@ export default function AISpecialistSessionPage() {
                                   </span>
                                 </div>
                               )}
+                              {elevenLabsConversationId && (
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                  <span className="text-xs text-gray-600">
+                                    ID: {elevenLabsConversationId}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                             {sessionTime <= 15 && (
                               <Badge className="bg-green-100 text-green-800 text-xs">
@@ -781,6 +831,12 @@ export default function AISpecialistSessionPage() {
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                               <span>Powered by ElevenLabs</span>
                             </div>
+                            {elevenLabsConversationId && (
+                              <div className="flex items-center space-x-1">
+                                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                <span>Conv ID: {elevenLabsConversationId.slice(-8)}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -814,6 +870,12 @@ export default function AISpecialistSessionPage() {
                       <div className="flex items-center space-x-2 text-purple-600">
                         <Mic className="w-4 h-4" />
                         <span>Recording conversation</span>
+                      </div>
+                    )}
+                    {elevenLabsConversationId && (
+                      <div className="flex items-center space-x-2 text-yellow-600">
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                        <span className="text-xs">ID: {elevenLabsConversationId}</span>
                       </div>
                     )}
                   </div>
@@ -889,13 +951,13 @@ export default function AISpecialistSessionPage() {
               <Coins className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Token Usage</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Token Usage & Conversation Tracking</h3>
               <p className="text-sm text-gray-600">
                 You have {subscription?.credits_remaining || 0} credits remaining
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-green-50 p-4 rounded-lg">
               <div className="flex items-center space-x-2 mb-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -917,6 +979,13 @@ export default function AISpecialistSessionPage() {
               </div>
               <p className="text-xs text-purple-700">Deducted from your monthly allowance</p>
             </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <div className="flex items-center space-x-2 mb-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                <span className="text-sm font-medium text-yellow-800">Conversation ID</span>
+              </div>
+              <p className="text-xs text-yellow-700">ElevenLabs ID automatically captured</p>
+            </div>
           </div>
         </div>
 
@@ -937,7 +1006,7 @@ export default function AISpecialistSessionPage() {
                 </p>
 
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 mt-1">Real-time voice conversation</p>
+                  <p className="text-xs text-gray-600 mt-1">Real-time voice conversation with conversation ID tracking</p>
                 </div>
 
                 <div className="bg-blue-50 p-3 rounded-lg">
@@ -976,7 +1045,7 @@ export default function AISpecialistSessionPage() {
                   <span className="text-blue-600 font-bold">2</span>
                 </div>
                 <p className="font-medium">Start Session</p>
-                <p className="text-gray-600">Begin conversation and start timer</p>
+                <p className="text-gray-600">Begin conversation and capture ID</p>
               </div>
               <div className="text-center">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">

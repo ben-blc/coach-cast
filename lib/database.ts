@@ -62,6 +62,7 @@ export type CoachingSession = {
   human_coach_id?: string;
   duration_seconds: number;
   credits_used: number;
+  conversation_id?: string; // ElevenLabs conversation ID
   summary?: string;
   goals?: string[];
   audio_url?: string;
