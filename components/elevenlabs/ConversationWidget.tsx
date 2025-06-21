@@ -20,20 +20,6 @@ interface ConversationWidgetProps {
   disabled?: boolean;
 }
 
-// ElevenLabs ConvAI client-side integration
-declare global {
-  interface Window {
-    ElevenLabs?: {
-      ConvAI: {
-        startSession: (config: { agentId: string }) => Promise<string>;
-        endSession: () => Promise<void>;
-        on: (event: string, callback: (data: any) => void) => void;
-        off: (event: string, callback: (data: any) => void) => void;
-      };
-    };
-  }
-}
-
 export function ConversationWidget({
   agentId,
   onConversationStart,
@@ -50,13 +36,9 @@ export function ConversationWidget({
   const [copied, setCopied] = useState(false);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [sdkError, setSdkError] = useState(false);
+  const [conversationActive, setConversationActive] = useState(false);
   
-  const eventHandlersRef = useRef<{
-    onMessage?: (data: any) => void;
-    onConnect?: (data: any) => void;
-    onDisconnect?: (data: any) => void;
-    onError?: (data: any) => void;
-  }>({});
+  const conversationRef = useRef<any>(null);
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
@@ -67,68 +49,23 @@ export function ConversationWidget({
       try {
         console.log('🎯 Loading ElevenLabs SDK...');
         
-        // Check if already loaded
-        if (window.ElevenLabs?.ConvAI) {
-          console.log('✅ ElevenLabs SDK already loaded');
-          setSdkLoaded(true);
-          return;
-        }
-
         // Dynamically import the ElevenLabs package
         const ElevenLabsModule = await import('elevenlabs');
         
-        // Fix: Access the default export correctly
-        const ElevenLabs = ElevenLabsModule.default || ElevenLabsModule;
+        // Get the ElevenLabs class from the module
+        const ElevenLabs = ElevenLabsModule.ElevenLabs || ElevenLabsModule.default;
         
-        // Validate that we have the constructor
-        if (typeof ElevenLabs !== 'function') {
-          console.error('ElevenLabs is not a constructor. Module structure:', ElevenLabsModule);
-          throw new Error('ElevenLabs constructor not found in module');
+        if (!ElevenLabs) {
+          throw new Error('ElevenLabs class not found in module');
         }
-        
+
         // Initialize the client
         const client = new ElevenLabs({
           apiKey: process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || ''
         });
 
-        // Create a mock ConvAI interface for the client
-        window.ElevenLabs = {
-          ConvAI: {
-            startSession: async (config: { agentId: string }) => {
-              console.log('🎯 Starting session with ElevenLabs SDK for agent:', config.agentId);
-              
-              // Use the client to start a conversation
-              try {
-                const response = await client.conversationalAi.createConversation({
-                  agent_id: config.agentId
-                });
-                
-                const convId = response.conversation_id;
-                console.log('✅ ElevenLabs conversation started with REAL ID:', convId);
-                
-                return convId;
-              } catch (error) {
-                console.error('❌ Error starting conversation:', error);
-                throw error;
-              }
-            },
-            
-            endSession: async () => {
-              console.log('🎯 Ending session with ElevenLabs SDK');
-              // Session cleanup logic here
-            },
-            
-            on: (event: string, callback: (data: any) => void) => {
-              console.log('🎯 Registering event listener for:', event);
-              eventHandlersRef.current[event as keyof typeof eventHandlersRef.current] = callback;
-            },
-            
-            off: (event: string, callback: (data: any) => void) => {
-              console.log('🎯 Removing event listener for:', event);
-              delete eventHandlersRef.current[event as keyof typeof eventHandlersRef.current];
-            }
-          }
-        };
+        // Store the client for later use
+        conversationRef.current = client;
 
         console.log('✅ ElevenLabs SDK loaded successfully');
         setSdkLoaded(true);
@@ -146,57 +83,9 @@ export function ConversationWidget({
     loadElevenLabsSDK();
   }, []);
 
-  // Setup event listeners
-  useEffect(() => {
-    if (!sdkLoaded || !window.ElevenLabs?.ConvAI) return;
-
-    const handleMessage = (data: any) => {
-      console.log('📨 Message received:', data);
-      if (data.source && data.message) {
-        const role = data.source === 'ai' ? 'Coach' : 'User';
-        const timestamp = new Date().toLocaleTimeString();
-        setTranscript(prev => prev + `\n[${timestamp}] ${role}: ${data.message}`);
-      }
-    };
-
-    const handleConnect = (data: any) => {
-      console.log('✅ Connected to ElevenLabs:', data);
-      setStatus('connected');
-      setError('');
-    };
-
-    const handleDisconnect = (data: any) => {
-      console.log('🔌 Disconnected from ElevenLabs:', data);
-      setStatus('disconnected');
-    };
-
-    const handleError = (data: any) => {
-      console.error('❌ ElevenLabs error:', data);
-      setError(data.message || 'ElevenLabs error occurred');
-      setStatus('error');
-      onError?.(data.message || 'ElevenLabs error occurred');
-    };
-
-    // Register event listeners
-    window.ElevenLabs.ConvAI.on('message', handleMessage);
-    window.ElevenLabs.ConvAI.on('connect', handleConnect);
-    window.ElevenLabs.ConvAI.on('disconnect', handleDisconnect);
-    window.ElevenLabs.ConvAI.on('error', handleError);
-
-    return () => {
-      // Cleanup event listeners
-      if (window.ElevenLabs?.ConvAI) {
-        window.ElevenLabs.ConvAI.off('message', handleMessage);
-        window.ElevenLabs.ConvAI.off('connect', handleConnect);
-        window.ElevenLabs.ConvAI.off('disconnect', handleDisconnect);
-        window.ElevenLabs.ConvAI.off('error', handleError);
-      }
-    };
-  }, [sdkLoaded, onError]);
-
-  // Start conversation with the ElevenLabs SDK
+  // Start conversation using the ElevenLabs SDK
   const startConversation = useCallback(async () => {
-    if (disabled || status === 'connected' || !sdkLoaded || !window.ElevenLabs?.ConvAI) {
+    if (disabled || status === 'connected' || !sdkLoaded || !conversationRef.current) {
       console.warn('🚫 Cannot start conversation - conditions not met');
       return;
     }
@@ -206,8 +95,12 @@ export function ConversationWidget({
       setError('');
       console.log('🎯 Starting ElevenLabs conversation with agent:', agentId);
       
-      // Start session and get the REAL conversation ID from ElevenLabs
-      const realConversationId = await window.ElevenLabs.ConvAI.startSession({ agentId });
+      // Use the ElevenLabs SDK to create a conversation
+      const response = await conversationRef.current.conversationalAi.createConversation({
+        agent_id: agentId
+      });
+      
+      const realConversationId = response.conversation_id;
       
       console.log('✅ ElevenLabs conversation started with REAL ID:', realConversationId);
       
@@ -218,6 +111,7 @@ export function ConversationWidget({
       
       setConversationId(realConversationId);
       setStatus('connected');
+      setConversationActive(true);
       
       // Notify parent component with the REAL conversation ID
       onConversationStart?.(realConversationId);
@@ -246,9 +140,9 @@ export function ConversationWidget({
     }
   }, [agentId, disabled, status, sdkLoaded, onConversationStart, onError, hasApiKey]);
 
-  // End conversation with the ElevenLabs SDK
+  // End conversation using the ElevenLabs SDK
   const endConversationSession = useCallback(async () => {
-    if (!conversationId || !window.ElevenLabs?.ConvAI) {
+    if (!conversationId || !conversationRef.current) {
       console.warn('🚫 No conversation to end');
       return;
     }
@@ -273,10 +167,7 @@ export function ConversationWidget({
         }
       }
 
-      // End the session using the ElevenLabs SDK
-      await window.ElevenLabs.ConvAI.endSession();
-      
-      // Also call our internal end conversation function
+      // Call our internal end conversation function
       await endConversation(conversationId);
 
       // Notify parent component with the REAL conversation ID
@@ -287,6 +178,7 @@ export function ConversationWidget({
       setConversationDetails(null);
       setTranscript('');
       setStatus('disconnected');
+      setConversationActive(false);
       
       console.log('✅ ElevenLabs conversation ended successfully with REAL ID:', conversationId);
       
@@ -315,12 +207,12 @@ export function ConversationWidget({
   // Auto-cleanup on unmount
   useEffect(() => {
     return () => {
-      if (status === 'connected' && conversationId && window.ElevenLabs?.ConvAI) {
+      if (status === 'connected' && conversationId) {
         console.log('🧹 Component unmounting, ending conversation...');
-        window.ElevenLabs.ConvAI.endSession().catch(console.error);
+        endConversationSession();
       }
     };
-  }, [status, conversationId]);
+  }, [status, conversationId, endConversationSession]);
 
   // Show SDK loading state
   if (!sdkLoaded && !sdkError) {
@@ -517,7 +409,7 @@ export function ConversationWidget({
         </h3>
         <p className="text-gray-600 text-center mb-6 max-w-md">
           Click the button below to begin your conversation with the AI coach. 
-          We'll use the official ElevenLabs NPM package to capture the real conversation ID.
+          We'll use the official ElevenLabs SDK to capture the real conversation ID.
         </p>
         
         {/* API Key Status */}
@@ -560,8 +452,8 @@ export function ConversationWidget({
       </div>
       
       <div className="text-center text-sm text-gray-500">
-        <p>🎯 <strong>ElevenLabs NPM Package Integration:</strong></p>
-        <p>• Official Package • Real conversation IDs • Direct API access</p>
+        <p>🎯 <strong>ElevenLabs SDK Integration:</strong></p>
+        <p>• Official SDK • Real conversation IDs • Direct API access</p>
       </div>
     </div>
   );
