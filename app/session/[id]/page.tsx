@@ -38,6 +38,13 @@ interface SessionDetails extends CoachingSession {
   conversation_details?: any;
 }
 
+// Required for static export - generate static params for known sessions
+export async function generateStaticParams() {
+  // For static export, we return an empty array since sessions are dynamic
+  // The page will be generated on-demand during client-side navigation
+  return [];
+}
+
 export default function SessionDetailPage() {
   const [session, setSession] = useState<SessionDetails | null>(null);
   const [loading, setLoading] = useState(true);
