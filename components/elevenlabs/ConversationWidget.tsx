@@ -76,7 +76,15 @@ export function ConversationWidget({
 
         // Dynamically import the ElevenLabs package
         const ElevenLabsModule = await import('elevenlabs');
-        const ElevenLabs = ElevenLabsModule; // Fixed: Remove .default
+        
+        // Fix: Access the default export correctly
+        const ElevenLabs = ElevenLabsModule.default || ElevenLabsModule;
+        
+        // Validate that we have the constructor
+        if (typeof ElevenLabs !== 'function') {
+          console.error('ElevenLabs is not a constructor. Module structure:', ElevenLabsModule);
+          throw new Error('ElevenLabs constructor not found in module');
+        }
         
         // Initialize the client
         const client = new ElevenLabs({
@@ -129,7 +137,7 @@ export function ConversationWidget({
         
       } catch (error) {
         console.error('❌ Failed to load ElevenLabs SDK:', error);
-        setError('Failed to load ElevenLabs SDK');
+        setError(`Failed to load ElevenLabs SDK: ${error instanceof Error ? error.message : 'Unknown error'}`);
         setSdkError(true);
         setSdkLoaded(false);
       }

@@ -84,9 +84,31 @@ export type SessionAnalytics = {
   created_at: string;
 };
 
+// Helper function to test Supabase connection
+async function testSupabaseConnection(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Supabase connection test error:', error);
+    return false;
+  }
+}
+
 // Helper function to create profile manually if it doesn't exist
 export async function ensureUserProfile(userId: string, email: string, fullName: string): Promise<Profile | null> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in ensureUserProfile');
+      return null;
+    }
+
     // First try to get existing profile
     const { data: existingProfile } = await supabase
       .from('profiles')
@@ -129,6 +151,13 @@ export async function ensureUserProfile(userId: string, email: string, fullName:
 // Helper function to create subscription manually if it doesn't exist
 export async function ensureUserSubscription(userId: string): Promise<Subscription | null> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in ensureUserSubscription');
+      return null;
+    }
+
     // First try to get existing subscription
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
@@ -169,6 +198,13 @@ export async function ensureUserSubscription(userId: string): Promise<Subscripti
 // Database functions with better error handling
 export async function getUserProfile(userId: string): Promise<Profile | null> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getUserProfile');
+      return null;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
@@ -203,12 +239,21 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
 
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getUserSubscription');
+      return null;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      console.error('No active session found');
+      console.error('No active session found in getUserSubscription');
       return null;
     }
+
+    console.log('Fetching subscription for user:', userId);
 
     const { data, error } = await supabase
       .from('subscriptions')
@@ -228,6 +273,7 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
       return null;
     }
 
+    console.log('Successfully fetched subscription:', data);
     return data;
   } catch (error) {
     console.error('Unexpected error in getUserSubscription:', error);
@@ -237,6 +283,13 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
 
 export async function getAICoaches(): Promise<AICoach[]> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getAICoaches');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('ai_coaches')
       .select('*')
@@ -257,6 +310,13 @@ export async function getAICoaches(): Promise<AICoach[]> {
 
 export async function getHumanCoaches(): Promise<HumanCoach[]> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getHumanCoaches');
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('human_coaches')
       .select('*')
@@ -277,6 +337,13 @@ export async function getHumanCoaches(): Promise<HumanCoach[]> {
 
 export async function createCoachingSession(session: Partial<CoachingSession>): Promise<CoachingSession | null> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in createCoachingSession');
+      return null;
+    }
+
     const { data: { session: authSession } } = await supabase.auth.getSession();
     
     if (!authSession) {
@@ -304,6 +371,13 @@ export async function createCoachingSession(session: Partial<CoachingSession>): 
 
 export async function updateCoachingSession(sessionId: string, updates: Partial<CoachingSession>): Promise<CoachingSession | null> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in updateCoachingSession');
+      return null;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
@@ -332,6 +406,13 @@ export async function updateCoachingSession(sessionId: string, updates: Partial<
 
 export async function getUserSessions(userId: string): Promise<CoachingSession[]> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getUserSessions');
+      return [];
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
@@ -364,6 +445,13 @@ export async function getUserSessions(userId: string): Promise<CoachingSession[]
 // New function to get a single session by ID
 export async function getSessionById(sessionId: string): Promise<CoachingSession | null> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getSessionById');
+      return null;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
@@ -395,6 +483,13 @@ export async function getSessionById(sessionId: string): Promise<CoachingSession
 
 export async function updateUserCredits(userId: string, creditsUsed: number): Promise<boolean> {
   try {
+    // Test connection first
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in updateUserCredits');
+      return false;
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
