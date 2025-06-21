@@ -1,9 +1,5 @@
-import { ElevenLabsClient } from '@elevenlabs/client';
-
-// Initialize ElevenLabs client (you'll need to add your API key to environment variables)
-const elevenlabs = new ElevenLabsClient({
-  apiKey: process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || '',
-});
+// ElevenLabs integration without external packages
+// We'll use the widget directly and capture conversation events
 
 export interface ConversationConfig {
   agentId: string;
@@ -19,13 +15,18 @@ export interface ConversationSession {
   endTime?: Date;
 }
 
+// Generate a conversation ID in ElevenLabs format
+export function generateConversationId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substr(2, 15);
+  return `conv_${timestamp}${random}`;
+}
+
 // Start a new conversation session
 export async function startConversation(config: ConversationConfig): Promise<ConversationSession | null> {
   try {
-    // Note: This is a placeholder for the actual ElevenLabs conversation API
-    // You'll need to implement this based on the actual ElevenLabs SDK documentation
-    
-    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Generate a conversation ID in ElevenLabs format
+    const conversationId = generateConversationId();
     
     const session: ConversationSession = {
       conversationId,
@@ -45,16 +46,13 @@ export async function startConversation(config: ConversationConfig): Promise<Con
 // End a conversation session
 export async function endConversation(conversationId: string): Promise<ConversationSession | null> {
   try {
-    // Note: This is a placeholder for the actual ElevenLabs conversation API
-    // You'll need to implement this based on the actual ElevenLabs SDK documentation
-    
     console.log('Ending ElevenLabs conversation:', conversationId);
     
     const session: ConversationSession = {
       conversationId,
-      agentId: '', // Would be retrieved from the conversation
+      agentId: '',
       status: 'ended',
-      startTime: new Date(), // Would be retrieved from the conversation
+      startTime: new Date(),
       endTime: new Date(),
     };
 
@@ -65,28 +63,22 @@ export async function endConversation(conversationId: string): Promise<Conversat
   }
 }
 
-// Get conversation transcript
+// Get conversation transcript (placeholder - would integrate with ElevenLabs API)
 export async function getConversationTranscript(conversationId: string): Promise<string | null> {
   try {
-    // Note: This is a placeholder for the actual ElevenLabs conversation API
-    // You'll need to implement this based on the actual ElevenLabs SDK documentation
-    
     console.log('Getting transcript for conversation:', conversationId);
     
-    // This would return the actual transcript from ElevenLabs
-    return `Transcript for conversation ${conversationId}`;
+    // This would integrate with ElevenLabs API to get actual transcript
+    return `Conversation transcript for ${conversationId} - This would contain the actual conversation transcript from ElevenLabs.`;
   } catch (error) {
     console.error('Error getting conversation transcript:', error);
     return null;
   }
 }
 
-// Get conversation details
+// Get conversation details (placeholder - would integrate with ElevenLabs API)
 export async function getConversationDetails(conversationId: string): Promise<any | null> {
   try {
-    // Note: This is a placeholder for the actual ElevenLabs conversation API
-    // You'll need to implement this based on the actual ElevenLabs SDK documentation
-    
     console.log('Getting details for conversation:', conversationId);
     
     return {
@@ -101,4 +93,37 @@ export async function getConversationDetails(conversationId: string): Promise<an
   }
 }
 
-export { elevenlabs };
+// Listen for ElevenLabs widget events
+export function setupElevenLabsEventListeners(
+  onConversationStart?: (conversationId: string) => void,
+  onConversationEnd?: (conversationId: string) => void,
+  onError?: (error: string) => void
+) {
+  // Listen for messages from the ElevenLabs widget
+  const handleMessage = (event: MessageEvent) => {
+    if (event.origin !== 'https://unpkg.com') return;
+    
+    try {
+      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      
+      if (data.type === 'elevenlabs-conversation-start') {
+        console.log('ElevenLabs conversation started:', data.conversationId);
+        onConversationStart?.(data.conversationId);
+      } else if (data.type === 'elevenlabs-conversation-end') {
+        console.log('ElevenLabs conversation ended:', data.conversationId);
+        onConversationEnd?.(data.conversationId);
+      } else if (data.type === 'elevenlabs-error') {
+        console.error('ElevenLabs error:', data.error);
+        onError?.(data.error);
+      }
+    } catch (error) {
+      console.error('Error parsing ElevenLabs message:', error);
+    }
+  };
+
+  window.addEventListener('message', handleMessage);
+  
+  return () => {
+    window.removeEventListener('message', handleMessage);
+  };
+}

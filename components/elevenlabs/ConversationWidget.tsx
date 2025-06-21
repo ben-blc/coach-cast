@@ -1,10 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mic, Volume2, AlertCircle } from 'lucide-react';
+import { Mic, Volume2, AlertCircle, Play, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { startConversation, endConversation, getConversationTranscript } from '@/lib/elevenlabs';
+import { 
+  startConversation, 
+  endConversation, 
+  getConversationTranscript, 
+  generateConversationId,
+  setupElevenLabsEventListeners 
+} from '@/lib/elevenlabs';
 import type { ConversationSession } from '@/lib/elevenlabs';
 
 interface ConversationWidgetProps {
@@ -13,6 +19,19 @@ interface ConversationWidgetProps {
   onConversationEnd?: (conversationId: string, transcript?: string) => void;
   onError?: (error: string) => void;
   disabled?: boolean;
+}
+
+// Declare the ElevenLabs ConvAI widget type
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'elevenlabs-convai': {
+        'agent-id': string;
+        style?: React.CSSProperties;
+        children?: React.ReactNode;
+      };
+    }
+  }
 }
 
 export function ConversationWidget({
@@ -26,7 +45,82 @@ export function ConversationWidget({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [transcript, setTranscript] = useState<string>('');
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [widgetReady, setWidgetReady] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
+  const scriptLoadedRef = useRef(false);
+
+  // Load ElevenLabs widget script
+  useEffect(() => {
+    if (scriptLoadedRef.current) return;
+
+    const loadScript = () => {
+      // Check if script already exists
+      const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
+      if (existingScript) {
+        setScriptLoaded(true);
+        setWidgetReady(true);
+        scriptLoadedRef.current = true;
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+      script.async = true;
+      script.type = 'text/javascript';
+      
+      script.onload = () => {
+        console.log('ElevenLabs script loaded successfully');
+        setScriptLoaded(true);
+        setWidgetReady(true);
+        scriptLoadedRef.current = true;
+        setError('');
+      };
+
+      script.onerror = (error) => {
+        console.error('Failed to load ElevenLabs script:', error);
+        setError('Failed to load ElevenLabs widget. Please check your internet connection.');
+        setScriptLoaded(false);
+      };
+      
+      document.head.appendChild(script);
+    };
+
+    loadScript();
+  }, []);
+
+  // Setup event listeners for ElevenLabs widget
+  useEffect(() => {
+    if (!scriptLoaded) return;
+
+    const cleanup = setupElevenLabsEventListeners(
+      (conversationId) => {
+        console.log('Widget conversation started:', conversationId);
+        // If we don't have a conversation yet, create one with the provided ID
+        if (!conversation) {
+          const newConversation: ConversationSession = {
+            conversationId,
+            agentId,
+            status: 'active',
+            startTime: new Date(),
+          };
+          setConversation(newConversation);
+          onConversationStart?.(conversationId);
+        }
+      },
+      (conversationId) => {
+        console.log('Widget conversation ended:', conversationId);
+        handleEndConversation(conversationId);
+      },
+      (error) => {
+        console.error('Widget error:', error);
+        setError(error);
+        onError?.(error);
+      }
+    );
+
+    return cleanup;
+  }, [scriptLoaded, conversation, agentId, onConversationStart, onError]);
 
   // Start conversation
   const handleStartConversation = async () => {
@@ -34,19 +128,19 @@ export function ConversationWidget({
       setIsLoading(true);
       setError('');
 
-      const session = await startConversation({
+      // Generate our own conversation ID
+      const conversationId = generateConversationId();
+      
+      const session: ConversationSession = {
+        conversationId,
         agentId,
-        userId: 'user_' + Date.now(),
-        sessionId: 'session_' + Date.now()
-      });
+        status: 'active',
+        startTime: new Date(),
+      };
 
-      if (session) {
-        setConversation(session);
-        onConversationStart?.(session.conversationId);
-        console.log('Conversation started with ID:', session.conversationId);
-      } else {
-        throw new Error('Failed to start conversation');
-      }
+      setConversation(session);
+      onConversationStart?.(session.conversationId);
+      console.log('Conversation started with ID:', session.conversationId);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to start conversation';
       setError(errorMessage);
@@ -57,25 +151,27 @@ export function ConversationWidget({
   };
 
   // End conversation
-  const handleEndConversation = async () => {
-    if (!conversation) return;
+  const handleEndConversation = async (conversationId?: string) => {
+    const currentConversationId = conversationId || conversation?.conversationId;
+    if (!currentConversationId) return;
 
     try {
       setIsLoading(true);
 
       // Get final transcript
-      const finalTranscript = await getConversationTranscript(conversation.conversationId);
+      const finalTranscript = await getConversationTranscript(currentConversationId);
       if (finalTranscript) {
         setTranscript(finalTranscript);
       }
 
       // End the conversation
-      await endConversation(conversation.conversationId);
+      await endConversation(currentConversationId);
 
-      onConversationEnd?.(conversation.conversationId, finalTranscript || transcript);
+      onConversationEnd?.(currentConversationId, finalTranscript || transcript);
       
       setConversation(null);
-      console.log('Conversation ended:', conversation.conversationId);
+      setWidgetReady(false);
+      console.log('Conversation ended:', currentConversationId);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to end conversation';
       setError(errorMessage);
@@ -85,34 +181,43 @@ export function ConversationWidget({
     }
   };
 
-  // Load ElevenLabs widget script
-  useEffect(() => {
-    if (!conversation) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-    script.async = true;
-    script.type = 'text/javascript';
+  // Retry loading script
+  const retryScriptLoad = () => {
+    setError('');
+    setScriptLoaded(false);
+    setWidgetReady(false);
+    scriptLoadedRef.current = false;
     
-    script.onload = () => {
-      console.log('ElevenLabs widget script loaded');
-      // Widget will be rendered by the elevenlabs-convai element
-    };
-
-    script.onerror = () => {
-      setError('Failed to load ElevenLabs widget');
-    };
+    // Remove existing script if any
+    const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
+    if (existingScript) {
+      document.head.removeChild(existingScript);
+    }
     
-    document.head.appendChild(script);
+    // Trigger reload
+    setTimeout(() => {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+      script.async = true;
+      script.type = 'text/javascript';
+      
+      script.onload = () => {
+        console.log('ElevenLabs script loaded successfully on retry');
+        setScriptLoaded(true);
+        setWidgetReady(true);
+        scriptLoadedRef.current = true;
+        setError('');
+      };
 
-    return () => {
-      // Cleanup script
-      const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
-      if (existingScript) {
-        document.head.removeChild(existingScript);
-      }
-    };
-  }, [conversation]);
+      script.onerror = (error) => {
+        console.error('Failed to load ElevenLabs script on retry:', error);
+        setError('Failed to load ElevenLabs widget. Please try again.');
+        setScriptLoaded(false);
+      };
+      
+      document.head.appendChild(script);
+    }, 500);
+  };
 
   if (error) {
     return (
@@ -120,9 +225,19 @@ export function ConversationWidget({
         <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
         <h3 className="text-lg font-semibold text-red-800 mb-2">Connection Error</h3>
         <p className="text-red-600 text-center mb-4">{error}</p>
-        <Button onClick={() => setError('')} variant="outline">
+        <Button onClick={retryScriptLoad} variant="outline">
           Try Again
         </Button>
+      </div>
+    );
+  }
+
+  if (!scriptLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-lg">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-600">Loading ElevenLabs AI Coach...</p>
+        <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
       </div>
     );
   }
@@ -152,7 +267,7 @@ export function ConversationWidget({
             </>
           ) : (
             <>
-              <Mic className="w-4 h-4 mr-2" />
+              <Play className="w-4 h-4 mr-2" />
               Start Conversation
             </>
           )}
@@ -184,24 +299,53 @@ export function ConversationWidget({
         className="flex justify-center bg-gray-50 rounded-lg p-4"
         style={{ minHeight: '500px' }}
       >
-        <elevenlabs-convai 
-          agent-id={agentId}
+        <div
+          className="flex justify-center items-center w-full"
           style={{
-            display: 'block',
-            margin: '0 auto',
-            width: '100%',
-            maxWidth: '400px',
-            height: '450px',
-            border: 'none',
-            borderRadius: '12px',
+            height: '480px',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '480px',
           }}
-        />
+        >
+          <elevenlabs-convai 
+            agent-id={agentId}
+            style={{
+              display: 'block',
+              margin: '0 auto',
+              width: '100%',
+              maxWidth: '400px',
+              height: '460px',
+              border: 'none',
+              borderRadius: '12px',
+              boxSizing: 'border-box',
+              position: 'relative',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Conversation Info */}
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-800">Conversation Details</p>
+            <p className="text-xs text-blue-600">
+              ID: {conversation.conversationId} • Started: {conversation.startTime.toLocaleTimeString()}
+            </p>
+          </div>
+          <Badge className="bg-blue-100 text-blue-800 text-xs">
+            ElevenLabs
+          </Badge>
+        </div>
       </div>
 
       {/* End Conversation Button */}
       <div className="flex justify-center">
         <Button 
-          onClick={handleEndConversation}
+          onClick={() => handleEndConversation()}
           disabled={isLoading}
           variant="destructive"
         >
@@ -211,7 +355,10 @@ export function ConversationWidget({
               Ending...
             </>
           ) : (
-            'End Conversation'
+            <>
+              <Square className="w-4 h-4 mr-2" />
+              End Conversation
+            </>
           )}
         </Button>
       </div>
