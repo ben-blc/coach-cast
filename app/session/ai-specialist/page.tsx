@@ -517,10 +517,6 @@ export default function AISpecialistSessionPage() {
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                           <span>Specialty: {selectedCoach.specialty}</span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span>Powered by ElevenLabs</span>
-                        </div>
                       </div>
                     </div>
                     
@@ -624,10 +620,6 @@ export default function AISpecialistSessionPage() {
                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                               <span>Specialty: {selectedCoach.specialty}</span>
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span>Powered by ElevenLabs</span>
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -706,7 +698,7 @@ export default function AISpecialistSessionPage() {
             Choose Your AI Specialist Coach
           </h1>
           <p className="text-xl text-gray-600">
-            Select an AI coach specialized in your area of interest for an immediate voice coaching session powered by ElevenLabs.
+            Select an AI coach specialized in your area of interest for an immediate voice coaching session.
           </p>
         </div>
 
@@ -778,11 +770,6 @@ export default function AISpecialistSessionPage() {
                 </p>
 
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-2">Powered by:</p>
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <p className="text-sm font-medium text-gray-900">ElevenLabs ConvAI</p>
-                  </div>
                   <p className="text-xs text-gray-600 mt-1">Real-time voice conversation</p>
                 </div>
 
