@@ -7,6 +7,8 @@ const nextConfig = {
   images: { unoptimized: true },
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
+  // Optimize fonts to prevent loading errors
+  optimizeFonts: false,
   // For static export, we define all the routes we want to pre-generate
   exportPathMap: async function (
     defaultPathMap,
@@ -24,6 +26,10 @@ const nextConfig = {
       '/session/human-voice-ai': { page: '/session/human-voice-ai' },
       '/session-detail': { page: '/session-detail' }, // Static route for session details
     };
+  },
+  // Disable font optimization to prevent fetch errors
+  experimental: {
+    fontLoaders: [],
   },
 };
 

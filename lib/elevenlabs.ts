@@ -36,14 +36,26 @@ export interface ElevenLabsMessage {
   audio_url?: string;
 }
 
-// Get ElevenLabs API key from environment
+// Get ElevenLabs API key from environment - check both client and server side
 const getApiKey = (): string => {
-  const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
-  if (!apiKey || apiKey === 'your_elevenlabs_api_key_here') {
-    console.warn('ElevenLabs API key not found or not configured properly');
-    return '';
+  // Check client-side environment variable
+  if (typeof window !== 'undefined') {
+    const clientApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+    console.log('Client-side API key check:', clientApiKey ? 'Found' : 'Not found');
+    if (clientApiKey && clientApiKey !== 'your_elevenlabs_api_key_here' && clientApiKey.trim() !== '') {
+      return clientApiKey;
+    }
   }
-  return apiKey;
+  
+  // Check server-side environment variable (fallback)
+  const serverApiKey = process.env.ELEVENLABS_API_KEY;
+  console.log('Server-side API key check:', serverApiKey ? 'Found' : 'Not found');
+  if (serverApiKey && serverApiKey !== 'your_elevenlabs_api_key_here' && serverApiKey.trim() !== '') {
+    return serverApiKey;
+  }
+  
+  console.warn('ElevenLabs API key not found in environment variables');
+  return '';
 };
 
 // Base API URL for ElevenLabs
@@ -102,11 +114,11 @@ export async function getConversationDetails(conversationId: string): Promise<El
   try {
     const apiKey = getApiKey();
     if (!apiKey) {
-      console.warn('No API key available, returning mock data');
+      console.warn('No API key available, returning mock conversation details');
       return generateMockConversationDetails(conversationId);
     }
 
-    console.log('Fetching conversation details for:', conversationId);
+    console.log('Fetching conversation details for:', conversationId, 'with API key:', apiKey.substring(0, 10) + '...');
     
     const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}`, {
       method: 'GET',
@@ -116,11 +128,15 @@ export async function getConversationDetails(conversationId: string): Promise<El
       },
     });
 
+    console.log('ElevenLabs API response status:', response.status);
+
     if (!response.ok) {
       if (response.status === 404) {
         console.warn('Conversation not found:', conversationId);
         return generateMockConversationDetails(conversationId);
       }
+      const errorText = await response.text();
+      console.error('ElevenLabs API error:', response.status, errorText);
       throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
     }
 
@@ -167,7 +183,7 @@ export async function getConversationTranscript(conversationId: string): Promise
       return generateMockTranscript(conversationId);
     }
 
-    console.log('Fetching transcript for conversation:', conversationId);
+    console.log('Fetching transcript for conversation:', conversationId, 'with API key:', apiKey.substring(0, 10) + '...');
     
     // First, try to get the conversation transcript directly
     const transcriptResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/transcript`, {
@@ -178,8 +194,11 @@ export async function getConversationTranscript(conversationId: string): Promise
       },
     });
 
+    console.log('Transcript API response status:', transcriptResponse.status);
+
     if (transcriptResponse.ok) {
       const transcriptData = await transcriptResponse.json();
+      console.log('Transcript data received:', transcriptData);
       if (transcriptData.transcript) {
         return transcriptData.transcript;
       }
@@ -194,11 +213,15 @@ export async function getConversationTranscript(conversationId: string): Promise
       },
     });
 
+    console.log('Messages API response status:', messagesResponse.status);
+
     if (!messagesResponse.ok) {
       if (messagesResponse.status === 404) {
         console.warn('Conversation messages not found:', conversationId);
         return generateMockTranscript(conversationId);
       }
+      const errorText = await messagesResponse.text();
+      console.error('Messages API error:', messagesResponse.status, errorText);
       throw new Error(`ElevenLabs API error: ${messagesResponse.status} ${messagesResponse.statusText}`);
     }
 
@@ -226,7 +249,7 @@ export async function getConversationAudio(conversationId: string): Promise<stri
       return `https://www.soundjay.com/misc/sounds/bell-ringing-05.wav`; // Use a real audio file for demo
     }
 
-    console.log('Fetching audio for conversation:', conversationId);
+    console.log('Fetching audio for conversation:', conversationId, 'with API key:', apiKey.substring(0, 10) + '...');
     
     // Try to get the audio URL from the conversation details first
     const conversation = await getConversationDetails(conversationId);
@@ -243,11 +266,15 @@ export async function getConversationAudio(conversationId: string): Promise<stri
       },
     });
 
+    console.log('Audio API response status:', response.status);
+
     if (!response.ok) {
       if (response.status === 404) {
         console.warn('Conversation audio not found:', conversationId);
         return `https://www.soundjay.com/misc/sounds/bell-ringing-05.wav`; // Fallback audio
       }
+      const errorText = await response.text();
+      console.error('Audio API error:', response.status, errorText);
       throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
     }
 
@@ -305,7 +332,7 @@ Source: ElevenLabs ConvAI API`;
 function generateMockTranscript(conversationId: string): string {
   return `Conversation Transcript - ${conversationId}
 Started: ${new Date().toLocaleString()}
-Source: Mock Data (ElevenLabs API key not configured)
+Source: Mock Data (ElevenLabs API key not configured properly)
 
 [${new Date().toLocaleTimeString()}] Coach: Hello! I'm your AI coaching specialist. How are you feeling today, and what would you like to work on in our session?
 
@@ -344,7 +371,7 @@ Source: Mock Data (ElevenLabs API key not configured)
 Session ended: ${new Date().toLocaleString()}
 Duration: ${Math.floor(Math.random() * 10) + 5} minutes
 Total messages: ${Math.floor(Math.random() * 20) + 10}
-Source: Mock Data (Configure ElevenLabs API key for real transcripts)`;
+Source: Mock Data (Configure ElevenLabs API key properly for real transcripts)`;
 }
 
 // Enhanced event listener setup for ElevenLabs widget
@@ -539,7 +566,9 @@ export async function deleteConversation(conversationId: string): Promise<boolea
 // Utility function to check if API key is configured
 export function isApiKeyConfigured(): boolean {
   const apiKey = getApiKey();
-  return apiKey.length > 0;
+  const isConfigured = apiKey.length > 0;
+  console.log('API key configured:', isConfigured, 'Key length:', apiKey.length);
+  return isConfigured;
 }
 
 // Utility function to validate conversation ID format

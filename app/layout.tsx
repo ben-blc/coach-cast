@@ -1,10 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthGuard } from '@/components/AuthGuard';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Coach Cast - AI & Human Coaching Platform',
@@ -18,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         <AuthGuard>
           {children}
         </AuthGuard>
