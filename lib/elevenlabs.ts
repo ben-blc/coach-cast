@@ -49,20 +49,6 @@ const getApiKey = (): string => {
 // Base API URL for ElevenLabs
 const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1';
 
-// Generate a conversation ID in ElevenLabs format (DEPRECATED - we only use real IDs now)
-export function generateConversationId(): string {
-  console.error('🚫 generateConversationId() called - we should ONLY use real ElevenLabs IDs!');
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substr(2, 15);
-  return `conv_${timestamp}${random}`;
-}
-
-// Start a new conversation session (DEPRECATED - we only use real IDs now)
-export async function startConversation(config: ConversationConfig): Promise<ConversationSession | null> {
-  console.error('🚫 startConversation() called - we should ONLY use real ElevenLabs conversation IDs!');
-  return null;
-}
-
 // End a conversation session
 export async function endConversation(conversationId: string): Promise<ConversationSession | null> {
   try {

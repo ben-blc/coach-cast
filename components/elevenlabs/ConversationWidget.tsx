@@ -35,6 +35,10 @@ declare global {
   
   interface Window {
     ElevenLabs?: any;
+    elevenLabsConversationCallbacks?: {
+      onStart?: (id: string) => void;
+      onEnd?: (id: string) => void;
+    };
   }
 }
 
@@ -59,7 +63,6 @@ export function ConversationWidget({
   const widgetRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
   const eventListenerCleanupRef = useRef<(() => void) | null>(null);
-  const widgetInstanceRef = useRef<any>(null);
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
@@ -86,12 +89,28 @@ export function ConversationWidget({
       script.type = 'text/javascript';
       
       script.onload = () => {
-        console.log('🎯 ElevenLabs script loaded successfully');
+        console.log('✅ ElevenLabs script loaded successfully');
         setScriptLoaded(true);
         setWidgetReady(true);
         scriptLoadedRef.current = true;
         setError('');
         setWidgetError(false);
+        
+        // Set up global callbacks for the widget to use
+        window.elevenLabsConversationCallbacks = {
+          onStart: (conversationId: string) => {
+            console.log('🎯 GLOBAL CALLBACK - Conversation started:', conversationId);
+            if (conversationId && conversationId.startsWith('conv_')) {
+              handleConversationStart(conversationId);
+            }
+          },
+          onEnd: (conversationId: string) => {
+            console.log('🎯 GLOBAL CALLBACK - Conversation ended:', conversationId);
+            if (conversationId && conversationId.startsWith('conv_')) {
+              handleConversationEndEvent(conversationId);
+            }
+          }
+        };
       };
 
       script.onerror = (error) => {
@@ -111,7 +130,7 @@ export function ConversationWidget({
   useEffect(() => {
     if (!scriptLoaded) return;
 
-    console.log('🎯 Setting up enhanced ElevenLabs event listeners...');
+    console.log('🎯 Setting up comprehensive ElevenLabs event listeners...');
     
     // Listen for messages from the ElevenLabs widget
     const handleMessage = (event: MessageEvent) => {
@@ -122,6 +141,7 @@ export function ConversationWidget({
         'https://api.elevenlabs.io',
         'https://widget.elevenlabs.io',
         'https://convai.elevenlabs.io',
+        'https://embed.elevenlabs.io',
         'http://localhost',
         'https://localhost'
       ];
@@ -146,9 +166,17 @@ export function ConversationWidget({
           try {
             data = JSON.parse(data);
           } catch {
-            // If it's not JSON, check if it's a simple message
-            if (data.includes('conversation') || data.includes('elevenlabs')) {
-              console.log('🎯 ElevenLabs string message:', data);
+            // Check for conversation ID patterns in string messages
+            const convIdMatch = data.match(/conv_[a-zA-Z0-9]+/);
+            if (convIdMatch) {
+              const conversationId = convIdMatch[0];
+              console.log('🎯 Found conversation ID in string message:', conversationId);
+              
+              if (data.includes('start') || data.includes('begin')) {
+                handleConversationStart(conversationId);
+              } else if (data.includes('end') || data.includes('stop')) {
+                handleConversationEndEvent(conversationId);
+              }
             }
             return;
           }
@@ -158,24 +186,48 @@ export function ConversationWidget({
         if (data && typeof data === 'object') {
           console.log('🎯 ElevenLabs widget message received:', data);
           
-          // Check for conversation start events with various possible field names
-          if (data.type === 'elevenlabs-conversation-start' || 
-              data.type === 'conversation-start' ||
-              data.type === 'convai-conversation-start' ||
-              data.event === 'conversation-start' ||
-              data.type === 'conversation_started' ||
-              data.event === 'conversation_started' ||
-              data.type === 'conversationStarted' ||
-              data.event === 'conversationStarted') {
-            
-            const conversationId = data.conversationId || 
-                                 data.conversation_id || 
-                                 data.id || 
-                                 data.convId ||
-                                 data.conv_id ||
-                                 data.conversationID ||
-                                 data.conversation_ID;
-            
+          // Extract conversation ID from various possible field names
+          const conversationId = data.conversationId || 
+                               data.conversation_id || 
+                               data.id || 
+                               data.convId ||
+                               data.conv_id ||
+                               data.conversationID ||
+                               data.conversation_ID ||
+                               data.sessionId ||
+                               data.session_id ||
+                               data.callId ||
+                               data.call_id;
+          
+          // Check for conversation start events
+          const isStartEvent = data.type === 'elevenlabs-conversation-start' || 
+                              data.type === 'conversation-start' ||
+                              data.type === 'convai-conversation-start' ||
+                              data.event === 'conversation-start' ||
+                              data.type === 'conversation_started' ||
+                              data.event === 'conversation_started' ||
+                              data.type === 'conversationStarted' ||
+                              data.event === 'conversationStarted' ||
+                              data.type === 'session-start' ||
+                              data.event === 'session-start' ||
+                              data.type === 'call-start' ||
+                              data.event === 'call-start';
+          
+          // Check for conversation end events
+          const isEndEvent = data.type === 'elevenlabs-conversation-end' || 
+                            data.type === 'conversation-end' ||
+                            data.type === 'convai-conversation-end' ||
+                            data.event === 'conversation-end' ||
+                            data.type === 'conversation_ended' ||
+                            data.event === 'conversation_ended' ||
+                            data.type === 'conversationEnded' ||
+                            data.event === 'conversationEnded' ||
+                            data.type === 'session-end' ||
+                            data.event === 'session-end' ||
+                            data.type === 'call-end' ||
+                            data.event === 'call-end';
+          
+          if (isStartEvent) {
             console.log('🎯 Conversation start event - extracted ID:', conversationId);
             
             // ONLY proceed if we have a REAL ElevenLabs conversation ID
@@ -185,26 +237,7 @@ export function ConversationWidget({
             } else {
               console.warn('🚫 Conversation start event received but no valid ID found:', data);
             }
-          }
-          
-          // Check for conversation end events
-          else if (data.type === 'elevenlabs-conversation-end' || 
-                   data.type === 'conversation-end' ||
-                   data.type === 'convai-conversation-end' ||
-                   data.event === 'conversation-end' ||
-                   data.type === 'conversation_ended' ||
-                   data.event === 'conversation_ended' ||
-                   data.type === 'conversationEnded' ||
-                   data.event === 'conversationEnded') {
-            
-            const conversationId = data.conversationId || 
-                                 data.conversation_id || 
-                                 data.id || 
-                                 data.convId ||
-                                 data.conv_id ||
-                                 data.conversationID ||
-                                 data.conversation_ID;
-            
+          } else if (isEndEvent) {
             console.log('🎯 Conversation end event - extracted ID:', conversationId);
             
             // ONLY proceed if we have a REAL ElevenLabs conversation ID
