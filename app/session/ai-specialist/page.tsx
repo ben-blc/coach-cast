@@ -192,9 +192,16 @@ export default function AISpecialistSessionPage() {
     }
   };
 
-  // Handle conversation start from ElevenLabs
+  // Handle conversation start from ElevenLabs - ONLY with REAL conversation IDs
   const handleConversationStart = (convId: string) => {
-    console.log('ElevenLabs conversation started:', convId);
+    console.log('🎯 ElevenLabs conversation started with REAL ID:', convId);
+    
+    // ONLY proceed if we have a REAL conversation ID
+    if (!convId || !convId.startsWith('conv_')) {
+      console.warn('🚫 Invalid conversation ID received, ignoring:', convId);
+      return;
+    }
+    
     setConversationId(convId);
     setConversationActive(true);
     
@@ -204,9 +211,16 @@ export default function AISpecialistSessionPage() {
     }
   };
 
-  // Handle conversation end from ElevenLabs
+  // Handle conversation end from ElevenLabs - ONLY with REAL conversation IDs
   const handleConversationEnd = (convId: string, transcript?: string) => {
-    console.log('ElevenLabs conversation ended:', convId, transcript);
+    console.log('🎯 ElevenLabs conversation ended with REAL ID:', convId, transcript);
+    
+    // ONLY proceed if we have a REAL conversation ID
+    if (!convId || !convId.startsWith('conv_')) {
+      console.warn('🚫 Invalid conversation ID for end event, ignoring:', convId);
+      return;
+    }
+    
     setConversationActive(false);
     if (transcript) {
       setConversationTranscript(transcript);
@@ -229,7 +243,7 @@ export default function AISpecialistSessionPage() {
     
     try {
       setEndingSession(true);
-      console.log('Ending session...', { sessionId, sessionTime, forceEnd, conversationId });
+      console.log('🎯 Ending session...', { sessionId, sessionTime, forceEnd, conversationId });
       
       const user = await getCurrentUser();
       if (!user) {
@@ -250,13 +264,13 @@ export default function AISpecialistSessionPage() {
       console.log('Final tokens calculated:', finalTokens);
 
       // Create session summary
-      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationActive ? ' ElevenLabs conversation was active.' : ' No active conversation detected.'}${conversationId ? ` Conversation ID: ${conversationId}` : ''}`;
+      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationActive ? ' ElevenLabs conversation was active.' : ' No active conversation detected.'}${conversationId ? ` Real ElevenLabs Conversation ID: ${conversationId}` : ''}`;
       
       // Update session with duration and completion
       const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
-        conversation_id: conversationId || null,
+        conversation_id: conversationId || null, // Use REAL conversation ID or null
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
         summary: sessionSummary,
@@ -264,7 +278,7 @@ export default function AISpecialistSessionPage() {
         goals: conversationActive ? ['Engaged in AI coaching conversation'] : ['Session started but no conversation detected']
       };
 
-      console.log('Updating session with:', sessionUpdate);
+      console.log('🎯 Updating session with REAL conversation ID:', sessionUpdate);
       const updatedSession = await updateCoachingSession(sessionId, sessionUpdate);
       console.log('Session updated:', updatedSession);
 
@@ -392,7 +406,7 @@ export default function AISpecialistSessionPage() {
                 )}
                 {conversationId && (
                   <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                    ID: {conversationId.slice(-6)}
+                    Real ID: {conversationId.slice(-6)}
                   </Badge>
                 )}
               </div>
@@ -466,7 +480,7 @@ export default function AISpecialistSessionPage() {
                         <p>• Sessions over 15 seconds are rounded up to the nearest minute</p>
                         <p>• 1 token = 1 minute of coaching time</p>
                         <p>• You have {subscription?.credits_remaining || 0} credits remaining</p>
-                        <p>• ElevenLabs conversation IDs are automatically captured</p>
+                        <p>• <strong>ONLY real ElevenLabs conversation IDs are captured</strong></p>
                       </div>
                     </div>
 
@@ -523,9 +537,9 @@ export default function AISpecialistSessionPage() {
                           )}
                           {conversationId && (
                             <div className="flex items-center space-x-2">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                               <span className="text-xs text-gray-600">
-                                ID: {conversationId}
+                                Real ID: {conversationId}
                               </span>
                             </div>
                           )}
@@ -562,8 +576,8 @@ export default function AISpecialistSessionPage() {
                         </div>
                         {conversationId && (
                           <div className="flex items-center space-x-1">
-                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                            <span>Conv ID: {conversationId.slice(-8)}</span>
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span>Real Conv ID: {conversationId.slice(-8)}</span>
                           </div>
                         )}
                       </div>
@@ -600,9 +614,9 @@ export default function AISpecialistSessionPage() {
                       </div>
                     )}
                     {conversationId && (
-                      <div className="flex items-center space-x-2 text-yellow-600">
-                        <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                        <span className="text-xs">ID: {conversationId}</span>
+                      <div className="flex items-center space-x-2 text-green-600">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-xs">Real ID: {conversationId}</span>
                       </div>
                     )}
                   </div>
@@ -680,7 +694,7 @@ export default function AISpecialistSessionPage() {
               <Coins className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Token Usage & Conversation Tracking</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Token Usage & Real Conversation Tracking</h3>
               <p className="text-sm text-gray-600">
                 You have {subscription?.credits_remaining || 0} credits remaining
               </p>
@@ -710,10 +724,10 @@ export default function AISpecialistSessionPage() {
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm font-medium text-yellow-800">Conversation ID</span>
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium text-yellow-800">Real Conversation ID</span>
               </div>
-              <p className="text-xs text-yellow-700">ElevenLabs ID automatically captured</p>
+              <p className="text-xs text-yellow-700">ONLY real ElevenLabs IDs captured</p>
             </div>
           </div>
         </div>
@@ -735,7 +749,7 @@ export default function AISpecialistSessionPage() {
                 </p>
 
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 mt-1">Real-time voice conversation with conversation ID tracking</p>
+                  <p className="text-xs text-gray-600 mt-1">Real-time voice conversation with REAL conversation ID tracking</p>
                 </div>
 
                 <div className="bg-blue-50 p-3 rounded-lg">
@@ -774,7 +788,7 @@ export default function AISpecialistSessionPage() {
                   <span className="text-blue-600 font-bold">2</span>
                 </div>
                 <p className="font-medium">Start Session</p>
-                <p className="text-gray-600">Begin conversation and capture ID</p>
+                <p className="text-gray-600">Begin conversation and capture REAL ID</p>
               </div>
               <div className="text-center">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">

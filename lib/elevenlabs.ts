@@ -49,38 +49,30 @@ const getApiKey = (): string => {
 // Base API URL for ElevenLabs
 const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1';
 
-// Generate a conversation ID in ElevenLabs format (used as fallback when widget doesn't send ID)
+// Generate a conversation ID in ElevenLabs format (REMOVED - we only use real IDs now)
 export function generateConversationId(): string {
+  console.warn('🚫 generateConversationId() called - we should ONLY use real ElevenLabs IDs!');
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substr(2, 15);
   return `conv_${timestamp}${random}`;
 }
 
-// Start a new conversation session (used as fallback)
+// Start a new conversation session (REMOVED - we only use real IDs now)
 export async function startConversation(config: ConversationConfig): Promise<ConversationSession | null> {
-  try {
-    console.log('⚠️ Using fallback conversation ID generation - should use real ElevenLabs ID');
-    const conversationId = generateConversationId();
-    
-    const session: ConversationSession = {
-      conversationId,
-      agentId: config.agentId,
-      status: 'active',
-      startTime: new Date(),
-    };
-
-    console.log('Started fallback conversation:', session);
-    return session;
-  } catch (error) {
-    console.error('Error starting fallback conversation:', error);
-    return null;
-  }
+  console.error('🚫 startConversation() called - we should ONLY use real ElevenLabs conversation IDs!');
+  return null;
 }
 
 // End a conversation session
 export async function endConversation(conversationId: string): Promise<ConversationSession | null> {
   try {
-    console.log('🎯 Ending ElevenLabs conversation with ID:', conversationId);
+    console.log('🎯 Ending ElevenLabs conversation with REAL ID:', conversationId);
+    
+    // Validate that this is a real ElevenLabs conversation ID
+    if (!conversationId || !conversationId.startsWith('conv_')) {
+      console.error('🚫 Invalid conversation ID format:', conversationId);
+      return null;
+    }
     
     const session: ConversationSession = {
       conversationId,
@@ -101,12 +93,18 @@ export async function endConversation(conversationId: string): Promise<Conversat
 export async function getConversationDetails(conversationId: string): Promise<ElevenLabsConversation | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn('No API key - using mock data');
-    return generateMockConversationDetails(conversationId);
+    console.warn('No API key - cannot fetch conversation details');
+    return null;
+  }
+
+  // Validate conversation ID format
+  if (!conversationId || !conversationId.startsWith('conv_')) {
+    console.error('🚫 Invalid conversation ID format:', conversationId);
+    return null;
   }
 
   try {
-    console.log(`🎯 Fetching conversation details for ID: ${conversationId}`);
+    console.log(`🎯 Fetching conversation details for REAL ID: ${conversationId}`);
     
     const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}`, {
       method: 'GET',
@@ -121,16 +119,16 @@ export async function getConversationDetails(conversationId: string): Promise<El
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`API Error: ${response.status} - ${errorText}`);
-      return generateMockConversationDetails(conversationId);
+      return null;
     }
 
     const data = await response.json();
-    console.log('🎯 Conversation details received for ID:', conversationId, data);
+    console.log('🎯 Conversation details received for REAL ID:', conversationId, data);
     return data;
     
   } catch (error) {
     console.error('Error fetching conversation details:', error);
-    return generateMockConversationDetails(conversationId);
+    return null;
   }
 }
 
@@ -142,8 +140,14 @@ export async function getConversationTranscript(conversationId: string): Promise
     return null;
   }
 
+  // Validate conversation ID format
+  if (!conversationId || !conversationId.startsWith('conv_')) {
+    console.error('🚫 Invalid conversation ID format:', conversationId);
+    return null;
+  }
+
   try {
-    console.log(`🎯 Fetching transcript for ID: ${conversationId}`);
+    console.log(`🎯 Fetching transcript for REAL ID: ${conversationId}`);
     
     // Try the transcript endpoint
     const transcriptResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/transcript`, {
@@ -158,7 +162,7 @@ export async function getConversationTranscript(conversationId: string): Promise
 
     if (transcriptResponse.ok) {
       const transcriptData = await transcriptResponse.json();
-      console.log('🎯 Transcript data for ID:', conversationId, transcriptData);
+      console.log('🎯 Transcript data for REAL ID:', conversationId, transcriptData);
       
       if (transcriptData.transcript) {
         return transcriptData.transcript;
@@ -183,7 +187,7 @@ export async function getConversationTranscript(conversationId: string): Promise
 
     if (messagesResponse.ok) {
       const messages = await messagesResponse.json();
-      console.log('🎯 Messages received for ID:', conversationId, messages);
+      console.log('🎯 Messages received for REAL ID:', conversationId, messages);
       
       if (Array.isArray(messages) && messages.length > 0) {
         return formatMessagesToTranscript(messages, conversationId);
@@ -191,7 +195,7 @@ export async function getConversationTranscript(conversationId: string): Promise
     }
 
     // If both fail, return null (no transcript available)
-    console.warn('🎯 Could not fetch transcript from API for ID:', conversationId);
+    console.warn('🎯 Could not fetch transcript from API for REAL ID:', conversationId);
     return null;
     
   } catch (error) {
@@ -208,13 +212,19 @@ export async function getConversationAudio(conversationId: string): Promise<stri
     return null;
   }
 
+  // Validate conversation ID format
+  if (!conversationId || !conversationId.startsWith('conv_')) {
+    console.error('🚫 Invalid conversation ID format:', conversationId);
+    return null;
+  }
+
   try {
-    console.log(`🎯 Fetching audio for ID: ${conversationId}`);
+    console.log(`🎯 Fetching audio for REAL ID: ${conversationId}`);
     
     // First try to get audio URL from conversation details
     const conversation = await getConversationDetails(conversationId);
     if (conversation?.audio_url) {
-      console.log('🎯 Audio URL from conversation details for ID:', conversationId, conversation.audio_url);
+      console.log('🎯 Audio URL from conversation details for REAL ID:', conversationId, conversation.audio_url);
       return conversation.audio_url;
     }
 
@@ -237,12 +247,12 @@ export async function getConversationAudio(conversationId: string): Promise<stri
         // Create blob URL for audio data
         const audioBlob = await audioResponse.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
-        console.log('🎯 Created audio blob URL for ID:', conversationId, audioUrl);
+        console.log('🎯 Created audio blob URL for REAL ID:', conversationId, audioUrl);
         return audioUrl;
       } else {
         // Try to parse as JSON for audio URL
         const audioData = await audioResponse.json();
-        console.log('🎯 Audio data for ID:', conversationId, audioData);
+        console.log('🎯 Audio data for REAL ID:', conversationId, audioData);
         
         if (audioData.audio_url) {
           return audioData.audio_url;
@@ -251,7 +261,7 @@ export async function getConversationAudio(conversationId: string): Promise<stri
     }
 
     // No audio available
-    console.warn('🎯 Could not fetch audio from API for ID:', conversationId);
+    console.warn('🎯 Could not fetch audio from API for REAL ID:', conversationId);
     return null;
     
   } catch (error) {
@@ -288,28 +298,6 @@ Total messages: ${messages.length}
 Source: ElevenLabs ConvAI API`;
 
   return header + formattedMessages + footer;
-}
-
-// Generate mock conversation details for fallback
-function generateMockConversationDetails(conversationId: string): ElevenLabsConversation {
-  return {
-    conversation_id: conversationId,
-    agent_id: 'agent_01jxwx5htbedvv36tk7v8g1b49',
-    user_id: 'user_unknown',
-    status: 'archived',
-    start_time: new Date(Date.now() - 600000).toISOString(),
-    end_time: new Date().toISOString(),
-    metadata: {
-      duration: Math.floor(Math.random() * 600) + 300,
-      messageCount: Math.floor(Math.random() * 20) + 10,
-      participantCount: 2,
-      language: 'en',
-      model: 'eleven_multilingual_v2',
-      voice: 'coaching_specialist',
-      quality: 'high',
-      total_characters: Math.floor(Math.random() * 5000) + 2000
-    }
-  };
 }
 
 // Enhanced event listener setup for ElevenLabs widget
@@ -376,11 +364,12 @@ export function setupElevenLabsEventListeners(
                                data.convId ||
                                data.conv_id;
           
-          if (conversationId) {
+          // ONLY proceed if we have a REAL ElevenLabs conversation ID
+          if (conversationId && conversationId.startsWith('conv_')) {
             console.log('🎯 ElevenLabs conversation started with REAL ID:', conversationId);
             onConversationStart?.(conversationId);
           } else {
-            console.warn('🎯 Conversation start event received but no ID found:', data);
+            console.warn('🚫 Conversation start event received but no valid ID found:', data);
           }
         }
         
@@ -398,11 +387,12 @@ export function setupElevenLabsEventListeners(
                                data.convId ||
                                data.conv_id;
           
-          if (conversationId) {
+          // ONLY proceed if we have a REAL ElevenLabs conversation ID
+          if (conversationId && conversationId.startsWith('conv_')) {
             console.log('🎯 ElevenLabs conversation ended with REAL ID:', conversationId);
             onConversationEnd?.(conversationId);
           } else {
-            console.warn('🎯 Conversation end event received but no ID found:', data);
+            console.warn('🚫 Conversation end event received but no valid ID found:', data);
           }
         }
         
@@ -441,9 +431,15 @@ export function setupElevenLabsEventListeners(
     console.log('🎯 ElevenLabs custom event:', event.type, event.detail);
     
     if (event.type === 'elevenlabs-conversation-start' && event.detail?.conversationId) {
-      onConversationStart?.(event.detail.conversationId);
+      // ONLY proceed if we have a REAL ElevenLabs conversation ID
+      if (event.detail.conversationId.startsWith('conv_')) {
+        onConversationStart?.(event.detail.conversationId);
+      }
     } else if (event.type === 'elevenlabs-conversation-end' && event.detail?.conversationId) {
-      onConversationEnd?.(event.detail.conversationId);
+      // ONLY proceed if we have a REAL ElevenLabs conversation ID
+      if (event.detail.conversationId.startsWith('conv_')) {
+        onConversationEnd?.(event.detail.conversationId);
+      }
     }
   };
 
@@ -495,6 +491,12 @@ export async function deleteConversation(conversationId: string): Promise<boolea
   const apiKey = getApiKey();
   if (!apiKey) {
     console.warn('No API key available for deleting conversation');
+    return false;
+  }
+
+  // Validate conversation ID format
+  if (!conversationId || !conversationId.startsWith('conv_')) {
+    console.error('🚫 Invalid conversation ID format:', conversationId);
     return false;
   }
 
