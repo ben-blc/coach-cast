@@ -100,9 +100,9 @@ export default function DashboardPage() {
       setSubscription(userSubscription);
       setSessions(userSessions);
 
-      // Redirect to onboarding if not completed
-      if (userProfile && !userProfile.onboarding_completed) {
-        router.push('/onboarding');
+      // If user profile doesn't exist, redirect to discovery to complete setup
+      if (!userProfile) {
+        router.push('/discovery');
         return;
       }
     } catch (error) {

@@ -105,7 +105,7 @@ export async function ensureUserProfile(userId: string, email: string, fullName:
         email: email,
         full_name: fullName,
         user_type: 'client',
-        onboarding_completed: false
+        onboarding_completed: true // Set to true since we're using discovery instead
       }])
       .select()
       .single();
@@ -388,31 +388,8 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
   }
 }
 
-export async function completeOnboarding(userId: string): Promise<boolean> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      console.error('No active session found');
-      return false;
-    }
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ onboarding_completed: true })
-      .eq('user_id', userId);
-
-    if (error) {
-      console.error('Error completing onboarding:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Unexpected error in completeOnboarding:', error);
-    return false;
-  }
-}
+// Remove the completeOnboarding function since we're not using onboarding anymore
+// Users go directly to discovery page
 
 // Admin functions for managing data (requires service role or admin privileges)
 export async function createAICoach(coach: Partial<AICoach>): Promise<AICoach | null> {

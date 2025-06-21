@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, Video, Users, Play, Sparkles, ArrowRight, AlertCircle, Coins } from 'lucide-react';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
-import { getAICoaches, getHumanCoaches, getUserProfile, getUserSubscription, completeOnboarding } from '@/lib/database';
+import { getAICoaches, getHumanCoaches, getUserProfile, getUserSubscription, ensureUserProfile, ensureUserSubscription } from '@/lib/database';
 import type { AICoach, HumanCoach, Profile, Subscription } from '@/lib/database';
 
 const sessionOptions = [
@@ -67,9 +67,27 @@ export default function DiscoveryPage() {
 
         setUser(currentUser);
 
-        const [userProfile, userSubscription, coaches, humans] = await Promise.all([
-          getUserProfile(currentUser.id),
-          getUserSubscription(currentUser.id),
+        // Ensure user has profile and subscription
+        let userProfile = await getUserProfile(currentUser.id);
+        let userSubscription = await getUserSubscription(currentUser.id);
+
+        // If profile doesn't exist, create it
+        if (!userProfile) {
+          console.log('Creating profile for user...');
+          userProfile = await ensureUserProfile(
+            currentUser.id, 
+            currentUser.email || '', 
+            currentUser.user_metadata?.full_name || 'User'
+          );
+        }
+
+        // If subscription doesn't exist, create it
+        if (!userSubscription) {
+          console.log('Creating subscription for user...');
+          userSubscription = await ensureUserSubscription(currentUser.id);
+        }
+
+        const [coaches, humans] = await Promise.all([
           getAICoaches(),
           getHumanCoaches()
         ]);
@@ -79,8 +97,8 @@ export default function DiscoveryPage() {
         setAICoaches(coaches);
         setHumanCoaches(humans);
 
-        // Check if this is a new user (onboarding not completed)
-        if (userProfile && !userProfile.onboarding_completed) {
+        // Check if this is a new user (profile was just created or no sessions yet)
+        if (userProfile && (!userProfile.onboarding_completed || userSubscription?.credits_remaining === userSubscription?.monthly_limit)) {
           setIsNewUser(true);
         }
       } catch (error) {
@@ -106,12 +124,6 @@ export default function DiscoveryPage() {
     try {
       if (!canStartSession()) {
         return; // Prevent starting session if no credits
-      }
-
-      if (isNewUser && user && profile) {
-        // Complete onboarding for new users
-        await completeOnboarding(user.id);
-        setIsNewUser(false);
       }
 
       // Navigate to the specific session type
