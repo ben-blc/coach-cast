@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mic, Volume2, AlertCircle, Play, Square } from 'lucide-react';
+import { Mic, Volume2, AlertCircle, Play, Square, ExternalLink, Copy, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   startConversation, 
   endConversation, 
   getConversationTranscript, 
+  getConversationDetails,
   generateConversationId,
   setupElevenLabsEventListeners 
 } from '@/lib/elevenlabs';
@@ -47,8 +49,14 @@ export function ConversationWidget({
   const [transcript, setTranscript] = useState<string>('');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [widgetReady, setWidgetReady] = useState(false);
+  const [conversationDetails, setConversationDetails] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
+
+  // Check if ElevenLabs API key is available
+  const hasApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY && 
+                   process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY !== 'your_elevenlabs_api_key_here';
 
   // Load ElevenLabs widget script
   useEffect(() => {
@@ -94,8 +102,9 @@ export function ConversationWidget({
     if (!scriptLoaded) return;
 
     const cleanup = setupElevenLabsEventListeners(
-      (conversationId) => {
+      async (conversationId) => {
         console.log('Widget conversation started:', conversationId);
+        
         // If we don't have a conversation yet, create one with the provided ID
         if (!conversation) {
           const newConversation: ConversationSession = {
@@ -106,6 +115,16 @@ export function ConversationWidget({
           };
           setConversation(newConversation);
           onConversationStart?.(conversationId);
+          
+          // Fetch conversation details if API key is available
+          if (hasApiKey) {
+            try {
+              const details = await getConversationDetails(conversationId);
+              setConversationDetails(details);
+            } catch (error) {
+              console.error('Error fetching conversation details:', error);
+            }
+          }
         }
       },
       (conversationId) => {
@@ -120,7 +139,7 @@ export function ConversationWidget({
     );
 
     return cleanup;
-  }, [scriptLoaded, conversation, agentId, onConversationStart, onError]);
+  }, [scriptLoaded, conversation, agentId, onConversationStart, onError, hasApiKey]);
 
   // Start conversation
   const handleStartConversation = async () => {
@@ -158,19 +177,28 @@ export function ConversationWidget({
     try {
       setIsLoading(true);
 
-      // Get final transcript
-      const finalTranscript = await getConversationTranscript(currentConversationId);
-      if (finalTranscript) {
-        setTranscript(finalTranscript);
+      // Get final transcript from ElevenLabs API
+      let finalTranscript = transcript;
+      if (hasApiKey) {
+        try {
+          const apiTranscript = await getConversationTranscript(currentConversationId);
+          if (apiTranscript) {
+            finalTranscript = apiTranscript;
+            setTranscript(apiTranscript);
+          }
+        } catch (error) {
+          console.error('Error fetching transcript from API:', error);
+        }
       }
 
       // End the conversation
       await endConversation(currentConversationId);
 
-      onConversationEnd?.(currentConversationId, finalTranscript || transcript);
+      onConversationEnd?.(currentConversationId, finalTranscript);
       
       setConversation(null);
       setWidgetReady(false);
+      setConversationDetails(null);
       console.log('Conversation ended:', currentConversationId);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to end conversation';
@@ -178,6 +206,15 @@ export function ConversationWidget({
       onError?.(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Copy conversation ID to clipboard
+  const copyConversationId = async () => {
+    if (conversation?.conversationId) {
+      await navigator.clipboard.writeText(conversation.conversationId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -255,6 +292,18 @@ export function ConversationWidget({
           Click the button below to begin your conversation with the AI coach. 
           Your conversation ID will be automatically captured and saved.
         </p>
+        
+        {/* API Key Status */}
+        {!hasApiKey && (
+          <Alert className="mb-4 max-w-md">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              <strong>Note:</strong> ElevenLabs API key not configured. 
+              Transcript and audio will use mock data for demonstration.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Button 
           onClick={handleStartConversation}
           disabled={disabled || isLoading}
@@ -287,10 +336,47 @@ export function ConversationWidget({
             <p className="text-sm text-green-600">ID: {conversation.conversationId}</p>
           </div>
         </div>
-        <Badge className="bg-green-100 text-green-800">
-          <Volume2 className="w-3 h-3 mr-1" />
-          Live
-        </Badge>
+        <div className="flex items-center space-x-2">
+          <Badge className="bg-green-100 text-green-800">
+            <Volume2 className="w-3 h-3 mr-1" />
+            Live
+          </Badge>
+          {hasApiKey && (
+            <Badge className="bg-blue-100 text-blue-800 text-xs">
+              API Connected
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Conversation ID Actions */}
+      <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+        <div>
+          <p className="text-sm font-medium text-yellow-800">Conversation ID</p>
+          <p className="font-mono text-xs text-yellow-700">{conversation.conversationId}</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyConversationId}
+            className="text-yellow-700 border-yellow-300"
+          >
+            {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          </Button>
+          {hasApiKey && (
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="text-yellow-700 border-yellow-300"
+            >
+              <a href={`https://elevenlabs.io/conversations/${conversation.conversationId}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ElevenLabs Widget */}
@@ -327,17 +413,40 @@ export function ConversationWidget({
         </div>
       </div>
 
-      {/* Conversation Info */}
+      {/* Conversation Details */}
+      {conversationDetails && (
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-blue-800">Live Conversation Details</p>
+            <Badge className="bg-blue-100 text-blue-800 text-xs">
+              ElevenLabs API
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            <div>
+              <p className="text-blue-600">Status:</p>
+              <p className="font-medium text-blue-800">{conversationDetails.status}</p>
+            </div>
+            <div>
+              <p className="text-blue-600">Agent ID:</p>
+              <p className="font-mono text-blue-800">{conversationDetails.agent_id}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Basic Conversation Info */}
       <div className="bg-blue-50 p-4 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-blue-800">Conversation Details</p>
+            <p className="text-sm font-medium text-blue-800">Session Information</p>
             <p className="text-xs text-blue-600">
-              ID: {conversation.conversationId} • Started: {conversation.startTime.toLocaleTimeString()}
+              Started: {conversation.startTime.toLocaleTimeString()} • 
+              Agent: {agentId.slice(-8)}
             </p>
           </div>
           <Badge className="bg-blue-100 text-blue-800 text-xs">
-            ElevenLabs
+            {hasApiKey ? 'Live Data' : 'Demo Mode'}
           </Badge>
         </div>
       </div>

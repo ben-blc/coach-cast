@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   ArrowLeft, 
   Clock, 
@@ -23,7 +24,9 @@ import {
   Coins,
   ExternalLink,
   Copy,
-  CheckCircle
+  CheckCircle,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getSessionById, getAICoaches, getHumanCoaches } from '@/lib/database';
@@ -43,15 +46,24 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string>('');
+  const [apiKeyAvailable, setApiKeyAvailable] = useState(false);
   
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('id');
+
+  // Check if ElevenLabs API key is available
+  useEffect(() => {
+    const hasApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY && 
+                     process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY !== 'your_elevenlabs_api_key_here';
+    setApiKeyAvailable(hasApiKey);
+  }, []);
 
   useEffect(() => {
     async function loadSessionData() {
@@ -112,7 +124,7 @@ export default function SessionDetailPage() {
 
         setSession(enhancedSession);
 
-        // If there's a conversation ID, load additional data
+        // If there's a conversation ID, load additional data from ElevenLabs API
         if (sessionData.conversation_id) {
           loadConversationData(sessionData.conversation_id, enhancedSession);
         }
@@ -129,30 +141,51 @@ export default function SessionDetailPage() {
   }, [sessionId, router]);
 
   const loadConversationData = async (conversationId: string, sessionData: SessionDetails) => {
+    console.log('Loading conversation data for:', conversationId, 'API Key available:', apiKeyAvailable);
+    
+    // Load conversation details
+    setDetailsLoading(true);
     try {
-      // Load transcript
-      setTranscriptLoading(true);
-      const transcript = await getConversationTranscript(conversationId);
-      
-      // Load conversation details
       const details = await getConversationDetails(conversationId);
-      
-      // Load audio URL
-      setAudioLoading(true);
-      const audioUrl = await getConversationAudio(conversationId);
+      setSession(prev => prev ? { ...prev, conversation_details: details } : null);
+    } catch (error) {
+      console.error('Error loading conversation details:', error);
+    } finally {
+      setDetailsLoading(false);
+    }
 
+    // Load transcript
+    setTranscriptLoading(true);
+    try {
+      const transcript = await getConversationTranscript(conversationId);
       setSession(prev => prev ? {
         ...prev,
-        conversation_transcript: transcript || prev.transcription,
-        conversation_audio_url: audioUrl,
-        conversation_details: details
+        conversation_transcript: transcript || prev.transcription
       } : null);
-
     } catch (error) {
-      console.error('Error loading conversation data:', error);
+      console.error('Error loading conversation transcript:', error);
     } finally {
       setTranscriptLoading(false);
+    }
+    
+    // Load audio URL
+    setAudioLoading(true);
+    try {
+      const audioUrl = await getConversationAudio(conversationId);
+      setSession(prev => prev ? {
+        ...prev,
+        conversation_audio_url: audioUrl
+      } : null);
+    } catch (error) {
+      console.error('Error loading conversation audio:', error);
+    } finally {
       setAudioLoading(false);
+    }
+  };
+
+  const refreshConversationData = async () => {
+    if (session?.conversation_id) {
+      await loadConversationData(session.conversation_id, session);
     }
   };
 
@@ -201,12 +234,43 @@ export default function SessionDetailPage() {
   };
 
   const downloadTranscript = () => {
-    if (session?.conversation_transcript) {
-      const blob = new Blob([session.conversation_transcript], { type: 'text/plain' });
+    const transcriptContent = session?.conversation_transcript || session?.transcription;
+    if (transcriptContent) {
+      const blob = new Blob([transcriptContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `session-${session.id}-transcript.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const downloadSessionData = () => {
+    if (session) {
+      const sessionData = {
+        session_id: session.id,
+        conversation_id: session.conversation_id,
+        coach: session.coach_name,
+        specialty: session.coach_specialty,
+        type: session.session_type,
+        duration: session.duration_seconds,
+        credits_used: session.credits_used,
+        created_at: session.created_at,
+        completed_at: session.completed_at,
+        summary: session.summary,
+        goals: session.goals,
+        transcript: session.conversation_transcript || session.transcription,
+        conversation_details: session.conversation_details
+      };
+      
+      const blob = new Blob([JSON.stringify(sessionData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session-${session.id}-data.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -264,6 +328,11 @@ export default function SessionDetailPage() {
                 <Badge className={session.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
                   {session.status}
                 </Badge>
+                {apiKeyAvailable && (
+                  <Badge className="bg-blue-100 text-blue-800 text-xs">
+                    ElevenLabs API
+                  </Badge>
+                )}
               </div>
             </div>
             
@@ -273,6 +342,18 @@ export default function SessionDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* API Key Warning */}
+        {!apiKeyAvailable && session.conversation_id && (
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Demo Mode:</strong> ElevenLabs API key not configured. 
+              Showing mock data for transcript and audio. 
+              Configure your API key in the environment variables to see real data.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -318,9 +399,20 @@ export default function SessionDetailPage() {
             {session.conversation_id && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <MessageCircle className="w-5 h-5" />
-                    <span>ElevenLabs Conversation</span>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <MessageCircle className="w-5 h-5" />
+                      <span>ElevenLabs Conversation</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refreshConversationData}
+                      disabled={transcriptLoading || audioLoading || detailsLoading}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${(transcriptLoading || audioLoading || detailsLoading) ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -352,7 +444,12 @@ export default function SessionDetailPage() {
                       </div>
                     </div>
 
-                    {session.conversation_details && (
+                    {detailsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                        <span className="text-gray-600 text-sm">Loading conversation details...</span>
+                      </div>
+                    ) : session.conversation_details ? (
                       <div className="grid grid-cols-2 gap-4">
                         <div className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-600">Status</p>
@@ -360,8 +457,20 @@ export default function SessionDetailPage() {
                         </div>
                         <div className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-600">Messages</p>
-                          <p className="font-medium">{session.conversation_details.messageCount || 'N/A'}</p>
+                          <p className="font-medium">{session.conversation_details.messageCount || session.conversation_details.metadata?.messageCount || 'N/A'}</p>
                         </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-600">Language</p>
+                          <p className="font-medium">{session.conversation_details.metadata?.language || 'en'}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-600">Model</p>
+                          <p className="font-medium">{session.conversation_details.metadata?.model || 'ElevenLabs'}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        <p className="text-sm">Conversation details not available</p>
                       </div>
                     )}
                   </div>
@@ -410,17 +519,27 @@ export default function SessionDetailPage() {
                         <span className="text-gray-600">Loading audio...</span>
                       </div>
                     ) : (
-                      <audio
-                        controls
-                        className="w-full"
-                        src={session.conversation_audio_url}
-                        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-                        onPlay={() => setIsPlaying(true)}
-                        onPause={() => setIsPlaying(false)}
-                      >
-                        Your browser does not support the audio element.
-                      </audio>
+                      <div className="space-y-2">
+                        {!apiKeyAvailable && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription className="text-sm">
+                              Demo audio player. Configure ElevenLabs API key to access real session audio.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        <audio
+                          controls
+                          className="w-full"
+                          src={session.conversation_audio_url}
+                          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                          onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+                          onPlay={() => setIsPlaying(true)}
+                          onPause={() => setIsPlaying(false)}
+                        >
+                          Your browser does not support the audio element.
+                        </audio>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -435,7 +554,7 @@ export default function SessionDetailPage() {
                     <FileText className="w-5 h-5" />
                     <span>Session Transcript</span>
                   </div>
-                  {session.conversation_transcript && (
+                  {(session.conversation_transcript || session.transcription) && (
                     <Button variant="outline" size="sm" onClick={downloadTranscript}>
                       <Download className="w-4 h-4 mr-2" />
                       Download
@@ -447,13 +566,23 @@ export default function SessionDetailPage() {
                 {transcriptLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                    <span className="text-gray-600">Loading transcript...</span>
+                    <span className="text-gray-600">Loading transcript from ElevenLabs...</span>
                   </div>
                 ) : session.conversation_transcript ? (
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
-                      {session.conversation_transcript}
-                    </pre>
+                  <div className="space-y-4">
+                    {!apiKeyAvailable && (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-sm">
+                          <strong>Demo Transcript:</strong> This is mock data. Configure your ElevenLabs API key to see the actual conversation transcript.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                        {session.conversation_transcript}
+                      </pre>
+                    </div>
                   </div>
                 ) : session.transcription ? (
                   <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
@@ -463,6 +592,11 @@ export default function SessionDetailPage() {
                   <div className="text-center py-8 text-gray-500">
                     <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>No transcript available for this session</p>
+                    {session.conversation_id && (
+                      <p className="text-xs mt-2">
+                        Transcript may be available from ElevenLabs API with proper configuration
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -513,6 +647,16 @@ export default function SessionDetailPage() {
                   <p className="text-sm text-gray-600">Credits Used</p>
                   <p className="font-medium">{session.credits_used || 0} credits</p>
                 </div>
+
+                {session.conversation_id && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-gray-600">Conversation ID</p>
+                      <p className="font-mono text-xs text-gray-800 break-all">{session.conversation_id}</p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -568,10 +712,19 @@ export default function SessionDetailPage() {
                   Contact Coach
                 </Button>
                 
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={downloadSessionData}>
                   <Download className="w-4 h-4 mr-2" />
                   Export Session Data
                 </Button>
+
+                {session.conversation_id && (
+                  <Button variant="outline" className="w-full justify-start" asChild>
+                    <a href={`https://elevenlabs.io/conversations/${session.conversation_id}`} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      View in ElevenLabs
+                    </a>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
