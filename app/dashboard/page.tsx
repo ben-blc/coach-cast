@@ -21,7 +21,7 @@ import {
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { SessionCard } from '@/components/dashboard/SessionCard';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserProfile, getUserSubscription, getUserSessions } from '@/lib/database';
+import { getUserProfile, getUserSubscription, getUserSessions, ensureUserProfile, ensureUserSubscription } from '@/lib/database';
 import type { Profile, Subscription, CoachingSession } from '@/lib/database';
 
 export default function DashboardPage() {
@@ -90,23 +90,44 @@ export default function DashboardPage() {
 
       setUser(currentUser);
       
-      const [userProfile, userSubscription, userSessions] = await Promise.all([
-        getUserProfile(currentUser.id),
-        getUserSubscription(currentUser.id),
-        getUserSessions(currentUser.id)
-      ]);
+      // Get or create user profile and subscription
+      let userProfile = await getUserProfile(currentUser.id);
+      let userSubscription = await getUserSubscription(currentUser.id);
+
+      // If profile doesn't exist, create it
+      if (!userProfile) {
+        console.log('Creating profile for user...');
+        userProfile = await ensureUserProfile(
+          currentUser.id, 
+          currentUser.email || '', 
+          currentUser.user_metadata?.full_name || 'User'
+        );
+      }
+
+      // If subscription doesn't exist, create it
+      if (!userSubscription) {
+        console.log('Creating subscription for user...');
+        userSubscription = await ensureUserSubscription(currentUser.id);
+      }
+
+      // Get user sessions
+      const userSessions = await getUserSessions(currentUser.id);
 
       setProfile(userProfile);
       setSubscription(userSubscription);
       setSessions(userSessions);
 
-      // If user profile doesn't exist, redirect to discovery to complete setup
-      if (!userProfile) {
+      // If we still don't have profile or subscription, redirect to discovery
+      if (!userProfile || !userSubscription) {
+        console.log('Unable to create profile/subscription, redirecting to discovery...');
         router.push('/discovery');
         return;
       }
+
     } catch (error) {
       console.error('Error loading user data:', error);
+      // On error, redirect to discovery to try again
+      router.push('/discovery');
     } finally {
       setLoading(false);
       if (showRefreshIndicator) {
@@ -175,15 +196,15 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Setup Required</h1>
           <p className="text-gray-700 mb-2">
-            Failed to load your dashboard data.
+            We need to set up your profile and subscription.
           </p>
           <p className="text-gray-500 text-sm mb-4">
-            Please try refreshing the page or contact support if the problem persists.
+            You'll be redirected to complete the setup process.
           </p>
-          <Button onClick={() => window.location.reload()}>
-            Refresh Page
+          <Button onClick={() => router.push('/discovery')}>
+            Complete Setup
           </Button>
         </div>
       </div>
