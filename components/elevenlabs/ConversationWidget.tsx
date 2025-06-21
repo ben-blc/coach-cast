@@ -10,7 +10,6 @@ import {
   endConversation, 
   getConversationTranscript, 
   getConversationDetails,
-  generateConversationId,
   setupElevenLabsEventListeners,
   isApiKeyConfigured 
 } from '@/lib/elevenlabs';
@@ -54,6 +53,7 @@ export function ConversationWidget({
   const [copied, setCopied] = useState(false);
   const [widgetError, setWidgetError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [conversationActive, setConversationActive] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
   const eventListenerCleanupRef = useRef<(() => void) | null>(null);
@@ -112,23 +112,26 @@ export function ConversationWidget({
     
     const cleanup = setupElevenLabsEventListeners(
       async (conversationId) => {
-        console.log('Widget conversation started with ID:', conversationId);
+        console.log('🎯 ElevenLabs conversation started with REAL ID:', conversationId);
         
-        // Create conversation session with the provided ID
+        // Create conversation session with the REAL ElevenLabs conversation ID
         const newConversation: ConversationSession = {
-          conversationId,
+          conversationId, // Use the REAL conversation ID from ElevenLabs
           agentId,
           status: 'active',
           startTime: new Date(),
         };
         
         setConversation(newConversation);
+        setConversationActive(true);
+        
+        // Notify parent component with the REAL conversation ID
         onConversationStart?.(conversationId);
         
         // Fetch conversation details if API key is available
         if (hasApiKey) {
           try {
-            console.log('Fetching conversation details for:', conversationId);
+            console.log('Fetching conversation details for REAL ID:', conversationId);
             const details = await getConversationDetails(conversationId);
             setConversationDetails(details);
             console.log('Conversation details loaded:', details);
@@ -138,7 +141,8 @@ export function ConversationWidget({
         }
       },
       async (conversationId) => {
-        console.log('Widget conversation ended with ID:', conversationId);
+        console.log('🎯 ElevenLabs conversation ended with REAL ID:', conversationId);
+        setConversationActive(false);
         await handleEndConversation(conversationId);
       },
       (error) => {
@@ -166,62 +170,25 @@ export function ConversationWidget({
     };
   }, []);
 
-  // Start conversation manually (fallback if widget doesn't auto-start)
-  const handleStartConversation = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-
-      // Generate our own conversation ID as fallback
-      const conversationId = generateConversationId();
-      
-      const session: ConversationSession = {
-        conversationId,
-        agentId,
-        status: 'active',
-        startTime: new Date(),
-      };
-
-      setConversation(session);
-      onConversationStart?.(session.conversationId);
-      console.log('Manual conversation started with ID:', session.conversationId);
-      
-      // Try to trigger the widget if it's loaded
-      if (widgetRef.current) {
-        const widget = widgetRef.current.querySelector('elevenlabs-convai');
-        if (widget) {
-          // Try to programmatically start the conversation
-          console.log('Attempting to start widget conversation...');
-        }
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to start conversation';
-      setError(errorMessage);
-      onError?.(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // End conversation
+  // Handle conversation end
   const handleEndConversation = async (conversationId?: string) => {
     const currentConversationId = conversationId || conversation?.conversationId;
     if (!currentConversationId) return;
 
     try {
       setIsLoading(true);
-      console.log('Ending conversation:', currentConversationId);
+      console.log('🎯 Ending conversation with REAL ID:', currentConversationId);
 
       // Get final transcript from ElevenLabs API
       let finalTranscript = transcript;
       if (hasApiKey) {
         try {
-          console.log('Fetching final transcript...');
+          console.log('Fetching final transcript for REAL ID:', currentConversationId);
           const apiTranscript = await getConversationTranscript(currentConversationId);
           if (apiTranscript) {
             finalTranscript = apiTranscript;
             setTranscript(apiTranscript);
-            console.log('Final transcript loaded');
+            console.log('Final transcript loaded for REAL ID:', currentConversationId);
           }
         } catch (error) {
           console.error('Error fetching transcript from API:', error);
@@ -231,11 +198,13 @@ export function ConversationWidget({
       // End the conversation
       await endConversation(currentConversationId);
 
+      // Notify parent with REAL conversation ID
       onConversationEnd?.(currentConversationId, finalTranscript);
       
       setConversation(null);
       setConversationDetails(null);
-      console.log('Conversation ended successfully:', currentConversationId);
+      setConversationActive(false);
+      console.log('🎯 Conversation ended successfully with REAL ID:', currentConversationId);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to end conversation';
       setError(errorMessage);
@@ -319,8 +288,8 @@ export function ConversationWidget({
           Ready to Start Your AI Coaching Session?
         </h3>
         <p className="text-gray-600 text-center mb-6 max-w-md">
-          Click the button below to begin your conversation with the AI coach. 
-          Your conversation will be automatically tracked and saved.
+          Click the microphone button in the widget below to begin your conversation. 
+          Your conversation ID will be automatically captured and saved.
         </p>
         
         {/* API Key Status */}
@@ -335,23 +304,25 @@ export function ConversationWidget({
           </AlertDescription>
         </Alert>
         
-        <Button 
-          onClick={handleStartConversation}
-          disabled={disabled || isLoading}
-          className="bg-blue-600 hover:bg-blue-700"
+        {/* ElevenLabs Widget - Always show when script is loaded */}
+        <div 
+          ref={widgetRef}
+          className="flex justify-center bg-white rounded-lg p-4 border border-gray-200"
+          style={{ minHeight: '400px', width: '100%', maxWidth: '400px' }}
         >
-          {isLoading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-              Starting...
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4 mr-2" />
-              Start Conversation
-            </>
-          )}
-        </Button>
+          <elevenlabs-convai 
+            agent-id={agentId}
+            style={{
+              display: 'block',
+              margin: '0 auto',
+              width: '100%',
+              height: '380px',
+              border: 'none',
+              borderRadius: '12px',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -364,7 +335,7 @@ export function ConversationWidget({
           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
           <div>
             <p className="font-medium text-green-800">Conversation Active</p>
-            <p className="text-sm text-green-600">ID: {conversation.conversationId}</p>
+            <p className="text-sm text-green-600 font-mono">ID: {conversation.conversationId}</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -381,8 +352,8 @@ export function ConversationWidget({
       {/* Conversation ID Actions */}
       <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
         <div>
-          <p className="text-sm font-medium text-yellow-800">Conversation ID</p>
-          <p className="font-mono text-xs text-yellow-700">{conversation.conversationId}</p>
+          <p className="text-sm font-medium text-yellow-800">ElevenLabs Conversation ID</p>
+          <p className="font-mono text-xs text-yellow-700 break-all">{conversation.conversationId}</p>
         </div>
         <div className="flex items-center space-x-2">
           <Button
@@ -476,14 +447,15 @@ export function ConversationWidget({
         </div>
       )}
 
-      {/* Basic Conversation Info */}
+      {/* Session Information */}
       <div className="bg-blue-50 p-4 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-blue-800">Session Information</p>
             <p className="text-xs text-blue-600">
               Started: {conversation.startTime.toLocaleTimeString()} • 
-              Agent: {agentId.slice(-8)}
+              Agent: {agentId.slice(-8)} • 
+              Status: {conversationActive ? 'Active' : 'Ended'}
             </p>
           </div>
           <Badge className="bg-blue-100 text-blue-800 text-xs">

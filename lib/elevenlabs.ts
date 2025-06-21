@@ -49,17 +49,18 @@ const getApiKey = (): string => {
 // Base API URL for ElevenLabs
 const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1';
 
-// Generate a conversation ID in ElevenLabs format
+// Generate a conversation ID in ElevenLabs format (ONLY used as fallback)
 export function generateConversationId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substr(2, 15);
   return `conv_${timestamp}${random}`;
 }
 
-// Start a new conversation session
+// Start a new conversation session (ONLY used as fallback)
 export async function startConversation(config: ConversationConfig): Promise<ConversationSession | null> {
   try {
-    // Generate a conversation ID in ElevenLabs format
+    // This should NOT be used - we should get the real ID from ElevenLabs widget
+    console.warn('⚠️ Using fallback conversation ID generation - should use real ElevenLabs ID');
     const conversationId = generateConversationId();
     
     const session: ConversationSession = {
@@ -69,10 +70,10 @@ export async function startConversation(config: ConversationConfig): Promise<Con
       startTime: new Date(),
     };
 
-    console.log('Started ElevenLabs conversation:', session);
+    console.log('Started fallback conversation:', session);
     return session;
   } catch (error) {
-    console.error('Error starting ElevenLabs conversation:', error);
+    console.error('Error starting fallback conversation:', error);
     return null;
   }
 }
@@ -80,7 +81,7 @@ export async function startConversation(config: ConversationConfig): Promise<Con
 // End a conversation session
 export async function endConversation(conversationId: string): Promise<ConversationSession | null> {
   try {
-    console.log('Ending ElevenLabs conversation:', conversationId);
+    console.log('🎯 Ending ElevenLabs conversation with REAL ID:', conversationId);
     
     const session: ConversationSession = {
       conversationId,
@@ -106,7 +107,7 @@ export async function getConversationDetails(conversationId: string): Promise<El
   }
 
   try {
-    console.log(`Fetching conversation details: ${conversationId}`);
+    console.log(`🎯 Fetching conversation details for REAL ID: ${conversationId}`);
     
     const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}`, {
       method: 'GET',
@@ -125,7 +126,7 @@ export async function getConversationDetails(conversationId: string): Promise<El
     }
 
     const data = await response.json();
-    console.log('Conversation details received:', data);
+    console.log('🎯 Conversation details received for REAL ID:', conversationId, data);
     return data;
     
   } catch (error) {
@@ -143,7 +144,7 @@ export async function getConversationTranscript(conversationId: string): Promise
   }
 
   try {
-    console.log(`Fetching transcript: ${conversationId}`);
+    console.log(`🎯 Fetching transcript for REAL ID: ${conversationId}`);
     
     // Try the transcript endpoint
     const transcriptResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/transcript`, {
@@ -158,7 +159,7 @@ export async function getConversationTranscript(conversationId: string): Promise
 
     if (transcriptResponse.ok) {
       const transcriptData = await transcriptResponse.json();
-      console.log('Transcript data:', transcriptData);
+      console.log('🎯 Transcript data for REAL ID:', conversationId, transcriptData);
       
       if (transcriptData.transcript) {
         return transcriptData.transcript;
@@ -183,20 +184,20 @@ export async function getConversationTranscript(conversationId: string): Promise
 
     if (messagesResponse.ok) {
       const messages = await messagesResponse.json();
-      console.log('Messages received:', messages);
+      console.log('🎯 Messages received for REAL ID:', conversationId, messages);
       
       if (Array.isArray(messages) && messages.length > 0) {
         return formatMessagesToTranscript(messages, conversationId);
       }
     }
 
-    // If both fail, return mock data
-    console.warn('Could not fetch transcript from API, using mock data');
-    return generateMockTranscript(conversationId);
+    // If both fail, return null (no mock data)
+    console.warn('🎯 Could not fetch transcript from API for REAL ID:', conversationId);
+    return null;
     
   } catch (error) {
     console.error('Error fetching transcript:', error);
-    return generateMockTranscript(conversationId);
+    return null;
   }
 }
 
@@ -204,17 +205,17 @@ export async function getConversationTranscript(conversationId: string): Promise
 export async function getConversationAudio(conversationId: string): Promise<string | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn('No API key - using demo audio');
-    return 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav';
+    console.warn('No API key - no audio available');
+    return null;
   }
 
   try {
-    console.log(`Fetching audio: ${conversationId}`);
+    console.log(`🎯 Fetching audio for REAL ID: ${conversationId}`);
     
     // First try to get audio URL from conversation details
     const conversation = await getConversationDetails(conversationId);
     if (conversation?.audio_url) {
-      console.log('Audio URL from conversation details:', conversation.audio_url);
+      console.log('🎯 Audio URL from conversation details for REAL ID:', conversationId, conversation.audio_url);
       return conversation.audio_url;
     }
 
@@ -237,12 +238,12 @@ export async function getConversationAudio(conversationId: string): Promise<stri
         // Create blob URL for audio data
         const audioBlob = await audioResponse.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
-        console.log('Created audio blob URL:', audioUrl);
+        console.log('🎯 Created audio blob URL for REAL ID:', conversationId, audioUrl);
         return audioUrl;
       } else {
         // Try to parse as JSON for audio URL
         const audioData = await audioResponse.json();
-        console.log('Audio data:', audioData);
+        console.log('🎯 Audio data for REAL ID:', conversationId, audioData);
         
         if (audioData.audio_url) {
           return audioData.audio_url;
@@ -250,13 +251,13 @@ export async function getConversationAudio(conversationId: string): Promise<stri
       }
     }
 
-    // Fallback to demo audio
-    console.warn('Could not fetch audio from API, using demo audio');
-    return 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav';
+    // No audio available
+    console.warn('🎯 Could not fetch audio from API for REAL ID:', conversationId);
+    return null;
     
   } catch (error) {
     console.error('Error fetching audio:', error);
-    return 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav';
+    return null;
   }
 }
 
@@ -386,7 +387,7 @@ export function setupElevenLabsEventListeners(
       
       // Handle different event types
       if (data && typeof data === 'object') {
-        console.log('ElevenLabs widget message:', data);
+        console.log('🎯 ElevenLabs widget message:', data);
         
         // Check for conversation start events
         if (data.type === 'elevenlabs-conversation-start' || 
@@ -395,7 +396,7 @@ export function setupElevenLabsEventListeners(
             data.event === 'conversation-start') {
           const conversationId = data.conversationId || data.conversation_id || data.id;
           if (conversationId) {
-            console.log('ElevenLabs conversation started:', conversationId);
+            console.log('🎯 ElevenLabs conversation started with REAL ID:', conversationId);
             onConversationStart?.(conversationId);
           }
         }
@@ -407,7 +408,7 @@ export function setupElevenLabsEventListeners(
                  data.event === 'conversation-end') {
           const conversationId = data.conversationId || data.conversation_id || data.id;
           if (conversationId) {
-            console.log('ElevenLabs conversation ended:', conversationId);
+            console.log('🎯 ElevenLabs conversation ended with REAL ID:', conversationId);
             onConversationEnd?.(conversationId);
           }
         }
@@ -431,7 +432,7 @@ export function setupElevenLabsEventListeners(
         
         // Log other events for debugging
         else if (data.type || data.event) {
-          console.log('ElevenLabs widget event:', data.type || data.event, data);
+          console.log('🎯 ElevenLabs widget event:', data.type || data.event, data);
         }
       }
     } catch (error) {
@@ -444,7 +445,7 @@ export function setupElevenLabsEventListeners(
   
   // Also listen for custom events that might be dispatched
   const handleCustomEvent = (event: CustomEvent) => {
-    console.log('ElevenLabs custom event:', event.type, event.detail);
+    console.log('🎯 ElevenLabs custom event:', event.type, event.detail);
     
     if (event.type === 'elevenlabs-conversation-start' && event.detail?.conversationId) {
       onConversationStart?.(event.detail.conversationId);
