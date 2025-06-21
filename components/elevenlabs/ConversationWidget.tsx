@@ -279,7 +279,7 @@ export function ConversationWidget({
         eventListenerCleanupRef.current();
       }
     };
-  }, [scriptLoaded, agentId]);
+  }, [scriptLoaded, agentId, onConversationStart, onError]);
 
   // Handle conversation start with REAL conversation ID
   const handleConversationStart = async (conversationId: string) => {
@@ -641,7 +641,7 @@ export function ConversationWidget({
             <>
               <Square className="w-4 h-4 mr-2" />
               End Conversation
-            <//>
+            </>
           )}
         </Button>
       </div>
