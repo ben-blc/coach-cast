@@ -53,6 +53,8 @@ export default function SessionDetailPage() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string>('');
   const [apiKeyAvailable, setApiKeyAvailable] = useState(false);
+  const [transcriptAvailable, setTranscriptAvailable] = useState(false);
+  const [audioAvailable, setAudioAvailable] = useState(false);
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -158,12 +160,18 @@ export default function SessionDetailPage() {
     setTranscriptLoading(true);
     try {
       const transcript = await getConversationTranscript(conversationId);
-      setSession(prev => prev ? {
-        ...prev,
-        conversation_transcript: transcript || prev.transcription
-      } : null);
+      if (transcript) {
+        setSession(prev => prev ? {
+          ...prev,
+          conversation_transcript: transcript
+        } : null);
+        setTranscriptAvailable(true);
+      } else {
+        setTranscriptAvailable(false);
+      }
     } catch (error) {
       console.error('Error loading conversation transcript:', error);
+      setTranscriptAvailable(false);
     } finally {
       setTranscriptLoading(false);
     }
@@ -172,12 +180,18 @@ export default function SessionDetailPage() {
     setAudioLoading(true);
     try {
       const audioUrl = await getConversationAudio(conversationId);
-      setSession(prev => prev ? {
-        ...prev,
-        conversation_audio_url: audioUrl
-      } : null);
+      if (audioUrl) {
+        setSession(prev => prev ? {
+          ...prev,
+          conversation_audio_url: audioUrl
+        } : null);
+        setAudioAvailable(true);
+      } else {
+        setAudioAvailable(false);
+      }
     } catch (error) {
       console.error('Error loading conversation audio:', error);
+      setAudioAvailable(false);
     } finally {
       setAudioLoading(false);
     }
@@ -234,7 +248,7 @@ export default function SessionDetailPage() {
   };
 
   const downloadTranscript = () => {
-    const transcriptContent = session?.conversation_transcript || session?.transcription;
+    const transcriptContent = session?.conversation_transcript;
     if (transcriptContent) {
       const blob = new Blob([transcriptContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -262,7 +276,7 @@ export default function SessionDetailPage() {
         completed_at: session.completed_at,
         summary: session.summary,
         goals: session.goals,
-        transcript: session.conversation_transcript || session.transcription,
+        transcript: session.conversation_transcript,
         conversation_details: session.conversation_details
       };
       
@@ -342,18 +356,6 @@ export default function SessionDetailPage() {
             </div>
           </div>
         </div>
-
-        {/* API Key Warning */}
-        {!apiKeyAvailable && session.conversation_id && (
-          <Alert className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Demo Mode:</strong> ElevenLabs API key not configured. 
-              Showing mock data for transcript and audio. 
-              Configure your API key in the environment variables to see real data.
-            </AlertDescription>
-          </Alert>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -479,7 +481,7 @@ export default function SessionDetailPage() {
             )}
 
             {/* Audio Player */}
-            {session.conversation_audio_url && (
+            {session.conversation_audio_url && audioAvailable && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
@@ -520,14 +522,6 @@ export default function SessionDetailPage() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {!apiKeyAvailable && (
-                          <Alert>
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertDescription className="text-sm">
-                              Demo audio player. Configure ElevenLabs API key to access real session audio.
-                            </AlertDescription>
-                          </Alert>
-                        )}
                         <audio
                           controls
                           className="w-full"
@@ -554,8 +548,14 @@ export default function SessionDetailPage() {
                     <FileText className="w-5 h-5" />
                     <span>Session Transcript</span>
                   </div>
-                  {(session.conversation_transcript || session.transcription) && (
+                  {transcriptAvailable && session.conversation_transcript && (
                     <Button variant="outline" size="sm" onClick={downloadTranscript}>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                  )}
+                  {!transcriptAvailable && (
+                    <Button variant="outline" size="sm" disabled className="opacity-50 cursor-not-allowed">
                       <Download className="w-4 h-4 mr-2" />
                       Download
                     </Button>
@@ -568,35 +568,24 @@ export default function SessionDetailPage() {
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
                     <span className="text-gray-600">Loading transcript from ElevenLabs...</span>
                   </div>
-                ) : session.conversation_transcript ? (
+                ) : transcriptAvailable && session.conversation_transcript ? (
                   <div className="space-y-4">
-                    {!apiKeyAvailable && (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription className="text-sm">
-                          <strong>Demo Transcript:</strong> This is mock data. Configure your ElevenLabs API key to see the actual conversation transcript.
-                        </AlertDescription>
-                      </Alert>
-                    )}
                     <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                       <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
                         {session.conversation_transcript}
                       </pre>
                     </div>
                   </div>
-                ) : session.transcription ? (
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <p className="text-sm text-gray-800">{session.transcription}</p>
-                  </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>No transcript available for this session</p>
-                    {session.conversation_id && (
-                      <p className="text-xs mt-2">
-                        Transcript may be available from ElevenLabs API with proper configuration
-                      </p>
-                    )}
+                    <p className="font-medium">Transcript not available</p>
+                    <p className="text-sm mt-2">
+                      {session.conversation_id 
+                        ? 'The transcript could not be retrieved from ElevenLabs API'
+                        : 'No conversation ID found for this session'
+                      }
+                    </p>
                   </div>
                 )}
               </CardContent>

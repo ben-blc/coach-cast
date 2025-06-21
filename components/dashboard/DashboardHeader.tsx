@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, Settings, LogOut, User, CreditCard, RefreshCw } from 'lucide-react';
+import { Settings, LogOut, User, CreditCard } from 'lucide-react';
 import { signOut, getCurrentUser, onAuthStateChange } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/database';
 import { useRouter } from 'next/navigation';
@@ -30,14 +30,12 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   const [user, setUser] = useState(initialUser);
-  const [refreshing, setRefreshing] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
 
   // Function to refresh credits data
   const refreshCredits = async () => {
     try {
-      setRefreshing(true);
       const currentUser = await getCurrentUser();
       if (currentUser) {
         const subscription = await getUserSubscription(currentUser.id);
@@ -51,8 +49,6 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
       }
     } catch (error) {
       console.error('Error refreshing credits:', error);
-    } finally {
-      setRefreshing(false);
     }
   };
 
@@ -167,28 +163,10 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
           <div className="flex items-center space-x-4">
             <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
               <span>Credits:</span>
-              <Badge variant="secondary" className="relative">
+              <Badge variant="secondary">
                 {user.creditsRemaining}/{user.totalCredits}
-                {refreshing && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3">
-                    <div className="w-2 h-2 border border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
               </Badge>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={refreshCredits}
-                disabled={refreshing}
-                className="h-6 w-6 p-0"
-              >
-                <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
-              </Button>
             </div>
-
-            <Button variant="ghost" size="sm">
-              <Bell className="h-4 w-4" />
-            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -229,11 +207,6 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={refreshCredits} disabled={refreshing}>
-                  <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  <span>{refreshing ? 'Refreshing...' : 'Refresh Credits'}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} disabled={signingOut}>

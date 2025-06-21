@@ -354,7 +354,7 @@ export default function AISpecialistSessionPage() {
                   variant="ghost" 
                   size="sm" 
                   onClick={() => endSession()}
-                  disabled={endingSession}
+                  disabled={endingSession || !timerStarted}
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   {endingSession ? 'Ending...' : 'Back'}
@@ -625,14 +625,16 @@ export default function AISpecialistSessionPage() {
                     {canStartSession() ? 'Start Session' : 'No Credits'}
                   </Button>
                 )}
-                <Button
-                  onClick={() => endSession()}
-                  disabled={endingSession}
-                  className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Square className="w-4 h-4 mr-2" />
-                  {endingSession ? 'Ending...' : 'End Session'}
-                </Button>
+                {timerStarted && (
+                  <Button
+                    onClick={() => endSession()}
+                    disabled={endingSession}
+                    className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Square className="w-4 h-4 mr-2" />
+                    {endingSession ? 'Ending...' : 'End Session'}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

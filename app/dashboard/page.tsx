@@ -15,7 +15,12 @@ import {
   Calendar,
   BarChart3,
   Settings,
-  CreditCard
+  CreditCard,
+  Sparkles,
+  TrendingUp,
+  Target,
+  Award,
+  Zap
 } from 'lucide-react';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { SessionCard } from '@/components/dashboard/SessionCard';
@@ -133,7 +138,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your dashboard...</p>
@@ -144,7 +149,7 @@ export default function DashboardPage() {
 
   if (!user || !profile || !subscription) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Setup Required</h1>
           <p className="text-gray-700 mb-2">
@@ -178,7 +183,7 @@ export default function DashboardPage() {
   const creditsRemaining = calculateCreditsRemaining(subscription, sessions);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <DashboardHeader 
         user={{
           name: profile.full_name,
@@ -190,21 +195,43 @@ export default function DashboardPage() {
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome Section */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Welcome back, {profile.full_name.split(' ')[0]}!</h1>
-              <p className="text-gray-600 mt-2">
+          <div className="bg-gradient-to-r from-blue-600 to-green-600 rounded-2xl p-8 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
+            <div className="relative">
+              <div className="flex items-center space-x-3 mb-4">
+                <Sparkles className="w-8 h-8" />
+                <h1 className="text-3xl font-bold">Welcome back, {profile.full_name.split(' ')[0]}!</h1>
+              </div>
+              <p className="text-blue-100 text-lg mb-6">
                 {subscription.plan_type === 'free' 
                   ? `You have ${creditsRemaining} minutes remaining in your free trial.`
                   : `You have ${creditsRemaining} credits remaining this month.`
                 }
               </p>
-              {creditsUsed > 0 && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {creditsUsed} {subscription.plan_type === 'free' ? 'minutes' : 'credits'} used from {sessions.filter(s => s.status === 'completed').length} completed sessions
-                </p>
-              )}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button 
+                  className="bg-white text-blue-600 hover:bg-blue-50"
+                  asChild
+                >
+                  <a href="/discovery">
+                    <Play className="w-4 h-4 mr-2" />
+                    Start New Session
+                  </a>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="border-white text-white hover:bg-white/10"
+                  asChild
+                >
+                  <a href="/pricing">
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Upgrade Plan
+                  </a>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -218,98 +245,114 @@ export default function DashboardPage() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
+            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
-                  <Mic className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-blue-800">Total Sessions</CardTitle>
+                  <Mic className="h-4 w-4 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{sessions.length}</div>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-2xl font-bold text-blue-900">{sessions.length}</div>
+                  <p className="text-xs text-blue-700">
                     {totalMinutes} minutes total
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Credits Used</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-green-800">Credits Used</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{creditsUsed}</div>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-2xl font-bold text-green-900">{creditsUsed}</div>
+                  <p className="text-xs text-green-700">
                     from {sessions.filter(s => s.status === 'completed').length} completed sessions
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Credits Remaining</CardTitle>
-                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-purple-800">Credits Remaining</CardTitle>
+                  <CreditCard className="h-4 w-4 text-purple-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{creditsRemaining}</div>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-2xl font-bold text-purple-900">{creditsRemaining}</div>
+                  <p className="text-xs text-purple-700">
                     of {subscription.monthly_limit} {subscription.plan_type === 'free' ? 'minutes' : 'credits'}
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Current Plan</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-orange-800">Current Plan</CardTitle>
+                  <Award className="h-4 w-4 text-orange-600" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{getPlanDisplayName(subscription.plan_type)}</div>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-lg font-bold text-orange-900">{getPlanDisplayName(subscription.plan_type)}</div>
+                  <p className="text-xs text-orange-700">
                     {subscription.status === 'trialing' ? 'Trial active' : 'Active subscription'}
                   </p>
                 </CardContent>
               </Card>
             </div>
 
+            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Card>
+              {/* Quick Actions */}
+              <Card className="bg-white shadow-lg">
                 <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Zap className="w-5 h-5 text-blue-600" />
+                    <span>Quick Actions</span>
+                  </CardTitle>
                   <p className="text-sm text-gray-600">
                     Start a new coaching session or explore your options.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button className="w-full justify-start" asChild>
-                    <a href="/discovery">
-                      <Play className="h-4 w-4 mr-2" />
-                      Start New Session
-                    </a>
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Schedule Live Session
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Users className="h-4 w-4 mr-2" />
-                    Browse Coaches
-                  </Button>
+                  <div className="grid grid-cols-1 gap-3">
+                    <Button className="w-full justify-start bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800" asChild>
+                      <a href="/discovery">
+                        <Play className="h-4 w-4 mr-2" />
+                        Start AI Coaching Session
+                      </a>
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start border-green-200 text-green-700 hover:bg-green-50">
+                      <Video className="h-4 w-4 mr-2" />
+                      Watch Coach Previews
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start border-purple-200 text-purple-700 hover:bg-purple-50">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Schedule Live Session
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start border-orange-200 text-orange-700 hover:bg-orange-50">
+                      <Users className="h-4 w-4 mr-2" />
+                      Browse All Coaches
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* Recent Sessions */}
+              <Card className="bg-white shadow-lg">
                 <CardHeader>
-                  <CardTitle>Recent Sessions</CardTitle>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5 text-green-600" />
+                    <span>Recent Sessions</span>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {sessions.length > 0 ? (
                     <div className="space-y-4">
                       {sessions.slice(0, 3).map((session) => (
-                        <div key={session.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <div key={session.id} className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg hover:shadow-md transition-shadow">
+                          <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-green-500 rounded-full"></div>
                           <div className="flex-1">
-                            <p className="text-sm font-medium">
+                            <p className="text-sm font-medium text-gray-900">
                               {session.session_type === 'ai_specialist' ? 'AI Specialist' : 
                                session.session_type === 'digital_chemistry' ? 'Digital Chemistry' :
                                session.session_type === 'human_voice_ai' ? 'Human Voice AI' : 'Live Human'}
@@ -323,12 +366,25 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       ))}
+                      <Button variant="ghost" className="w-full mt-4" asChild>
+                        <a href="/dashboard?tab=sessions">
+                          View All Sessions
+                        </a>
+                      </Button>
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <Mic className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No sessions yet</p>
-                      <p className="text-sm text-gray-500">Start your first coaching session to see it here</p>
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Mic className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <p className="text-gray-600 font-medium">No sessions yet</p>
+                      <p className="text-sm text-gray-500 mb-4">Start your first coaching session to see it here</p>
+                      <Button asChild>
+                        <a href="/discovery">
+                          <Play className="h-4 w-4 mr-2" />
+                          Start First Session
+                        </a>
+                      </Button>
                     </div>
                   )}
                 </CardContent>
@@ -337,41 +393,44 @@ export default function DashboardPage() {
 
             {/* Credit Usage Breakdown */}
             {sessions.length > 0 && (
-              <Card>
+              <Card className="bg-white shadow-lg">
                 <CardHeader>
-                  <CardTitle>Credit Usage Breakdown</CardTitle>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Target className="w-5 h-5 text-purple-600" />
+                    <span>Credit Usage Breakdown</span>
+                  </CardTitle>
                   <p className="text-sm text-gray-600">
                     Detailed view of how your credits have been used
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
                       <div>
                         <p className="text-sm font-medium text-green-800">Free Sessions (≤15 seconds)</p>
                         <p className="text-xs text-green-600">
                           {sessions.filter(s => s.status === 'completed' && s.duration_seconds <= 15).length} sessions
                         </p>
                       </div>
-                      <div className="text-green-800 font-bold">0 credits</div>
+                      <div className="text-green-800 font-bold text-lg">0 credits</div>
                     </div>
                     
-                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                    <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
                       <div>
                         <p className="text-sm font-medium text-blue-800">Paid Sessions (>15 seconds)</p>
                         <p className="text-xs text-blue-600">
                           {sessions.filter(s => s.status === 'completed' && s.duration_seconds > 15).length} sessions
                         </p>
                       </div>
-                      <div className="text-blue-800 font-bold">{creditsUsed} credits</div>
+                      <div className="text-blue-800 font-bold text-lg">{creditsUsed} credits</div>
                     </div>
 
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-t">
+                    <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg border border-purple-200">
                       <div>
-                        <p className="text-sm font-medium text-gray-800">Remaining Credits</p>
-                        <p className="text-xs text-gray-600">Available for use</p>
+                        <p className="text-sm font-medium text-purple-800">Remaining Credits</p>
+                        <p className="text-xs text-purple-600">Available for use</p>
                       </div>
-                      <div className="text-gray-800 font-bold">{creditsRemaining} credits</div>
+                      <div className="text-purple-800 font-bold text-lg">{creditsRemaining} credits</div>
                     </div>
                   </div>
                 </CardContent>
@@ -412,7 +471,9 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <Mic className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Mic className="h-10 w-10 text-blue-600" />
+                </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No sessions yet</h3>
                 <p className="text-gray-600 mb-6">
                   Start your first coaching session to begin your journey.
@@ -429,7 +490,9 @@ export default function DashboardPage() {
 
           <TabsContent value="goals">
             <div className="text-center py-12">
-              <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Target className="h-10 w-10 text-purple-600" />
+              </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Goal Tracking</h3>
               <p className="text-gray-600">
                 Goal tracking features will be available soon.
@@ -439,7 +502,9 @@ export default function DashboardPage() {
 
           <TabsContent value="settings">
             <div className="text-center py-12">
-              <Settings className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Settings className="h-10 w-10 text-gray-600" />
+              </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Settings</h3>
               <p className="text-gray-600">
                 Account settings will be available soon.
