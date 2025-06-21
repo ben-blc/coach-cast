@@ -75,7 +75,8 @@ export function ConversationWidget({
         }
 
         // Dynamically import the ElevenLabs package
-        const { ElevenLabs } = await import('elevenlabs');
+        const ElevenLabsModule = await import('elevenlabs');
+        const ElevenLabs = ElevenLabsModule.default;
         
         // Initialize the client
         const client = new ElevenLabs({
