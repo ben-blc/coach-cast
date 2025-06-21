@@ -9,7 +9,6 @@ import {
   endConversation, 
   getConversationTranscript, 
   getConversationDetails,
-  setupElevenLabsEventListeners,
   isApiKeyConfigured 
 } from '@/lib/elevenlabs';
 import type { ConversationSession } from '@/lib/elevenlabs';
@@ -32,6 +31,10 @@ declare global {
         children?: React.ReactNode;
       };
     }
+  }
+  
+  interface Window {
+    ElevenLabs?: any;
   }
 }
 
@@ -56,6 +59,7 @@ export function ConversationWidget({
   const widgetRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
   const eventListenerCleanupRef = useRef<(() => void) | null>(null);
+  const widgetInstanceRef = useRef<any>(null);
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
@@ -68,21 +72,21 @@ export function ConversationWidget({
       // Check if script already exists
       const existingScript = document.querySelector('script[src*="elevenlabs"]');
       if (existingScript) {
-        console.log('ElevenLabs script already exists');
+        console.log('🎯 ElevenLabs script already exists');
         setScriptLoaded(true);
         setWidgetReady(true);
         scriptLoadedRef.current = true;
         return;
       }
 
-      console.log('Loading ElevenLabs script...');
+      console.log('🎯 Loading ElevenLabs ConvAI widget script...');
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
       script.async = true;
       script.type = 'text/javascript';
       
       script.onload = () => {
-        console.log('ElevenLabs script loaded successfully');
+        console.log('🎯 ElevenLabs script loaded successfully');
         setScriptLoaded(true);
         setWidgetReady(true);
         scriptLoadedRef.current = true;
@@ -91,7 +95,7 @@ export function ConversationWidget({
       };
 
       script.onerror = (error) => {
-        console.error('Failed to load ElevenLabs script:', error);
+        console.error('❌ Failed to load ElevenLabs script:', error);
         setError('Failed to load ElevenLabs widget. Please check your internet connection.');
         setScriptLoaded(false);
         setWidgetError(true);
@@ -103,75 +107,219 @@ export function ConversationWidget({
     loadScript();
   }, [retryCount]);
 
-  // Setup event listeners for ElevenLabs widget
+  // Enhanced event listener setup for ElevenLabs widget
   useEffect(() => {
     if (!scriptLoaded) return;
 
-    console.log('🎯 Setting up ElevenLabs event listeners - ONLY accepting REAL conversation IDs...');
+    console.log('🎯 Setting up enhanced ElevenLabs event listeners...');
     
-    const cleanup = setupElevenLabsEventListeners(
-      async (conversationId) => {
-        console.log('🎯 ElevenLabs conversation started with REAL ID:', conversationId);
+    // Listen for messages from the ElevenLabs widget
+    const handleMessage = (event: MessageEvent) => {
+      // Allow messages from ElevenLabs domains and localhost
+      const allowedOrigins = [
+        'https://unpkg.com',
+        'https://elevenlabs.io',
+        'https://api.elevenlabs.io',
+        'https://widget.elevenlabs.io',
+        'https://convai.elevenlabs.io',
+        'http://localhost',
+        'https://localhost'
+      ];
+      
+      // For development, allow any origin that contains elevenlabs or localhost
+      const isAllowedOrigin = allowedOrigins.some(origin => 
+        event.origin.includes(origin) || 
+        event.origin.includes('elevenlabs') ||
+        event.origin.includes('localhost') ||
+        event.origin.includes('127.0.0.1')
+      );
+      
+      if (!isAllowedOrigin && event.origin !== window.location.origin) {
+        return;
+      }
+      
+      try {
+        let data = event.data;
         
-        // ONLY proceed if we have a REAL conversation ID from ElevenLabs
-        if (!conversationId || !conversationId.startsWith('conv_')) {
-          console.warn('🎯 Invalid conversation ID received, ignoring:', conversationId);
-          return;
-        }
-        
-        // Create conversation session with the REAL ElevenLabs conversation ID
-        const newConversation: ConversationSession = {
-          conversationId, // Use ONLY the REAL conversation ID from ElevenLabs
-          agentId,
-          status: 'active',
-          startTime: new Date(),
-        };
-        
-        setConversation(newConversation);
-        setConversationActive(true);
-        
-        // Notify parent component with the REAL conversation ID
-        onConversationStart?.(conversationId);
-        
-        // Fetch conversation details if API key is available
-        if (hasApiKey) {
+        // Handle string data
+        if (typeof data === 'string') {
           try {
-            console.log('🎯 Fetching conversation details for REAL ID:', conversationId);
-            const details = await getConversationDetails(conversationId);
-            setConversationDetails(details);
-            console.log('🎯 Conversation details loaded for REAL ID:', conversationId, details);
-          } catch (error) {
-            console.error('Error fetching conversation details:', error);
+            data = JSON.parse(data);
+          } catch {
+            // If it's not JSON, check if it's a simple message
+            if (data.includes('conversation') || data.includes('elevenlabs')) {
+              console.log('🎯 ElevenLabs string message:', data);
+            }
+            return;
           }
         }
-      },
-      async (conversationId) => {
-        console.log('🎯 ElevenLabs conversation ended with REAL ID:', conversationId);
         
-        // ONLY proceed if we have a REAL conversation ID
-        if (!conversationId || !conversationId.startsWith('conv_')) {
-          console.warn('🎯 Invalid conversation ID for end event, ignoring:', conversationId);
-          return;
+        // Handle different event types
+        if (data && typeof data === 'object') {
+          console.log('🎯 ElevenLabs widget message received:', data);
+          
+          // Check for conversation start events with various possible field names
+          if (data.type === 'elevenlabs-conversation-start' || 
+              data.type === 'conversation-start' ||
+              data.type === 'convai-conversation-start' ||
+              data.event === 'conversation-start' ||
+              data.type === 'conversation_started' ||
+              data.event === 'conversation_started' ||
+              data.type === 'conversationStarted' ||
+              data.event === 'conversationStarted') {
+            
+            const conversationId = data.conversationId || 
+                                 data.conversation_id || 
+                                 data.id || 
+                                 data.convId ||
+                                 data.conv_id ||
+                                 data.conversationID ||
+                                 data.conversation_ID;
+            
+            console.log('🎯 Conversation start event - extracted ID:', conversationId);
+            
+            // ONLY proceed if we have a REAL ElevenLabs conversation ID
+            if (conversationId && conversationId.startsWith('conv_')) {
+              console.log('✅ Valid ElevenLabs conversation started with REAL ID:', conversationId);
+              handleConversationStart(conversationId);
+            } else {
+              console.warn('🚫 Conversation start event received but no valid ID found:', data);
+            }
+          }
+          
+          // Check for conversation end events
+          else if (data.type === 'elevenlabs-conversation-end' || 
+                   data.type === 'conversation-end' ||
+                   data.type === 'convai-conversation-end' ||
+                   data.event === 'conversation-end' ||
+                   data.type === 'conversation_ended' ||
+                   data.event === 'conversation_ended' ||
+                   data.type === 'conversationEnded' ||
+                   data.event === 'conversationEnded') {
+            
+            const conversationId = data.conversationId || 
+                                 data.conversation_id || 
+                                 data.id || 
+                                 data.convId ||
+                                 data.conv_id ||
+                                 data.conversationID ||
+                                 data.conversation_ID;
+            
+            console.log('🎯 Conversation end event - extracted ID:', conversationId);
+            
+            // ONLY proceed if we have a REAL ElevenLabs conversation ID
+            if (conversationId && conversationId.startsWith('conv_')) {
+              console.log('✅ Valid ElevenLabs conversation ended with REAL ID:', conversationId);
+              handleConversationEndEvent(conversationId);
+            } else {
+              console.warn('🚫 Conversation end event received but no valid ID found:', data);
+            }
+          }
+          
+          // Check for error events
+          else if (data.type === 'elevenlabs-error' || 
+                   data.type === 'error' ||
+                   data.type === 'convai-error' ||
+                   data.event === 'error') {
+            const error = data.error || data.message || 'Unknown error';
+            console.error('❌ ElevenLabs error:', error);
+            setError(error);
+            onError?.(error);
+          }
+          
+          // Check for widget ready events
+          else if (data.type === 'elevenlabs-ready' || 
+                   data.type === 'widget-ready' ||
+                   data.type === 'convai-ready') {
+            console.log('✅ ElevenLabs widget ready');
+          }
+          
+          // Log other events for debugging
+          else if (data.type || data.event) {
+            console.log('🎯 Other ElevenLabs widget event:', data.type || data.event, data);
+          }
         }
-        
-        setConversationActive(false);
-        await handleEndConversation(conversationId);
-      },
-      (error) => {
-        console.error('🎯 ElevenLabs widget error:', error);
-        setError(error);
-        onError?.(error);
+      } catch (error) {
+        console.error('❌ Error parsing ElevenLabs message:', error, event.data);
       }
-    );
+    };
 
-    eventListenerCleanupRef.current = cleanup;
+    // Add event listener
+    window.addEventListener('message', handleMessage);
+    
+    // Also listen for custom events that might be dispatched
+    const handleCustomEvent = (event: CustomEvent) => {
+      console.log('🎯 ElevenLabs custom event:', event.type, event.detail);
+      
+      if (event.type === 'elevenlabs-conversation-start' && event.detail?.conversationId) {
+        // ONLY proceed if we have a REAL ElevenLabs conversation ID
+        if (event.detail.conversationId.startsWith('conv_')) {
+          handleConversationStart(event.detail.conversationId);
+        }
+      } else if (event.type === 'elevenlabs-conversation-end' && event.detail?.conversationId) {
+        // ONLY proceed if we have a REAL ElevenLabs conversation ID
+        if (event.detail.conversationId.startsWith('conv_')) {
+          handleConversationEndEvent(event.detail.conversationId);
+        }
+      }
+    };
+
+    window.addEventListener('elevenlabs-conversation-start', handleCustomEvent as EventListener);
+    window.addEventListener('elevenlabs-conversation-end', handleCustomEvent as EventListener);
+    
+    // Store cleanup function
+    eventListenerCleanupRef.current = () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('elevenlabs-conversation-start', handleCustomEvent as EventListener);
+      window.removeEventListener('elevenlabs-conversation-end', handleCustomEvent as EventListener);
+    };
 
     return () => {
       if (eventListenerCleanupRef.current) {
         eventListenerCleanupRef.current();
       }
     };
-  }, [scriptLoaded, agentId, onConversationStart, onError, hasApiKey]);
+  }, [scriptLoaded, agentId]);
+
+  // Handle conversation start with REAL conversation ID
+  const handleConversationStart = async (conversationId: string) => {
+    console.log('🎯 Processing conversation start with REAL ID:', conversationId);
+    
+    // Create conversation session with the REAL ElevenLabs conversation ID
+    const newConversation: ConversationSession = {
+      conversationId, // Use ONLY the REAL conversation ID from ElevenLabs
+      agentId,
+      status: 'active',
+      startTime: new Date(),
+    };
+    
+    setConversation(newConversation);
+    setConversationActive(true);
+    
+    // Notify parent component with the REAL conversation ID
+    onConversationStart?.(conversationId);
+    
+    // Fetch conversation details if API key is available
+    if (hasApiKey) {
+      try {
+        console.log('🎯 Fetching conversation details for REAL ID:', conversationId);
+        const details = await getConversationDetails(conversationId);
+        if (details) {
+          setConversationDetails(details);
+          console.log('✅ Conversation details loaded for REAL ID:', conversationId, details);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching conversation details:', error);
+      }
+    }
+  };
+
+  // Handle conversation end event
+  const handleConversationEndEvent = async (conversationId: string) => {
+    console.log('🎯 Processing conversation end with REAL ID:', conversationId);
+    setConversationActive(false);
+    await handleEndConversation(conversationId);
+  };
 
   // Cleanup on unmount
   useEffect(() => {
@@ -188,7 +336,7 @@ export function ConversationWidget({
     
     // ONLY proceed if we have a REAL conversation ID
     if (!currentConversationId || !currentConversationId.startsWith('conv_')) {
-      console.warn('🎯 Cannot end conversation - no valid conversation ID:', currentConversationId);
+      console.warn('🚫 Cannot end conversation - no valid conversation ID:', currentConversationId);
       return;
     }
 
@@ -205,10 +353,10 @@ export function ConversationWidget({
           if (apiTranscript) {
             finalTranscript = apiTranscript;
             setTranscript(apiTranscript);
-            console.log('🎯 Final transcript loaded for REAL ID:', currentConversationId);
+            console.log('✅ Final transcript loaded for REAL ID:', currentConversationId);
           }
         } catch (error) {
-          console.error('Error fetching transcript from API:', error);
+          console.error('❌ Error fetching transcript from API:', error);
         }
       }
 
@@ -221,9 +369,10 @@ export function ConversationWidget({
       setConversation(null);
       setConversationDetails(null);
       setConversationActive(false);
-      console.log('🎯 Conversation ended successfully with REAL ID:', currentConversationId);
+      console.log('✅ Conversation ended successfully with REAL ID:', currentConversationId);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to end conversation';
+      console.error('❌ Error ending conversation:', errorMessage);
       setError(errorMessage);
       onError?.(errorMessage);
     } finally {
@@ -272,11 +421,6 @@ export function ConversationWidget({
           <Button onClick={retryScriptLoad} variant="outline">
             Try Again
           </Button>
-          {!hasApiKey && (
-            <Button onClick={() => setError('')} variant="ghost">
-              Continue with Demo
-            </Button>
-          )}
         </div>
       </div>
     );
@@ -307,7 +451,7 @@ export function ConversationWidget({
           </h3>
           <p className="text-gray-600 text-center mb-6 max-w-md">
             Click the microphone button in the widget below to begin your conversation. 
-            We'll wait for ElevenLabs to provide the real conversation ID.
+            We'll automatically capture the real ElevenLabs conversation ID.
           </p>
           
           {/* API Key Status */}
@@ -497,7 +641,7 @@ export function ConversationWidget({
             <>
               <Square className="w-4 h-4 mr-2" />
               End Conversation
-            </>
+            <//>
           )}
         </Button>
       </div>
