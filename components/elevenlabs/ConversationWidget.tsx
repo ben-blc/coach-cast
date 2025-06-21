@@ -11,7 +11,8 @@ import {
   getConversationTranscript, 
   getConversationDetails,
   generateConversationId,
-  setupElevenLabsEventListeners 
+  setupElevenLabsEventListeners,
+  isApiKeyConfigured 
 } from '@/lib/elevenlabs';
 import type { ConversationSession } from '@/lib/elevenlabs';
 
@@ -51,12 +52,14 @@ export function ConversationWidget({
   const [widgetReady, setWidgetReady] = useState(false);
   const [conversationDetails, setConversationDetails] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [widgetError, setWidgetError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const widgetRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
+  const eventListenerCleanupRef = useRef<(() => void) | null>(null);
 
   // Check if ElevenLabs API key is available
-  const hasApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY && 
-                   process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY !== 'your_elevenlabs_api_key_here';
+  const hasApiKey = isApiKeyConfigured();
 
   // Load ElevenLabs widget script
   useEffect(() => {
@@ -64,14 +67,16 @@ export function ConversationWidget({
 
     const loadScript = () => {
       // Check if script already exists
-      const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
+      const existingScript = document.querySelector('script[src*="elevenlabs"]');
       if (existingScript) {
+        console.log('ElevenLabs script already exists');
         setScriptLoaded(true);
         setWidgetReady(true);
         scriptLoadedRef.current = true;
         return;
       }
 
+      console.log('Loading ElevenLabs script...');
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
       script.async = true;
@@ -83,53 +88,58 @@ export function ConversationWidget({
         setWidgetReady(true);
         scriptLoadedRef.current = true;
         setError('');
+        setWidgetError(false);
       };
 
       script.onerror = (error) => {
         console.error('Failed to load ElevenLabs script:', error);
         setError('Failed to load ElevenLabs widget. Please check your internet connection.');
         setScriptLoaded(false);
+        setWidgetError(true);
       };
       
       document.head.appendChild(script);
     };
 
     loadScript();
-  }, []);
+  }, [retryCount]);
 
   // Setup event listeners for ElevenLabs widget
   useEffect(() => {
     if (!scriptLoaded) return;
 
+    console.log('Setting up ElevenLabs event listeners...');
+    
     const cleanup = setupElevenLabsEventListeners(
       async (conversationId) => {
-        console.log('Widget conversation started:', conversationId);
+        console.log('Widget conversation started with ID:', conversationId);
         
-        // If we don't have a conversation yet, create one with the provided ID
-        if (!conversation) {
-          const newConversation: ConversationSession = {
-            conversationId,
-            agentId,
-            status: 'active',
-            startTime: new Date(),
-          };
-          setConversation(newConversation);
-          onConversationStart?.(conversationId);
-          
-          // Fetch conversation details if API key is available
-          if (hasApiKey) {
-            try {
-              const details = await getConversationDetails(conversationId);
-              setConversationDetails(details);
-            } catch (error) {
-              console.error('Error fetching conversation details:', error);
-            }
+        // Create conversation session with the provided ID
+        const newConversation: ConversationSession = {
+          conversationId,
+          agentId,
+          status: 'active',
+          startTime: new Date(),
+        };
+        
+        setConversation(newConversation);
+        onConversationStart?.(conversationId);
+        
+        // Fetch conversation details if API key is available
+        if (hasApiKey) {
+          try {
+            console.log('Fetching conversation details for:', conversationId);
+            const details = await getConversationDetails(conversationId);
+            setConversationDetails(details);
+            console.log('Conversation details loaded:', details);
+          } catch (error) {
+            console.error('Error fetching conversation details:', error);
           }
         }
       },
-      (conversationId) => {
-        console.log('Widget conversation ended:', conversationId);
-        handleEndConversation(conversationId);
+      async (conversationId) => {
+        console.log('Widget conversation ended with ID:', conversationId);
+        await handleEndConversation(conversationId);
       },
       (error) => {
         console.error('Widget error:', error);
@@ -138,16 +148,31 @@ export function ConversationWidget({
       }
     );
 
-    return cleanup;
-  }, [scriptLoaded, conversation, agentId, onConversationStart, onError, hasApiKey]);
+    eventListenerCleanupRef.current = cleanup;
 
-  // Start conversation
+    return () => {
+      if (eventListenerCleanupRef.current) {
+        eventListenerCleanupRef.current();
+      }
+    };
+  }, [scriptLoaded, agentId, onConversationStart, onError, hasApiKey]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (eventListenerCleanupRef.current) {
+        eventListenerCleanupRef.current();
+      }
+    };
+  }, []);
+
+  // Start conversation manually (fallback if widget doesn't auto-start)
   const handleStartConversation = async () => {
     try {
       setIsLoading(true);
       setError('');
 
-      // Generate our own conversation ID
+      // Generate our own conversation ID as fallback
       const conversationId = generateConversationId();
       
       const session: ConversationSession = {
@@ -159,7 +184,16 @@ export function ConversationWidget({
 
       setConversation(session);
       onConversationStart?.(session.conversationId);
-      console.log('Conversation started with ID:', session.conversationId);
+      console.log('Manual conversation started with ID:', session.conversationId);
+      
+      // Try to trigger the widget if it's loaded
+      if (widgetRef.current) {
+        const widget = widgetRef.current.querySelector('elevenlabs-convai');
+        if (widget) {
+          // Try to programmatically start the conversation
+          console.log('Attempting to start widget conversation...');
+        }
+      }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to start conversation';
       setError(errorMessage);
@@ -176,15 +210,18 @@ export function ConversationWidget({
 
     try {
       setIsLoading(true);
+      console.log('Ending conversation:', currentConversationId);
 
       // Get final transcript from ElevenLabs API
       let finalTranscript = transcript;
       if (hasApiKey) {
         try {
+          console.log('Fetching final transcript...');
           const apiTranscript = await getConversationTranscript(currentConversationId);
           if (apiTranscript) {
             finalTranscript = apiTranscript;
             setTranscript(apiTranscript);
+            console.log('Final transcript loaded');
           }
         } catch (error) {
           console.error('Error fetching transcript from API:', error);
@@ -197,9 +234,8 @@ export function ConversationWidget({
       onConversationEnd?.(currentConversationId, finalTranscript);
       
       setConversation(null);
-      setWidgetReady(false);
       setConversationDetails(null);
-      console.log('Conversation ended:', currentConversationId);
+      console.log('Conversation ended successfully:', currentConversationId);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to end conversation';
       setError(errorMessage);
@@ -212,9 +248,13 @@ export function ConversationWidget({
   // Copy conversation ID to clipboard
   const copyConversationId = async () => {
     if (conversation?.conversationId) {
-      await navigator.clipboard.writeText(conversation.conversationId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(conversation.conversationId);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error('Failed to copy conversation ID:', error);
+      }
     }
   };
 
@@ -223,48 +263,35 @@ export function ConversationWidget({
     setError('');
     setScriptLoaded(false);
     setWidgetReady(false);
+    setWidgetError(false);
     scriptLoadedRef.current = false;
     
     // Remove existing script if any
-    const existingScript = document.querySelector('script[src="https://unpkg.com/@elevenlabs/convai-widget-embed"]');
+    const existingScript = document.querySelector('script[src*="elevenlabs"]');
     if (existingScript) {
       document.head.removeChild(existingScript);
     }
     
-    // Trigger reload
-    setTimeout(() => {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-      script.async = true;
-      script.type = 'text/javascript';
-      
-      script.onload = () => {
-        console.log('ElevenLabs script loaded successfully on retry');
-        setScriptLoaded(true);
-        setWidgetReady(true);
-        scriptLoadedRef.current = true;
-        setError('');
-      };
-
-      script.onerror = (error) => {
-        console.error('Failed to load ElevenLabs script on retry:', error);
-        setError('Failed to load ElevenLabs widget. Please try again.');
-        setScriptLoaded(false);
-      };
-      
-      document.head.appendChild(script);
-    }, 500);
+    // Increment retry count to trigger useEffect
+    setRetryCount(prev => prev + 1);
   };
 
-  if (error) {
+  if (widgetError || error) {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-red-50 rounded-lg">
         <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
         <h3 className="text-lg font-semibold text-red-800 mb-2">Connection Error</h3>
-        <p className="text-red-600 text-center mb-4">{error}</p>
-        <Button onClick={retryScriptLoad} variant="outline">
-          Try Again
-        </Button>
+        <p className="text-red-600 text-center mb-4">{error || 'Failed to load ElevenLabs widget'}</p>
+        <div className="flex space-x-2">
+          <Button onClick={retryScriptLoad} variant="outline">
+            Try Again
+          </Button>
+          {!hasApiKey && (
+            <Button onClick={() => setError('')} variant="ghost">
+              Continue with Demo
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -275,6 +302,9 @@ export function ConversationWidget({
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-gray-600">Loading ElevenLabs AI Coach...</p>
         <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+        {retryCount > 0 && (
+          <p className="text-xs text-gray-400 mt-1">Retry attempt: {retryCount}</p>
+        )}
       </div>
     );
   }
@@ -290,19 +320,20 @@ export function ConversationWidget({
         </h3>
         <p className="text-gray-600 text-center mb-6 max-w-md">
           Click the button below to begin your conversation with the AI coach. 
-          Your conversation ID will be automatically captured and saved.
+          Your conversation will be automatically tracked and saved.
         </p>
         
         {/* API Key Status */}
-        {!hasApiKey && (
-          <Alert className="mb-4 max-w-md">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-sm">
-              <strong>Note:</strong> ElevenLabs API key not configured. 
-              Transcript and audio will use mock data for demonstration.
-            </AlertDescription>
-          </Alert>
-        )}
+        <Alert className="mb-4 max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            {hasApiKey ? (
+              <span><strong>ElevenLabs API Connected:</strong> Real transcripts and audio will be available.</span>
+            ) : (
+              <span><strong>Demo Mode:</strong> ElevenLabs API key not configured. Mock data will be used for demonstration.</span>
+            )}
+          </AlertDescription>
+        </Alert>
         
         <Button 
           onClick={handleStartConversation}
@@ -341,11 +372,9 @@ export function ConversationWidget({
             <Volume2 className="w-3 h-3 mr-1" />
             Live
           </Badge>
-          {hasApiKey && (
-            <Badge className="bg-blue-100 text-blue-800 text-xs">
-              API Connected
-            </Badge>
-          )}
+          <Badge className={`text-xs ${hasApiKey ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
+            {hasApiKey ? 'API Connected' : 'Demo Mode'}
+          </Badge>
         </div>
       </div>
 
@@ -431,6 +460,18 @@ export function ConversationWidget({
               <p className="text-blue-600">Agent ID:</p>
               <p className="font-mono text-blue-800">{conversationDetails.agent_id}</p>
             </div>
+            {conversationDetails.metadata && (
+              <>
+                <div>
+                  <p className="text-blue-600">Messages:</p>
+                  <p className="font-medium text-blue-800">{conversationDetails.metadata.messageCount || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-blue-600">Language:</p>
+                  <p className="font-medium text-blue-800">{conversationDetails.metadata.language || 'en'}</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
