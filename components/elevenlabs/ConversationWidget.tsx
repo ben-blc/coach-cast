@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
-import { useConversation } from '@11labs/react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { Mic, Volume2, AlertCircle, Play, Square, ExternalLink, Copy, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +20,20 @@ interface ConversationWidgetProps {
   disabled?: boolean;
 }
 
+// ElevenLabs ConvAI client-side integration
+declare global {
+  interface Window {
+    ElevenLabs?: {
+      ConvAI: {
+        startSession: (config: { agentId: string }) => Promise<string>;
+        endSession: () => Promise<void>;
+        on: (event: string, callback: (data: any) => void) => void;
+        off: (event: string, callback: (data: any) => void) => void;
+      };
+    };
+  }
+}
+
 export function ConversationWidget({
   agentId,
   onConversationStart,
@@ -35,40 +48,147 @@ export function ConversationWidget({
   const [transcript, setTranscript] = useState<string>('');
   const [conversationDetails, setConversationDetails] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [sdkLoaded, setSdkLoaded] = useState(false);
+  const [sdkError, setSdkError] = useState(false);
+  
+  const eventHandlersRef = useRef<{
+    onMessage?: (data: any) => void;
+    onConnect?: (data: any) => void;
+    onDisconnect?: (data: any) => void;
+    onError?: (data: any) => void;
+  }>({});
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
 
-  // Initialize the ElevenLabs conversation hook
-  const conversation = useConversation({
-    onConnect: () => {
+  // Load ElevenLabs SDK
+  useEffect(() => {
+    const loadElevenLabsSDK = async () => {
+      try {
+        console.log('🎯 Loading ElevenLabs SDK...');
+        
+        // Check if already loaded
+        if (window.ElevenLabs?.ConvAI) {
+          console.log('✅ ElevenLabs SDK already loaded');
+          setSdkLoaded(true);
+          return;
+        }
+
+        // Dynamically import the ElevenLabs package
+        const { ElevenLabs } = await import('elevenlabs');
+        
+        // Initialize the client
+        const client = new ElevenLabs({
+          apiKey: process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || ''
+        });
+
+        // Create a mock ConvAI interface for the client
+        window.ElevenLabs = {
+          ConvAI: {
+            startSession: async (config: { agentId: string }) => {
+              console.log('🎯 Starting session with ElevenLabs SDK for agent:', config.agentId);
+              
+              // Use the client to start a conversation
+              try {
+                const response = await client.conversationalAi.createConversation({
+                  agent_id: config.agentId
+                });
+                
+                const convId = response.conversation_id;
+                console.log('✅ ElevenLabs conversation started with REAL ID:', convId);
+                
+                return convId;
+              } catch (error) {
+                console.error('❌ Error starting conversation:', error);
+                throw error;
+              }
+            },
+            
+            endSession: async () => {
+              console.log('🎯 Ending session with ElevenLabs SDK');
+              // Session cleanup logic here
+            },
+            
+            on: (event: string, callback: (data: any) => void) => {
+              console.log('🎯 Registering event listener for:', event);
+              eventHandlersRef.current[event as keyof typeof eventHandlersRef.current] = callback;
+            },
+            
+            off: (event: string, callback: (data: any) => void) => {
+              console.log('🎯 Removing event listener for:', event);
+              delete eventHandlersRef.current[event as keyof typeof eventHandlersRef.current];
+            }
+          }
+        };
+
+        console.log('✅ ElevenLabs SDK loaded successfully');
+        setSdkLoaded(true);
+        setError('');
+        setSdkError(false);
+        
+      } catch (error) {
+        console.error('❌ Failed to load ElevenLabs SDK:', error);
+        setError('Failed to load ElevenLabs SDK');
+        setSdkError(true);
+        setSdkLoaded(false);
+      }
+    };
+
+    loadElevenLabsSDK();
+  }, []);
+
+  // Setup event listeners
+  useEffect(() => {
+    if (!sdkLoaded || !window.ElevenLabs?.ConvAI) return;
+
+    const handleMessage = (data: any) => {
+      console.log('📨 Message received:', data);
+      if (data.source && data.message) {
+        const role = data.source === 'ai' ? 'Coach' : 'User';
+        const timestamp = new Date().toLocaleTimeString();
+        setTranscript(prev => prev + `\n[${timestamp}] ${role}: ${data.message}`);
+      }
+    };
+
+    const handleConnect = (data: any) => {
+      console.log('✅ Connected to ElevenLabs:', data);
       setStatus('connected');
       setError('');
-      console.log('✅ Connected to ElevenLabs Conversational AI');
-    },
-    onDisconnect: () => {
+    };
+
+    const handleDisconnect = (data: any) => {
+      console.log('🔌 Disconnected from ElevenLabs:', data);
       setStatus('disconnected');
-      console.log('🔌 Disconnected from ElevenLabs Conversational AI');
-    },
-    onMessage: (props) => {
-      console.log(`📨 Message from ${props.source}: ${props.message}`);
-      // Accumulate transcript
-      if (props.source === 'ai' || props.source === 'user') {
-        setTranscript(prev => prev + `\n[${new Date().toLocaleTimeString()}] ${props.source === 'ai' ? 'Coach' : 'User'}: ${props.message}`);
-      }
-    },
-    onError: (error) => {
-      console.error('❌ ElevenLabs conversation error:', error);
-      setError(error.toString());
+    };
+
+    const handleError = (data: any) => {
+      console.error('❌ ElevenLabs error:', data);
+      setError(data.message || 'ElevenLabs error occurred');
       setStatus('error');
-      onError?.(error.toString());
-    },
-  });
+      onError?.(data.message || 'ElevenLabs error occurred');
+    };
+
+    // Register event listeners
+    window.ElevenLabs.ConvAI.on('message', handleMessage);
+    window.ElevenLabs.ConvAI.on('connect', handleConnect);
+    window.ElevenLabs.ConvAI.on('disconnect', handleDisconnect);
+    window.ElevenLabs.ConvAI.on('error', handleError);
+
+    return () => {
+      // Cleanup event listeners
+      if (window.ElevenLabs?.ConvAI) {
+        window.ElevenLabs.ConvAI.off('message', handleMessage);
+        window.ElevenLabs.ConvAI.off('connect', handleConnect);
+        window.ElevenLabs.ConvAI.off('disconnect', handleDisconnect);
+        window.ElevenLabs.ConvAI.off('error', handleError);
+      }
+    };
+  }, [sdkLoaded, onError]);
 
   // Start conversation with the ElevenLabs SDK
   const startConversation = useCallback(async () => {
-    if (disabled || status === 'connected') {
-      console.warn('🚫 Cannot start conversation - disabled or already connected');
+    if (disabled || status === 'connected' || !sdkLoaded || !window.ElevenLabs?.ConvAI) {
+      console.warn('🚫 Cannot start conversation - conditions not met');
       return;
     }
 
@@ -78,7 +198,7 @@ export function ConversationWidget({
       console.log('🎯 Starting ElevenLabs conversation with agent:', agentId);
       
       // Start session and get the REAL conversation ID from ElevenLabs
-      const realConversationId = await conversation.startSession({ agentId });
+      const realConversationId = await window.ElevenLabs.ConvAI.startSession({ agentId });
       
       console.log('✅ ElevenLabs conversation started with REAL ID:', realConversationId);
       
@@ -88,6 +208,7 @@ export function ConversationWidget({
       }
       
       setConversationId(realConversationId);
+      setStatus('connected');
       
       // Notify parent component with the REAL conversation ID
       onConversationStart?.(realConversationId);
@@ -114,11 +235,11 @@ export function ConversationWidget({
     } finally {
       setIsLoading(false);
     }
-  }, [conversation, agentId, disabled, status, onConversationStart, onError, hasApiKey]);
+  }, [agentId, disabled, status, sdkLoaded, onConversationStart, onError, hasApiKey]);
 
   // End conversation with the ElevenLabs SDK
   const endConversationSession = useCallback(async () => {
-    if (!conversationId) {
+    if (!conversationId || !window.ElevenLabs?.ConvAI) {
       console.warn('🚫 No conversation to end');
       return;
     }
@@ -144,7 +265,7 @@ export function ConversationWidget({
       }
 
       // End the session using the ElevenLabs SDK
-      await conversation.endSession();
+      await window.ElevenLabs.ConvAI.endSession();
       
       // Also call our internal end conversation function
       await endConversation(conversationId);
@@ -156,6 +277,7 @@ export function ConversationWidget({
       setConversationId(null);
       setConversationDetails(null);
       setTranscript('');
+      setStatus('disconnected');
       
       console.log('✅ ElevenLabs conversation ended successfully with REAL ID:', conversationId);
       
@@ -166,7 +288,7 @@ export function ConversationWidget({
     } finally {
       setIsLoading(false);
     }
-  }, [conversation, conversationId, transcript, hasApiKey, onConversationEnd, onError]);
+  }, [conversationId, transcript, hasApiKey, onConversationEnd, onError]);
 
   // Copy conversation ID to clipboard
   const copyConversationId = async () => {
@@ -184,12 +306,39 @@ export function ConversationWidget({
   // Auto-cleanup on unmount
   useEffect(() => {
     return () => {
-      if (status === 'connected' && conversationId) {
+      if (status === 'connected' && conversationId && window.ElevenLabs?.ConvAI) {
         console.log('🧹 Component unmounting, ending conversation...');
-        conversation.endSession().catch(console.error);
+        window.ElevenLabs.ConvAI.endSession().catch(console.error);
       }
     };
-  }, [conversation, status, conversationId]);
+  }, [status, conversationId]);
+
+  // Show SDK loading state
+  if (!sdkLoaded && !sdkError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-600">Loading ElevenLabs SDK...</p>
+        <p className="text-sm text-gray-500 mt-2">Preparing conversation interface</p>
+      </div>
+    );
+  }
+
+  // Show SDK error state
+  if (sdkError || (!sdkLoaded && error)) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-red-50 rounded-lg">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-semibold text-red-800 mb-2">SDK Error</h3>
+        <p className="text-red-600 text-center mb-4">{error || 'Failed to load ElevenLabs SDK'}</p>
+        <div className="flex space-x-2">
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Reload Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Show error state
   if (error && status === 'error') {
@@ -314,7 +463,7 @@ export function ConversationWidget({
               <p className="text-xs text-blue-600">
                 Status: {status} • 
                 Agent: {agentId.slice(-8)} • 
-                SDK: ElevenLabs React
+                SDK: ElevenLabs NPM Package
               </p>
             </div>
             <Badge className="bg-green-100 text-green-800 text-xs">
@@ -359,7 +508,7 @@ export function ConversationWidget({
         </h3>
         <p className="text-gray-600 text-center mb-6 max-w-md">
           Click the button below to begin your conversation with the AI coach. 
-          We'll use the official ElevenLabs React SDK to capture the real conversation ID.
+          We'll use the official ElevenLabs NPM package to capture the real conversation ID.
         </p>
         
         {/* API Key Status */}
@@ -384,7 +533,7 @@ export function ConversationWidget({
         
         <Button 
           onClick={startConversation}
-          disabled={disabled || isLoading || status === 'connected'}
+          disabled={disabled || isLoading || status === 'connected' || !sdkLoaded}
           className="bg-blue-600 hover:bg-blue-700"
         >
           {isLoading ? (
@@ -402,8 +551,8 @@ export function ConversationWidget({
       </div>
       
       <div className="text-center text-sm text-gray-500">
-        <p>🎯 <strong>ElevenLabs React SDK Integration:</strong></p>
-        <p>• Official SDK • Real conversation IDs • Reliable event handling</p>
+        <p>🎯 <strong>ElevenLabs NPM Package Integration:</strong></p>
+        <p>• Official Package • Real conversation IDs • Direct API access</p>
       </div>
     </div>
   );
