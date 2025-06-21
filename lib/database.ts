@@ -361,6 +361,38 @@ export async function getUserSessions(userId: string): Promise<CoachingSession[]
   }
 }
 
+// New function to get a single session by ID
+export async function getSessionById(sessionId: string): Promise<CoachingSession | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('coaching_sessions')
+      .select(`
+        *,
+        ai_coaches(name, specialty),
+        human_coaches(name, specialty)
+      `)
+      .eq('id', sessionId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching session:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in getSessionById:', error);
+    return null;
+  }
+}
+
 export async function updateUserCredits(userId: string, creditsUsed: number): Promise<boolean> {
   try {
     const { data: { session } } = await supabase.auth.getSession();

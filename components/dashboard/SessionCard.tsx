@@ -3,7 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mic, Video, Users, Clock, Play, FileText } from 'lucide-react';
+import { Mic, Video, Users, Clock, Play, FileText, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 interface SessionCardProps {
   session: {
@@ -76,7 +77,7 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
         <p className="text-gray-700 mb-4">{session.summary}</p>
         
         {session.goals.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             <h4 className="text-sm font-medium text-gray-900">Goals:</h4>
             <ul className="space-y-1">
               {session.goals.map((goal, index) => (
@@ -89,18 +90,27 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
           </div>
         )}
         
-        {detailed && (
-          <div className="flex items-center space-x-2 mt-4 pt-4 border-t">
-            <Button variant="outline" size="sm">
-              <Play className="h-3 w-3 mr-1" />
-              Replay
-            </Button>
-            <Button variant="outline" size="sm">
-              <FileText className="h-3 w-3 mr-1" />
-              Transcript
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center space-x-2 pt-4 border-t">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/session/${session.id}`}>
+              <ExternalLink className="h-3 w-3 mr-1" />
+              View Details
+            </Link>
+          </Button>
+          
+          {detailed && (
+            <>
+              <Button variant="outline" size="sm">
+                <Play className="h-3 w-3 mr-1" />
+                Replay
+              </Button>
+              <Button variant="outline" size="sm">
+                <FileText className="h-3 w-3 mr-1" />
+                Transcript
+              </Button>
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
