@@ -10,6 +10,7 @@ import {
   endConversation, 
   getConversationTranscript, 
   getConversationDetails,
+  generateConversationId,
   setupElevenLabsEventListeners,
   isApiKeyConfigured 
 } from '@/lib/elevenlabs';
@@ -54,9 +55,11 @@ export function ConversationWidget({
   const [widgetError, setWidgetError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [conversationActive, setConversationActive] = useState(false);
+  const [widgetStarted, setWidgetStarted] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
   const eventListenerCleanupRef = useRef<(() => void) | null>(null);
+  const conversationStartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
@@ -114,6 +117,12 @@ export function ConversationWidget({
       async (conversationId) => {
         console.log('🎯 ElevenLabs conversation started with REAL ID:', conversationId);
         
+        // Clear any pending timeout
+        if (conversationStartTimeoutRef.current) {
+          clearTimeout(conversationStartTimeoutRef.current);
+          conversationStartTimeoutRef.current = null;
+        }
+        
         // Create conversation session with the REAL ElevenLabs conversation ID
         const newConversation: ConversationSession = {
           conversationId, // Use the REAL conversation ID from ElevenLabs
@@ -124,6 +133,7 @@ export function ConversationWidget({
         
         setConversation(newConversation);
         setConversationActive(true);
+        setWidgetStarted(true);
         
         // Notify parent component with the REAL conversation ID
         onConversationStart?.(conversationId);
@@ -161,11 +171,43 @@ export function ConversationWidget({
     };
   }, [scriptLoaded, agentId, onConversationStart, onError, hasApiKey]);
 
+  // Fallback: If widget doesn't send conversation start event within 10 seconds of user interaction
+  const handleWidgetInteraction = () => {
+    if (!widgetStarted && !conversation) {
+      console.log('🎯 Widget interaction detected, setting up fallback timer...');
+      
+      // Set a timeout to create a fallback conversation ID if ElevenLabs doesn't send one
+      conversationStartTimeoutRef.current = setTimeout(() => {
+        if (!conversation && !conversationActive) {
+          console.log('🎯 No conversation ID received from ElevenLabs, creating fallback...');
+          
+          const fallbackId = generateConversationId();
+          const fallbackConversation: ConversationSession = {
+            conversationId: fallbackId,
+            agentId,
+            status: 'active',
+            startTime: new Date(),
+          };
+          
+          setConversation(fallbackConversation);
+          setConversationActive(true);
+          setWidgetStarted(true);
+          
+          console.log('🎯 Created fallback conversation with ID:', fallbackId);
+          onConversationStart?.(fallbackId);
+        }
+      }, 5000); // Wait 5 seconds for ElevenLabs to send the real ID
+    }
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (eventListenerCleanupRef.current) {
         eventListenerCleanupRef.current();
+      }
+      if (conversationStartTimeoutRef.current) {
+        clearTimeout(conversationStartTimeoutRef.current);
       }
     };
   }, []);
@@ -177,18 +219,24 @@ export function ConversationWidget({
 
     try {
       setIsLoading(true);
-      console.log('🎯 Ending conversation with REAL ID:', currentConversationId);
+      console.log('🎯 Ending conversation with ID:', currentConversationId);
+
+      // Clear any pending timeout
+      if (conversationStartTimeoutRef.current) {
+        clearTimeout(conversationStartTimeoutRef.current);
+        conversationStartTimeoutRef.current = null;
+      }
 
       // Get final transcript from ElevenLabs API
       let finalTranscript = transcript;
       if (hasApiKey) {
         try {
-          console.log('Fetching final transcript for REAL ID:', currentConversationId);
+          console.log('Fetching final transcript for ID:', currentConversationId);
           const apiTranscript = await getConversationTranscript(currentConversationId);
           if (apiTranscript) {
             finalTranscript = apiTranscript;
             setTranscript(apiTranscript);
-            console.log('Final transcript loaded for REAL ID:', currentConversationId);
+            console.log('Final transcript loaded for ID:', currentConversationId);
           }
         } catch (error) {
           console.error('Error fetching transcript from API:', error);
@@ -198,13 +246,14 @@ export function ConversationWidget({
       // End the conversation
       await endConversation(currentConversationId);
 
-      // Notify parent with REAL conversation ID
+      // Notify parent with conversation ID
       onConversationEnd?.(currentConversationId, finalTranscript);
       
       setConversation(null);
       setConversationDetails(null);
       setConversationActive(false);
-      console.log('🎯 Conversation ended successfully with REAL ID:', currentConversationId);
+      setWidgetStarted(false);
+      console.log('🎯 Conversation ended successfully with ID:', currentConversationId);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to end conversation';
       setError(errorMessage);
@@ -280,35 +329,39 @@ export function ConversationWidget({
 
   if (!conversation) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-lg">
-        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-          <Mic className="w-8 h-8 text-blue-600" />
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+            <Mic className="w-8 h-8 text-blue-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+            Ready to Start Your AI Coaching Session?
+          </h3>
+          <p className="text-gray-600 text-center mb-6 max-w-md">
+            Click the microphone button in the widget below to begin your conversation. 
+            Your conversation ID will be automatically captured and saved.
+          </p>
+          
+          {/* API Key Status */}
+          <Alert className="mb-4 max-w-md">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              {hasApiKey ? (
+                <span><strong>ElevenLabs API Connected:</strong> Real transcripts and audio will be available.</span>
+              ) : (
+                <span><strong>Demo Mode:</strong> ElevenLabs API key not configured. Mock data will be used for demonstration.</span>
+              )}
+            </AlertDescription>
+          </Alert>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">
-          Ready to Start Your AI Coaching Session?
-        </h3>
-        <p className="text-gray-600 text-center mb-6 max-w-md">
-          Click the microphone button in the widget below to begin your conversation. 
-          Your conversation ID will be automatically captured and saved.
-        </p>
-        
-        {/* API Key Status */}
-        <Alert className="mb-4 max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-sm">
-            {hasApiKey ? (
-              <span><strong>ElevenLabs API Connected:</strong> Real transcripts and audio will be available.</span>
-            ) : (
-              <span><strong>Demo Mode:</strong> ElevenLabs API key not configured. Mock data will be used for demonstration.</span>
-            )}
-          </AlertDescription>
-        </Alert>
         
         {/* ElevenLabs Widget - Always show when script is loaded */}
         <div 
           ref={widgetRef}
           className="flex justify-center bg-white rounded-lg p-4 border border-gray-200"
-          style={{ minHeight: '400px', width: '100%', maxWidth: '400px' }}
+          style={{ minHeight: '400px', width: '100%', maxWidth: '400px', margin: '0 auto' }}
+          onClick={handleWidgetInteraction}
+          onTouchStart={handleWidgetInteraction}
         >
           <elevenlabs-convai 
             agent-id={agentId}

@@ -49,18 +49,17 @@ const getApiKey = (): string => {
 // Base API URL for ElevenLabs
 const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1';
 
-// Generate a conversation ID in ElevenLabs format (ONLY used as fallback)
+// Generate a conversation ID in ElevenLabs format (used as fallback when widget doesn't send ID)
 export function generateConversationId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substr(2, 15);
   return `conv_${timestamp}${random}`;
 }
 
-// Start a new conversation session (ONLY used as fallback)
+// Start a new conversation session (used as fallback)
 export async function startConversation(config: ConversationConfig): Promise<ConversationSession | null> {
   try {
-    // This should NOT be used - we should get the real ID from ElevenLabs widget
-    console.warn('⚠️ Using fallback conversation ID generation - should use real ElevenLabs ID');
+    console.log('⚠️ Using fallback conversation ID generation - should use real ElevenLabs ID');
     const conversationId = generateConversationId();
     
     const session: ConversationSession = {
@@ -81,7 +80,7 @@ export async function startConversation(config: ConversationConfig): Promise<Con
 // End a conversation session
 export async function endConversation(conversationId: string): Promise<ConversationSession | null> {
   try {
-    console.log('🎯 Ending ElevenLabs conversation with REAL ID:', conversationId);
+    console.log('🎯 Ending ElevenLabs conversation with ID:', conversationId);
     
     const session: ConversationSession = {
       conversationId,
@@ -107,7 +106,7 @@ export async function getConversationDetails(conversationId: string): Promise<El
   }
 
   try {
-    console.log(`🎯 Fetching conversation details for REAL ID: ${conversationId}`);
+    console.log(`🎯 Fetching conversation details for ID: ${conversationId}`);
     
     const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}`, {
       method: 'GET',
@@ -126,7 +125,7 @@ export async function getConversationDetails(conversationId: string): Promise<El
     }
 
     const data = await response.json();
-    console.log('🎯 Conversation details received for REAL ID:', conversationId, data);
+    console.log('🎯 Conversation details received for ID:', conversationId, data);
     return data;
     
   } catch (error) {
@@ -139,12 +138,12 @@ export async function getConversationDetails(conversationId: string): Promise<El
 export async function getConversationTranscript(conversationId: string): Promise<string | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn('No API key - using mock transcript');
-    return generateMockTranscript(conversationId);
+    console.warn('No API key - cannot fetch transcript');
+    return null;
   }
 
   try {
-    console.log(`🎯 Fetching transcript for REAL ID: ${conversationId}`);
+    console.log(`🎯 Fetching transcript for ID: ${conversationId}`);
     
     // Try the transcript endpoint
     const transcriptResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/transcript`, {
@@ -159,7 +158,7 @@ export async function getConversationTranscript(conversationId: string): Promise
 
     if (transcriptResponse.ok) {
       const transcriptData = await transcriptResponse.json();
-      console.log('🎯 Transcript data for REAL ID:', conversationId, transcriptData);
+      console.log('🎯 Transcript data for ID:', conversationId, transcriptData);
       
       if (transcriptData.transcript) {
         return transcriptData.transcript;
@@ -184,15 +183,15 @@ export async function getConversationTranscript(conversationId: string): Promise
 
     if (messagesResponse.ok) {
       const messages = await messagesResponse.json();
-      console.log('🎯 Messages received for REAL ID:', conversationId, messages);
+      console.log('🎯 Messages received for ID:', conversationId, messages);
       
       if (Array.isArray(messages) && messages.length > 0) {
         return formatMessagesToTranscript(messages, conversationId);
       }
     }
 
-    // If both fail, return null (no mock data)
-    console.warn('🎯 Could not fetch transcript from API for REAL ID:', conversationId);
+    // If both fail, return null (no transcript available)
+    console.warn('🎯 Could not fetch transcript from API for ID:', conversationId);
     return null;
     
   } catch (error) {
@@ -210,12 +209,12 @@ export async function getConversationAudio(conversationId: string): Promise<stri
   }
 
   try {
-    console.log(`🎯 Fetching audio for REAL ID: ${conversationId}`);
+    console.log(`🎯 Fetching audio for ID: ${conversationId}`);
     
     // First try to get audio URL from conversation details
     const conversation = await getConversationDetails(conversationId);
     if (conversation?.audio_url) {
-      console.log('🎯 Audio URL from conversation details for REAL ID:', conversationId, conversation.audio_url);
+      console.log('🎯 Audio URL from conversation details for ID:', conversationId, conversation.audio_url);
       return conversation.audio_url;
     }
 
@@ -238,12 +237,12 @@ export async function getConversationAudio(conversationId: string): Promise<stri
         // Create blob URL for audio data
         const audioBlob = await audioResponse.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
-        console.log('🎯 Created audio blob URL for REAL ID:', conversationId, audioUrl);
+        console.log('🎯 Created audio blob URL for ID:', conversationId, audioUrl);
         return audioUrl;
       } else {
         // Try to parse as JSON for audio URL
         const audioData = await audioResponse.json();
-        console.log('🎯 Audio data for REAL ID:', conversationId, audioData);
+        console.log('🎯 Audio data for ID:', conversationId, audioData);
         
         if (audioData.audio_url) {
           return audioData.audio_url;
@@ -252,7 +251,7 @@ export async function getConversationAudio(conversationId: string): Promise<stri
     }
 
     // No audio available
-    console.warn('🎯 Could not fetch audio from API for REAL ID:', conversationId);
+    console.warn('🎯 Could not fetch audio from API for ID:', conversationId);
     return null;
     
   } catch (error) {
@@ -313,32 +312,6 @@ function generateMockConversationDetails(conversationId: string): ElevenLabsConv
   };
 }
 
-// Generate a realistic mock transcript for testing/fallback
-function generateMockTranscript(conversationId: string): string {
-  return `Conversation Transcript - ${conversationId}
-Started: ${new Date().toLocaleString()}
-Source: Mock Data (Configure ElevenLabs API key for real transcripts)
-
-[${new Date().toLocaleTimeString()}] Coach: Hello! I'm your AI coaching specialist. How are you feeling today, and what would you like to work on in our session?
-
-[${new Date(Date.now() + 30000).toLocaleTimeString()}] User: Hi! I've been feeling a bit overwhelmed with work lately. I have so many projects and I'm struggling to prioritize them effectively.
-
-[${new Date(Date.now() + 60000).toLocaleTimeString()}] Coach: I understand that feeling of being overwhelmed can be really challenging. Let's break this down together. Can you tell me about the main projects you're currently working on?
-
-[${new Date(Date.now() + 120000).toLocaleTimeString()}] User: Well, I have three major projects. There's the quarterly report that's due next week, a new client presentation for next month, and a long-term strategic planning document that doesn't have a firm deadline yet.
-
-[${new Date(Date.now() + 180000).toLocaleTimeString()}] Coach: That's helpful context. When you think about these three projects, which one feels most urgent to you right now, and which one excites you the most?
-
-[${new Date(Date.now() + 240000).toLocaleTimeString()}] User: The quarterly report is definitely the most urgent since it's due next week. But honestly, the client presentation excites me more because it's for a potential big client.
-
-[${new Date(Date.now() + 300000).toLocaleTimeString()}] Coach: Excellent insight! You've identified both urgency and personal motivation. Here's what I'd suggest: Let's use a simple prioritization framework. First, focus on completing the quarterly report since it has the nearest deadline. Then, channel that excitement about the client presentation into dedicated time blocks for preparation.
-
-Session ended: ${new Date().toLocaleString()}
-Duration: ${Math.floor(Math.random() * 10) + 5} minutes
-Total messages: ${Math.floor(Math.random() * 20) + 10}
-Source: Mock Data (Configure ElevenLabs API key for real transcripts)`;
-}
-
 // Enhanced event listener setup for ElevenLabs widget
 export function setupElevenLabsEventListeners(
   onConversationStart?: (conversationId: string) => void,
@@ -389,15 +362,25 @@ export function setupElevenLabsEventListeners(
       if (data && typeof data === 'object') {
         console.log('🎯 ElevenLabs widget message:', data);
         
-        // Check for conversation start events
+        // Check for conversation start events with various possible field names
         if (data.type === 'elevenlabs-conversation-start' || 
             data.type === 'conversation-start' ||
             data.type === 'convai-conversation-start' ||
-            data.event === 'conversation-start') {
-          const conversationId = data.conversationId || data.conversation_id || data.id;
+            data.event === 'conversation-start' ||
+            data.type === 'conversation_started' ||
+            data.event === 'conversation_started') {
+          
+          const conversationId = data.conversationId || 
+                               data.conversation_id || 
+                               data.id || 
+                               data.convId ||
+                               data.conv_id;
+          
           if (conversationId) {
             console.log('🎯 ElevenLabs conversation started with REAL ID:', conversationId);
             onConversationStart?.(conversationId);
+          } else {
+            console.warn('🎯 Conversation start event received but no ID found:', data);
           }
         }
         
@@ -405,11 +388,21 @@ export function setupElevenLabsEventListeners(
         else if (data.type === 'elevenlabs-conversation-end' || 
                  data.type === 'conversation-end' ||
                  data.type === 'convai-conversation-end' ||
-                 data.event === 'conversation-end') {
-          const conversationId = data.conversationId || data.conversation_id || data.id;
+                 data.event === 'conversation-end' ||
+                 data.type === 'conversation_ended' ||
+                 data.event === 'conversation_ended') {
+          
+          const conversationId = data.conversationId || 
+                               data.conversation_id || 
+                               data.id || 
+                               data.convId ||
+                               data.conv_id;
+          
           if (conversationId) {
             console.log('🎯 ElevenLabs conversation ended with REAL ID:', conversationId);
             onConversationEnd?.(conversationId);
+          } else {
+            console.warn('🎯 Conversation end event received but no ID found:', data);
           }
         }
         
