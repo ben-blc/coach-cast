@@ -92,7 +92,7 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
         
         <div className="flex items-center space-x-2 pt-4 border-t">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/session/${session.id}`}>
+            <Link href={`/session-detail?id=${session.id}`}>
               <ExternalLink className="h-3 w-3 mr-1" />
               View Details
             </Link>

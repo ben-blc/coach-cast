@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,11 +50,17 @@ export default function SessionDetailPage() {
   const [error, setError] = useState<string>('');
   
   const router = useRouter();
-  const params = useParams();
-  const sessionId = params.id as string;
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('id');
 
   useEffect(() => {
     async function loadSessionData() {
+      if (!sessionId) {
+        setError('No session ID provided');
+        setLoading(false);
+        return;
+      }
+
       try {
         const user = await getCurrentUser();
         if (!user) {
@@ -119,9 +125,7 @@ export default function SessionDetailPage() {
       }
     }
 
-    if (sessionId) {
-      loadSessionData();
-    }
+    loadSessionData();
   }, [sessionId, router]);
 
   const loadConversationData = async (conversationId: string, sessionData: SessionDetails) => {

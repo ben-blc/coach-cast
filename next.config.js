@@ -7,7 +7,7 @@ const nextConfig = {
   images: { unoptimized: true },
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
-  // For dynamic routes in static export, we need to handle them differently
+  // For static export, we define all the routes we want to pre-generate
   exportPathMap: async function (
     defaultPathMap,
     { dev, dir, outDir, distDir, buildId }
@@ -22,7 +22,7 @@ const nextConfig = {
       '/session/ai-specialist': { page: '/session/ai-specialist' },
       '/session/digital-chemistry': { page: '/session/digital-chemistry' },
       '/session/human-voice-ai': { page: '/session/human-voice-ai' },
-      // Dynamic session detail pages will be handled client-side
+      '/session-detail': { page: '/session-detail' }, // Static route for session details
     };
   },
 };
