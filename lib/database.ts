@@ -402,10 +402,32 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
       return false;
     }
 
+    // First get the current credits
+    const { data: currentSubscription, error: fetchError } = await supabase
+      .from('subscriptions')
+      .select('credits_remaining')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current subscription:', fetchError);
+      return false;
+    }
+
+    if (!currentSubscription) {
+      console.error('No subscription found for user');
+      return false;
+    }
+
+    // Calculate new credits remaining
+    const newCreditsRemaining = Math.max(0, currentSubscription.credits_remaining - creditsUsed);
+
+    // Update with the calculated value
     const { error } = await supabase
       .from('subscriptions')
       .update({ 
-        credits_remaining: supabase.raw(`credits_remaining - ${creditsUsed}`)
+        credits_remaining: newCreditsRemaining,
+        updated_at: new Date().toISOString()
       })
       .eq('user_id', userId);
 
@@ -414,6 +436,7 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
       return false;
     }
 
+    console.log(`Updated credits for user ${userId}: ${currentSubscription.credits_remaining} -> ${newCreditsRemaining} (used ${creditsUsed})`);
     return true;
   } catch (error) {
     console.error('Unexpected error in updateUserCredits:', error);

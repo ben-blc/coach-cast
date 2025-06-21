@@ -38,23 +38,26 @@ export interface ElevenLabsMessage {
 
 // Get ElevenLabs API key from environment - check both client and server side
 const getApiKey = (): string => {
-  // Check client-side environment variable
-  if (typeof window !== 'undefined') {
-    const clientApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
-    console.log('Client-side API key check:', clientApiKey ? 'Found' : 'Not found');
-    if (clientApiKey && clientApiKey !== 'your_elevenlabs_api_key_here' && clientApiKey.trim() !== '') {
-      return clientApiKey;
-    }
+  // Always check the client-side environment variable first
+  const clientApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+  console.log('Checking client-side API key:', clientApiKey ? `Found (${clientApiKey.substring(0, 10)}...)` : 'Not found');
+  
+  if (clientApiKey && clientApiKey !== 'your_elevenlabs_api_key_here' && clientApiKey.trim() !== '') {
+    console.log('Using client-side API key');
+    return clientApiKey;
   }
   
   // Check server-side environment variable (fallback)
   const serverApiKey = process.env.ELEVENLABS_API_KEY;
-  console.log('Server-side API key check:', serverApiKey ? 'Found' : 'Not found');
+  console.log('Checking server-side API key:', serverApiKey ? `Found (${serverApiKey.substring(0, 10)}...)` : 'Not found');
+  
   if (serverApiKey && serverApiKey !== 'your_elevenlabs_api_key_here' && serverApiKey.trim() !== '') {
+    console.log('Using server-side API key');
     return serverApiKey;
   }
   
   console.warn('ElevenLabs API key not found in environment variables');
+  console.warn('Expected: NEXT_PUBLIC_ELEVENLABS_API_KEY or ELEVENLABS_API_KEY');
   return '';
 };
 
