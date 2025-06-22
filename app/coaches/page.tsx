@@ -70,72 +70,81 @@ export default function CoachesPage() {
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="firstName">First Name</Label>
-            <Input id="firstName" placeholder="Enter your first name" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lastName">Last Name</Label>
-            <Input id="lastName" placeholder="Enter your last name" />
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="Enter your email" />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="specialty">Coaching Specialty</Label>
-          <Select>
-            <SelectTrigger>
-              <SelectValue placeholder="Select your specialty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="career">Career Coaching</SelectItem>
-              <SelectItem value="life">Life Coaching</SelectItem>
-              <SelectItem value="executive">Executive Coaching</SelectItem>
-              <SelectItem value="wellness">Wellness Coaching</SelectItem>
-              <SelectItem value="relationship">Relationship Coaching</SelectItem>
-              <SelectItem value="business">Business Coaching</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="experience">Years of Experience</Label>
-          <Input id="experience" type="number" placeholder="Enter years of experience" />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="bio">Professional Bio</Label>
-          <Textarea 
-            id="bio" 
-            placeholder="Tell us about your coaching background and approach..."
-            rows={4}
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="plan">Choose Your Plan</Label>
-          <Select defaultValue="pro">
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pro">CoachCast Pro - $79/month</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <Button 
-          className="w-full" 
-          size="lg"
-          onClick={() => setIsSignedUp(true)}
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            setIsSignedUp(true);
+          }}
         >
-          Join Coach Cast
-        </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name</Label>
+              <Input id="firstName" name="firstName" placeholder="Enter your first name" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input id="lastName" name="lastName" placeholder="Enter your last name" required />
+            </div>
+          </div>
+          
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" name="email" type="email" placeholder="Enter your email" required />
+          </div>
+          
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="specialty">Coaching Specialty</Label>
+            <Select name="specialty" required>
+              <SelectTrigger id="specialty">
+                <SelectValue placeholder="Select your specialty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="career">Career Coaching</SelectItem>
+                <SelectItem value="life">Life Coaching</SelectItem>
+                <SelectItem value="executive">Executive Coaching</SelectItem>
+                <SelectItem value="wellness">Wellness Coaching</SelectItem>
+                <SelectItem value="relationship">Relationship Coaching</SelectItem>
+                <SelectItem value="business">Business Coaching</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="experience">Years of Experience</Label>
+            <Input id="experience" name="experience" type="number" min="0" placeholder="Enter years of experience" required />
+          </div>
+          
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="bio">Professional Bio</Label>
+            <Textarea 
+              id="bio" 
+              name="bio"
+              placeholder="Tell us about your coaching background and approach..."
+              rows={4}
+              required
+            />
+          </div>
+          
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="plan">Choose Your Plan</Label>
+            <Select name="plan" defaultValue="pro" required>
+              <SelectTrigger id="plan">
+                <SelectValue placeholder="Select your plan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pro">CoachCast Pro - $79/month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <Button 
+            className="w-full mt-6" 
+            size="lg"
+            type="submit"
+          >
+            Join Coach Cast
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );
@@ -145,7 +154,9 @@ export default function CoachesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+            <CardTitle asChild>
+              <span className="text-sm font-medium">Total Clients</span>
+            </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -156,7 +167,9 @@ export default function CoachesPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI Clone Usage</CardTitle>
+            <CardTitle asChild>
+              <span className="text-sm font-medium">AI Clone Usage</span>
+            </CardTitle>
             <Mic className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -167,7 +180,9 @@ export default function CoachesPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <CardTitle asChild>
+              <span className="text-sm font-medium">Monthly Revenue</span>
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -178,7 +193,9 @@ export default function CoachesPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Sessions</CardTitle>
+            <CardTitle asChild>
+              <span className="text-sm font-medium">Upcoming Sessions</span>
+            </CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -201,8 +218,8 @@ export default function CoachesPage() {
               <div className="flex items-center space-x-3">
                 <Mic className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="font-medium">Voice AI Clone</p>
-                  <p className="text-sm text-gray-600">Active</p>
+                  <span className="font-medium block">Voice AI Clone</span>
+                  <span className="text-sm text-gray-600 block">Active</span>
                 </div>
               </div>
               <Badge className="bg-green-100 text-green-800">Live</Badge>
@@ -212,8 +229,8 @@ export default function CoachesPage() {
               <div className="flex items-center space-x-3">
                 <Video className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="font-medium">Video AI Clone</p>
-                  <p className="text-sm text-gray-600">In Review</p>
+                  <span className="font-medium block">Video AI Clone</span>
+                  <span className="text-sm text-gray-600 block">In Review</span>
                 </div>
               </div>
               <Badge className="bg-blue-100 text-blue-800">Pending</Badge>
@@ -233,24 +250,24 @@ export default function CoachesPage() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Sarah Johnson started AI session</p>
-                  <p className="text-xs text-gray-600">2 minutes ago</p>
+                  <span className="text-sm font-medium block">Sarah Johnson started AI session</span>
+                  <span className="text-xs text-gray-600 block">2 minutes ago</span>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">New booking from Mike Chen</p>
-                  <p className="text-xs text-gray-600">15 minutes ago</p>
+                  <span className="text-sm font-medium block">New booking from Mike Chen</span>
+                  <span className="text-xs text-gray-600 block">15 minutes ago</span>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <span className="w-2 h-2 bg-purple-500 rounded-full inline-block"></span>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Payment received - $150</p>
-                  <p className="text-xs text-gray-600">1 hour ago</p>
+                  <span className="text-sm font-medium block">Payment received - $150</span>
+                  <span className="text-xs text-gray-600 block">1 hour ago</span>
                 </div>
               </div>
             </div>
@@ -333,7 +350,7 @@ export default function CoachesPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <section className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
               <Mic className="w-6 h-6 text-blue-600" />
             </div>
@@ -342,13 +359,13 @@ export default function CoachesPage() {
               Create a voice clone using ElevenLabs technology. Your AI coach can conduct 
               audio sessions with your personality and coaching style.
             </p>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" type="button">
               <Play className="w-4 h-4 mr-2" />
               Listen to Sample
             </Button>
-          </div>
+          </section>
 
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <section className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
               <Video className="w-6 h-6 text-green-600" />
             </div>
@@ -357,13 +374,13 @@ export default function CoachesPage() {
               Generate personalized video previews for potential clients using Tavus AI. 
               Each video is customized with the client's name.
             </p>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" type="button">
               <Play className="w-4 h-4 mr-2" />
               Watch Demo
             </Button>
-          </div>
+          </section>
 
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <section className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
               <BarChart3 className="w-6 h-6 text-purple-600" />
             </div>
@@ -372,21 +389,24 @@ export default function CoachesPage() {
               Track your coaching business with detailed analytics on client engagement, 
               revenue, and AI clone usage patterns.
             </p>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" type="button">
               <BarChart3 className="w-4 h-4 mr-2" />
               View Analytics
             </Button>
-          </div>
+          </section>
         </div>
 
-        <div className="mb-16">
+        <section className="mb-16">
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-            Choose Your Coaching Plan
+            Join us as a coach
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="flex justify-center max-w-6xl mx-auto">
             {coachingPlans.map((plan, index) => (
-              <Card key={index} className={`relative ${plan.popular ? 'border-green-200 ring-2 ring-green-200' : ''} hover:shadow-lg transition-shadow`}>
+              <Card
+                key={index}
+                className={`relative w-full max-w-md ${plan.popular ? 'border-green-200 ring-2 ring-green-200' : ''} hover:shadow-lg transition-shadow`}
+              >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-green-600 text-white px-4 py-1">
@@ -394,9 +414,11 @@ export default function CoachesPage() {
                     </Badge>
                   </div>
                 )}
-                
+
                 <CardHeader className="text-center pb-6">
-                  <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
+                  <CardTitle asChild>
+                    <span className="text-xl font-bold">{plan.name}</span>
+                  </CardTitle>
                   <div className="flex items-baseline justify-center space-x-2">
                     <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
                     <span className="text-gray-600">{plan.period}</span>
@@ -413,21 +435,21 @@ export default function CoachesPage() {
                     ))}
                   </ul>
 
-                  <Button className="w-full" size="lg">
+                  <Button className="w-full" size="lg" type="button">
                     Get Started
                   </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
+        </section>
 
-        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+        <section className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
           <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
             Ready to Transform Your Coaching Practice?
           </h2>
           <CoachSignupForm />
-        </div>
+        </section>
       </main>
       
       <Footer />
