@@ -159,6 +159,17 @@ export default function DiscoveryPage() {
     }
   };
 
+  // Add Ben Ivey to digital chemistry, and Tony Robbins to human voice ai
+  const digitalChemistryCoaches = [
+    ...humanCoaches,
+    { id: 'ben_ivey', name: 'Ben Ivey', specialty: 'Entrepreneurship & Life Design' }
+  ];
+
+  const humanVoiceAICoaches = [
+    ...humanCoaches,
+    { id: 'tony_robbins', name: 'Tony Robbins', specialty: 'Peak Performance & Motivation' }
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -192,90 +203,93 @@ export default function DiscoveryPage() {
           </div>
         </div>
 
+        {/* Make all cards the same size using flex and min-h-[...] */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           {sessionOptions.map((option) => (
-            <Card 
-              key={option.id}
-              className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
-                selectedOption === option.id ? 'ring-2 ring-blue-500 shadow-lg' : ''
-              }`}
-              onClick={() => setSelectedOption(option.id)}
-            >
-              <CardHeader className="text-center pb-4">
-                <div className="flex justify-center mb-4">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${option.color}`}>
-                    <option.icon className="w-8 h-8" />
+            <div key={option.id} className="flex h-full">
+              <Card
+                className={`flex flex-col flex-1 cursor-pointer transition-all duration-300 hover:shadow-xl ${
+                  selectedOption === option.id ? 'ring-2 ring-blue-500 shadow-lg' : ''
+                } min-h-[480px]`}
+                onClick={() => setSelectedOption(option.id)}
+              >
+                <CardHeader className="text-center pb-4">
+                  <div className="flex justify-center mb-4">
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${option.color}`}>
+                      <option.icon className="w-8 h-8" />
+                    </div>
                   </div>
-                </div>
-                <CardTitle className="text-xl font-bold text-gray-900">
-                  {option.title}
-                </CardTitle>
-                <p className="text-sm text-gray-600 font-medium">
-                  {option.subtitle}
-                </p>
-              </CardHeader>
+                  <CardTitle className="text-xl font-bold text-gray-900">
+                    {option.title}
+                  </CardTitle>
+                  <p className="text-sm text-gray-600 font-medium">
+                    {option.subtitle}
+                  </p>
+                </CardHeader>
 
-              <CardContent className="pt-0">
-                <p className="text-gray-600 mb-6 text-center">
-                  {option.description}
-                </p>
+                <CardContent className="pt-0 flex flex-col flex-1">
+                  <p className="text-gray-600 mb-6 text-center">
+                    {option.description}
+                  </p>
 
-                {option.id === 'ai_specialist' && aiCoaches.length > 0 && (
-                  <div className="space-y-3 mb-6">
-                    {aiCoaches.slice(0, 3).map((coach) => (
-                      <div key={coach.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">{coach.name}</p>
-                          <p className="text-xs text-gray-600">{coach.specialty}</p>
+                  {option.id === 'ai_specialist' && aiCoaches.length > 0 && (
+                    <div className="space-y-3 mb-6">
+                      {aiCoaches.slice(0, 3).map((coach) => (
+                        <div key={coach.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">{coach.name}</p>
+                            <p className="text-xs text-gray-600">{coach.specialty}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
-                {option.id === 'digital_chemistry' && humanCoaches.length > 0 && (
-                  <div className="space-y-3 mb-6">
-                    {humanCoaches.map((coach) => (
-                      <div key={coach.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-bold">
-                          {coach.name.charAt(0)}
+                  {option.id === 'digital_chemistry' && digitalChemistryCoaches.length > 0 && (
+                    <div className="space-y-3 mb-6">
+                      {digitalChemistryCoaches.map((coach) => (
+                        <div key={coach.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-bold">
+                            {coach.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">{coach.name}</p>
+                            <p className="text-xs text-gray-600">{coach.specialty}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">{coach.name}</p>
-                          <p className="text-xs text-gray-600">{coach.specialty}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
-                {option.id === 'human_voice_ai' && humanCoaches.length > 0 && (
-                  <div className="space-y-3 mb-6">
-                    {humanCoaches.map((coach) => (
-                      <div key={coach.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                        <div>
-                          <p className="font-medium text-sm text-gray-900">{coach.name} AI</p>
-                          <p className="text-xs text-gray-600">Voice clone of {coach.name}</p>
+                  {option.id === 'human_voice_ai' && humanVoiceAICoaches.length > 0 && (
+                    <div className="space-y-3 mb-6">
+                      {humanVoiceAICoaches.map((coach) => (
+                        <div key={coach.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-900">{coach.name} AI</p>
+                            <p className="text-xs text-gray-600">Voice clone of {coach.name}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
-                <Button 
-                  className={`w-full bg-gradient-to-r ${option.gradient} hover:opacity-90 text-white`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleStartSession(option.id, option.route);
-                  }}
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Session
-                </Button>
-              </CardContent>
-            </Card>
+                  <div className="flex-1" />
+                  <Button
+                    className={`w-full bg-gradient-to-r ${option.gradient} hover:opacity-90 text-white mt-auto`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartSession(option.id, option.route);
+                    }}
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Session
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           ))}
         </div>
       </div>

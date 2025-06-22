@@ -41,8 +41,12 @@ export function ConversationAgent({
   const [conversationError, setConversationError] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+
+  // Only two states: isCoachSpeaking (coach is speaking), isUserTurn (user should speak)
+  // Start with coach is speaking state
+  const [isCoachSpeaking, setIsCoachSpeaking] = useState(true);
+  const [isUserTurn, setIsUserTurn] = useState(false);
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
@@ -60,77 +64,73 @@ export function ConversationAgent({
       handleConversationError(err);
     },
     onMessage: (message: any) => {
-      console.log('📨 Message received:', message);
-      // Update speaking/listening states based on message
       if (message.source === 'ai') {
-        setIsSpeaking(true);
-        setIsListening(false);
-        // Reset speaking state after a delay
-        setTimeout(() => setIsSpeaking(false), 2000);
+        setIsCoachSpeaking(true);
+        setIsUserTurn(false);
+        setIsUserSpeaking(false);
+        // When coach finishes speaking, immediately set to user's turn
+        setTimeout(() => {
+          setIsCoachSpeaking(false);
+          setIsUserTurn(true);
+          setIsUserSpeaking(false);
+        }, 2000);
       } else if (message.source === 'user') {
-        setIsListening(true);
-        setIsSpeaking(false);
-        // Reset listening state after a delay
-        setTimeout(() => setIsListening(false), 1000);
+        // As soon as the user speaks, set to user turn and show green lights
+        setIsCoachSpeaking(false);
+        setIsUserTurn(true);
+        setIsUserSpeaking(true);
+        // Remove green lights after a short delay (simulate end of user speech)
+        setTimeout(() => {
+          setIsUserSpeaking(false);
+        }, 2000);
       }
     },
     onModeChange: (mode: any) => {
-      console.log('🎤 Mode changed:', mode);
-      // Update states based on mode
-      if (mode.mode === 'listening') {
-        setIsListening(true);
-        setIsSpeaking(false);
-      } else if (mode.mode === 'speaking') {
-        setIsSpeaking(true);
-        setIsListening(false);
-      } else {
-        setIsListening(false);
-        setIsSpeaking(false);
+      // Optionally reinforce state
+      if (mode.mode === 'speaking') {
+        setIsCoachSpeaking(true);
+        setIsUserTurn(false);
+        setIsUserSpeaking(false);
+      } else if (mode.mode === 'listening') {
+        setIsCoachSpeaking(false);
+        setIsUserTurn(true);
+        setIsUserSpeaking(false);
       }
     }
   });
 
   // Handle conversation start
   const handleConversationStart = async (id: string) => {
-    console.log('🎯 Conversation started with REAL ID:', id);
-    
-    // Validate that we got a real conversation ID
     if (!id || !id.startsWith('conv_')) {
-      console.error('🚫 Invalid conversation ID received:', id);
       setConversationError(`Invalid conversation ID received: ${id}`);
       return;
     }
-    
     setConversationId(id);
     setConversationActive(true);
     setConversationError('');
-    
-    // Notify parent component
     onConversationStart(id);
-    
-    // Fetch conversation details if API key is available
     if (hasApiKey) {
       try {
-        console.log('🎯 Fetching conversation details for REAL ID:', id);
         const details = await getConversationDetails(id);
         if (details) {
           setConversationDetails(details);
-          console.log('✅ Conversation details loaded for REAL ID:', id, details);
         }
       } catch (error) {
-        console.error('❌ Error fetching conversation details:', error);
+        // ignore
       }
     }
+    // Start with coach is speaking state
+    setIsCoachSpeaking(true);
+    setIsUserTurn(false);
+    setIsUserSpeaking(false);
   };
 
   // Handle conversation end
   const handleConversationEnd = () => {
-    console.log('🎯 Conversation ended with REAL ID:', conversationId);
     setConversationActive(false);
-    setIsSpeaking(false);
-    setIsListening(false);
-    
-    // Notify parent component
+    setIsCoachSpeaking(true); // reset to coach is speaking
+    setIsUserTurn(false);
+    setIsUserSpeaking(false);
     if (conversationId) {
       onConversationEnd(conversationId);
     }
@@ -138,11 +138,11 @@ export function ConversationAgent({
 
   // Handle conversation error
   const handleConversationError = (error: string) => {
-    console.error('❌ Conversation error:', error);
     setConversationError(error);
     setConversationActive(false);
-    setIsSpeaking(false);
-    setIsListening(false);
+    setIsCoachSpeaking(true); // reset to coach is speaking
+    setIsUserTurn(false);
+    setIsUserSpeaking(false);
   };
 
   // Copy conversation ID to clipboard
@@ -153,7 +153,7 @@ export function ConversationAgent({
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (error) {
-        console.error('Failed to copy conversation ID:', error);
+        // ignore
       }
     }
   };
@@ -161,16 +161,14 @@ export function ConversationAgent({
   // Refresh conversation details
   const refreshConversationDetails = async () => {
     if (!conversationId || !hasApiKey) return;
-    
     setIsLoading(true);
     try {
       const details = await getConversationDetails(conversationId);
       if (details) {
         setConversationDetails(details);
-        console.log('✅ Conversation details refreshed for REAL ID:', conversationId, details);
       }
     } catch (error) {
-      console.error('❌ Error refreshing conversation details:', error);
+      // ignore
     } finally {
       setIsLoading(false);
     }
@@ -306,41 +304,28 @@ export function ConversationAgent({
             <div className="text-center">
               <div className="relative mb-6">
                 {/* Main microphone icon */}
-                <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${
-                  isListening ? 'bg-blue-100 border-4 border-blue-400' : 
-                  isSpeaking ? 'bg-green-100 border-4 border-green-400' : 
-                  'bg-gray-100 border-4 border-gray-300'
-                }`}>
-                  {isListening ? (
-                    <Mic className={`w-12 h-12 text-blue-600 ${isListening ? 'animate-pulse' : ''}`} />
-                  ) : isSpeaking ? (
-                    <Volume2 className={`w-12 h-12 text-green-600 ${isSpeaking ? 'animate-pulse' : ''}`} />
+                <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto transition-all duration-300 bg-green-100 border-4 border-green-400`}>
+                  {isUserTurn ? (
+                    <Mic className={`w-12 h-12 text-green-600 ${isUserSpeaking ? 'animate-pulse' : ''}`} />
                   ) : (
-                    <MicOff className="w-12 h-12 text-gray-600" />
+                    <Volume2 className="w-12 h-12 text-green-600" />
                   )}
                 </div>
-                
-                {/* Pulse animation for active states */}
-                {(isListening || isSpeaking) && (
-                  <div className={`absolute inset-0 rounded-full animate-ping ${
-                    isListening ? 'bg-blue-400' : 'bg-green-400'
-                  } opacity-20`}></div>
-                )}
+                {/* Green wave is never shown */}
+                {/* (Removed: green wave effect when user is speaking) */}
               </div>
-              
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {isListening ? 'Listening...' : 
-                   isSpeaking ? `${coach.name} is speaking...` : 
-                   'Ready to talk'}
+                  {isUserTurn
+                    ? 'Your turn to speak'
+                    : `${coach.name} is speaking...`}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {isListening ? 'Speak now, your coach is listening' : 
-                   isSpeaking ? 'Your coach is responding' : 
-                   'Start speaking to begin the conversation'}
+                  {isUserTurn
+                    ? 'Speak now, your coach is listening'
+                    : 'Your coach is responding'}
                 </p>
               </div>
-              
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <Button 
                   variant="outline" 
