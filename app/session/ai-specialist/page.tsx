@@ -86,7 +86,7 @@ export default function AISpecialistSessionPage() {
       setMicPermission('requesting');
       setMicPermissionError('');
 
-      console.log('🎤 Requesting microphone permission...');
+      console.log('🎤 Requesting microphone permission for ElevenLabs...');
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
@@ -241,6 +241,18 @@ export default function AISpecialistSessionPage() {
         return;
       }
 
+      // First, request microphone permission
+      console.log('🎤 Requesting microphone permission before starting session...');
+      const hasPermission = await requestMicrophonePermission();
+      
+      if (!hasPermission) {
+        console.log('❌ Microphone permission denied, cannot start session');
+        // Error message is already set by requestMicrophonePermission
+        return;
+      }
+
+      console.log('✅ Microphone permission granted, creating session...');
+
       const user = await getCurrentUser();
       if (!user) return;
 
@@ -272,18 +284,9 @@ export default function AISpecialistSessionPage() {
   };
 
   const startConversationAndTimer = async () => {
-    if (!timerStarted && canStartSession() && !endingSession) {
-      // First, request microphone permission
-      console.log('🎤 Requesting microphone permission before starting conversation...');
-      const hasPermission = await requestMicrophonePermission();
-      
-      if (hasPermission) {
-        console.log('✅ Microphone permission granted, starting conversation...');
-        setTimerStarted(true);
-      } else {
-        console.log('❌ Microphone permission denied, cannot start conversation');
-        // Error message is already set by requestMicrophonePermission
-      }
+    if (!timerStarted && canStartSession() && !endingSession && micPermission === 'granted') {
+      console.log('✅ Starting conversation with microphone permission already granted');
+      setTimerStarted(true);
     }
   };
 
@@ -550,7 +553,7 @@ export default function AISpecialistSessionPage() {
                     
                     <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
                       You're about to begin a conversation with {selectedCoach.name}, your AI specialist coach. 
-                      Click "Start Conversation" below to request microphone access and begin your session.
+                      Click "Start Conversation" below to begin your session.
                     </p>
 
                     <div className="bg-gray-50 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
@@ -572,20 +575,17 @@ export default function AISpecialistSessionPage() {
                       onClick={startConversationAndTimer}
                       className="bg-green-600 hover:bg-green-700 text-white"
                       size="lg"
-                      disabled={!canStartSession() || micPermission === 'requesting'}
+                      disabled={micPermission !== 'granted'}
                     >
-                      {micPermission === 'requesting' ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Requesting Microphone...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-5 h-5 mr-2" />
-                          {canStartSession() ? 'Start Conversation' : 'No Credits Available'}
-                        </>
-                      )}
+                      <Play className="w-5 h-5 mr-2" />
+                      {micPermission === 'granted' ? 'Start Conversation' : 'Microphone Required'}
                     </Button>
+
+                    {micPermission !== 'granted' && (
+                      <p className="text-sm text-gray-500 mt-4">
+                        Microphone access is required for voice coaching sessions
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <ConversationAgent
@@ -633,19 +633,10 @@ export default function AISpecialistSessionPage() {
                   <Button
                     onClick={startConversationAndTimer}
                     className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={endingSession || !canStartSession() || micPermission === 'requesting'}
+                    disabled={endingSession || micPermission !== 'granted'}
                   >
-                    {micPermission === 'requesting' ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Requesting...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-2" />
-                        {canStartSession() ? 'Start Conversation' : 'No Credits'}
-                      </>
-                    )}
+                    <Play className="w-4 h-4 mr-2" />
+                    {micPermission === 'granted' ? 'Start Conversation' : 'Microphone Required'}
                   </Button>
                 )}
                 {timerStarted && (
@@ -696,6 +687,16 @@ export default function AISpecialistSessionPage() {
           </Alert>
         )}
 
+        {/* Microphone Permission Warning */}
+        {micPermission === 'denied' && (
+          <Alert variant="destructive" className="mb-8">
+            <MicOff className="h-4 w-4" />
+            <AlertDescription>
+              {micPermissionError}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {aiCoaches.map((coach) => (
             <Card key={coach.id} className="hover:shadow-lg transition-shadow">
@@ -719,15 +720,29 @@ export default function AISpecialistSessionPage() {
 
                 <Button 
                   className={`w-full ${
-                    canStartSession() 
+                    canStartSession() && micPermission !== 'denied'
                       ? 'bg-blue-600 hover:bg-blue-700' 
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                   onClick={() => startSession(coach)}
-                  disabled={!canStartSession()}
+                  disabled={!canStartSession() || micPermission === 'requesting' || micPermission === 'denied'}
                 >
-                  <Play className="w-4 h-4 mr-2" />
-                  {canStartSession() ? 'Start Voice Session' : 'No Credits Available'}
+                  {micPermission === 'requesting' ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Requesting Microphone...
+                    </>
+                  ) : micPermission === 'denied' ? (
+                    <>
+                      <MicOff className="w-4 h-4 mr-2" />
+                      Microphone Required
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      {canStartSession() ? 'Start Voice Session' : 'No Credits Available'}
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
