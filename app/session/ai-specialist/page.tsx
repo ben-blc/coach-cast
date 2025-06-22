@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Play, Square, ArrowLeft, Clock, AlertCircle, Coins } from 'lucide-react';
+import { Mic, Play, Square, ArrowLeft, Clock, AlertCircle, Coins, MicOff } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits, getUserSubscription } from '@/lib/database';
 import { getConversationTranscript } from '@/lib/elevenlabs';
@@ -27,6 +27,10 @@ export default function AISpecialistSessionPage() {
   const [timeExceeded, setTimeExceeded] = useState(false);
   const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
   
+  // Microphone permission states
+  const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'checking'>('unknown');
+  const [micPermissionError, setMicPermissionError] = useState<string>('');
+  
   // ElevenLabs conversation state
   const [conversationId, setConversationId] = useState<string>('');
   const [conversationTranscript, setConversationTranscript] = useState<string>('');
@@ -34,6 +38,95 @@ export default function AISpecialistSessionPage() {
   
   const timeCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+
+  // Check microphone permission on component mount
+  useEffect(() => {
+    checkMicrophonePermission();
+  }, []);
+
+  const checkMicrophonePermission = async () => {
+    try {
+      setMicPermission('checking');
+      setMicPermissionError('');
+
+      // Check if navigator.mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setMicPermissionError('Microphone access is not supported in this browser');
+        setMicPermission('denied');
+        return;
+      }
+
+      // First check the permission state if available
+      if (navigator.permissions) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          
+          if (permissionStatus.state === 'granted') {
+            setMicPermission('granted');
+            return;
+          } else if (permissionStatus.state === 'denied') {
+            setMicPermission('denied');
+            setMicPermissionError('Microphone access has been denied. Please enable it in your browser settings.');
+            return;
+          }
+          // If state is 'prompt', we'll need to request permission
+        } catch (error) {
+          console.log('Permission API not fully supported, will try getUserMedia directly');
+        }
+      }
+
+      // Try to access the microphone to check permission
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // If successful, we have permission
+        setMicPermission('granted');
+        // Stop the stream immediately as we were just checking permission
+        stream.getTracks().forEach(track => track.stop());
+      } catch (error: any) {
+        console.error('Microphone permission error:', error);
+        setMicPermission('denied');
+        
+        if (error.name === 'NotAllowedError') {
+          setMicPermissionError('Microphone access was denied. Please allow microphone access to use voice coaching.');
+        } else if (error.name === 'NotFoundError') {
+          setMicPermissionError('No microphone found. Please connect a microphone to use voice coaching.');
+        } else if (error.name === 'NotReadableError') {
+          setMicPermissionError('Microphone is being used by another application. Please close other applications and try again.');
+        } else {
+          setMicPermissionError('Unable to access microphone. Please check your browser settings.');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking microphone permission:', error);
+      setMicPermission('denied');
+      setMicPermissionError('Unable to check microphone permission. Please refresh the page and try again.');
+    }
+  };
+
+  const requestMicrophonePermission = async () => {
+    try {
+      setMicPermission('checking');
+      setMicPermissionError('');
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicPermission('granted');
+      // Stop the stream immediately as we were just requesting permission
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error: any) {
+      console.error('Error requesting microphone permission:', error);
+      setMicPermission('denied');
+      
+      if (error.name === 'NotAllowedError') {
+        setMicPermissionError('Microphone access was denied. Please click "Allow" when prompted, or enable microphone access in your browser settings.');
+      } else if (error.name === 'NotFoundError') {
+        setMicPermissionError('No microphone found. Please connect a microphone to use voice coaching.');
+      } else if (error.name === 'NotReadableError') {
+        setMicPermissionError('Microphone is being used by another application. Please close other applications and try again.');
+      } else {
+        setMicPermissionError('Unable to access microphone. Please check your browser settings and try again.');
+      }
+    }
+  };
 
   useEffect(() => {
     async function loadCoaches() {
@@ -151,12 +244,16 @@ export default function AISpecialistSessionPage() {
   };
 
   const canStartSession = () => {
-    return subscription && subscription.credits_remaining > 0;
+    return subscription && subscription.credits_remaining > 0 && micPermission === 'granted';
   };
 
   const startSession = async (coach: AICoach) => {
     try {
       if (!canStartSession()) {
+        if (micPermission !== 'granted') {
+          setMicPermissionError('Microphone permission is required to start a voice coaching session.');
+          return;
+        }
         setNoCreditsAvailable(true);
         return;
       }
@@ -566,6 +663,50 @@ export default function AISpecialistSessionPage() {
           </p>
         </div>
 
+        {/* Microphone Permission Alert */}
+        {micPermission !== 'granted' && (
+          <Alert className={`mb-8 ${micPermission === 'denied' ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
+            <div className="flex items-start space-x-3">
+              {micPermission === 'denied' ? (
+                <MicOff className="h-5 w-5 text-red-600 mt-0.5" />
+              ) : (
+                <Mic className="h-5 w-5 text-yellow-600 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <h4 className={`font-medium ${micPermission === 'denied' ? 'text-red-800' : 'text-yellow-800'}`}>
+                  {micPermission === 'checking' ? 'Checking Microphone Access...' : 
+                   micPermission === 'denied' ? 'Microphone Access Required' : 
+                   'Microphone Permission Needed'}
+                </h4>
+                <AlertDescription className={micPermission === 'denied' ? 'text-red-700' : 'text-yellow-700'}>
+                  {micPermissionError || 'Voice coaching requires microphone access to work properly.'}
+                </AlertDescription>
+                {micPermission === 'denied' && (
+                  <div className="mt-3 flex space-x-3">
+                    <Button 
+                      size="sm" 
+                      onClick={requestMicrophonePermission}
+                      disabled={micPermission === 'checking'}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <Mic className="w-4 h-4 mr-2" />
+                      {micPermission === 'checking' ? 'Checking...' : 'Grant Microphone Access'}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={checkMicrophonePermission}
+                      disabled={micPermission === 'checking'}
+                    >
+                      Refresh Status
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Alert>
+        )}
+
         {/* Credits Warning */}
         {subscription && subscription.credits_remaining <= 0 && (
           <Alert className="mb-8">
@@ -601,12 +742,21 @@ export default function AISpecialistSessionPage() {
                 </div>
 
                 <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className={`w-full ${
+                    canStartSession() 
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                  }`}
                   onClick={() => startSession(coach)}
                   disabled={!canStartSession()}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  {canStartSession() ? 'Start Voice Session' : 'No Credits Available'}
+                  {micPermission !== 'granted' 
+                    ? 'Microphone Required'
+                    : !canStartSession() 
+                      ? 'No Credits Available' 
+                      : 'Start Voice Session'
+                  }
                 </Button>
               </CardContent>
             </Card>
