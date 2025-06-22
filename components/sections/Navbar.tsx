@@ -19,7 +19,7 @@ import { getUserProfile, getUserSubscription } from '@/lib/database';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Profile, Subscription } from '@/lib/database';
 
-export function Header() {
+export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -55,7 +55,7 @@ export function Header() {
         setSubscription(null);
       }
     } catch (error) {
-      console.error('Error loading user data in header:', error);
+      console.error('Error loading user data in navbar:', error);
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export function Header() {
     const { data: { subscription } } = onAuthStateChange((user) => {
       if (!mounted) return;
       
-      console.log('Auth state changed in Header:', user?.id);
+      console.log('Auth state changed in Navbar:', user?.id);
       
       if (user) {
         // User signed in, load their data
@@ -96,14 +96,14 @@ export function Header() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && user && !loading) {
-        console.log('Page became visible, refreshing header data...');
+        console.log('Page became visible, refreshing navbar data...');
         loadUserData(true);
       }
     };
 
     const handleFocus = () => {
       if (user && !loading) {
-        console.log('Window focused, refreshing header data...');
+        console.log('Window focused, refreshing navbar data...');
         loadUserData(true);
       }
     };
@@ -122,7 +122,7 @@ export function Header() {
     if (user && !loading) {
       // Refresh data when pathname changes, especially from session pages
       if (pathname.includes('/session/') || pathname.includes('/dashboard')) {
-        console.log('Navigation detected, refreshing header data...');
+        console.log('Navigation detected, refreshing navbar data...');
         loadUserData(true);
       }
     }
@@ -263,9 +263,12 @@ export function Header() {
                 <Link href="/discovery" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Start Session
                 </Link>
-                <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <button 
+                  onClick={() => handleSectionNavigation('coaches')}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
                   For Coaches
-                </Link>
+                </button>
               </nav>
 
               {/* Only show credits if not on landing page */}
@@ -359,9 +362,12 @@ export function Header() {
                 >
                   Pricing
                 </button>
-                <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <button 
+                  onClick={() => handleSectionNavigation('coaches')}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
                   For Coaches
-                </Link>
+                </button>
               </nav>
 
               <div className="hidden md:flex items-center space-x-4">
@@ -407,9 +413,15 @@ export function Header() {
                 <Link href="/discovery" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Start Session
                 </Link>
-                <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <button 
+                  onClick={() => {
+                    handleSectionNavigation('coaches');
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                >
                   For Coaches
-                </Link>
+                </button>
                 {/* Only show credits in mobile menu if not on landing page */}
                 {shouldShowCredits && (
                   <div className="flex items-center justify-between pt-2">
@@ -461,9 +473,15 @@ export function Header() {
                 >
                   Pricing
                 </button>
-                <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <button 
+                  onClick={() => {
+                    handleSectionNavigation('coaches');
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                >
                   For Coaches
-                </Link>
+                </button>
                 <div className="flex flex-col space-y-2 pt-4">
                   <Button variant="ghost" asChild>
                     <Link href="/auth">Sign In</Link>

@@ -109,7 +109,7 @@ export default function AuthPage() {
               className="w-12 h-12 rounded-xl object-cover"
             />
           </div>
-          <p className="text-gray-600 mt-2">Transform your life with personalized coaching</p>
+          <p className="text-gray-600 mt-2">Powered by AI, Guided by Humanity</p>
           {redirectTo && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">

@@ -23,7 +23,7 @@ import {
   Upload,
   Check
 } from 'lucide-react';
-import { Header } from '@/components/sections/Header';
+import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
 
 // Updated coaching plan as per new model
@@ -280,7 +280,7 @@ export default function CoachesPage() {
   if (isSignedUp) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        <Navbar />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
@@ -333,7 +333,7 @@ export default function CoachesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <Header />
+      <Navbar />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-16">

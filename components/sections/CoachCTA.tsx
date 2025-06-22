@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 export function CoachCTA() {
   return (
-    <section className="py-20 bg-gradient-to-r from-blue-600 to-green-600">
+    <section id="coaches" className="py-20 bg-gradient-to-r from-blue-600 to-green-600">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">

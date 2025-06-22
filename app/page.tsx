@@ -7,7 +7,7 @@ import { Features } from '@/components/sections/Features';
 import { Pricing } from '@/components/sections/Pricing';
 import { CoachCTA } from '@/components/sections/CoachCTA';
 import { Footer } from '@/components/sections/Footer';
-import { Header } from '@/components/sections/Header';
+import { Navbar } from '@/components/sections/Navbar';
 import { getCurrentUser } from '@/lib/auth';
 
 export default function Home() {
@@ -48,7 +48,7 @@ export default function Home() {
   // Only render the landing page for unauthenticated users
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <Header />
+      <Navbar />
       <main>
         <Hero />
         <Features />
