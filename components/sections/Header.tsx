@@ -193,6 +193,31 @@ export function Header() {
     return Math.max(0, subscription.credits_remaining);
   };
 
+  // Function to handle navigation to sections
+  const handleSectionNavigation = (sectionId: string) => {
+    if (isLandingPage) {
+      // If on landing page, scroll to section
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      // If not on landing page, navigate to home page with hash
+      router.push(`/#${sectionId}`);
+    }
+  };
+
+  // Function to handle home navigation
+  const handleHomeNavigation = () => {
+    if (isLandingPage) {
+      // If on landing page, scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // If not on landing page, navigate to home
+      router.push('/');
+    }
+  };
+
   return (
     <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -226,6 +251,12 @@ export function Header() {
             // Authenticated user navigation
             <div className="flex items-center space-x-4">
               <nav className="hidden md:flex items-center space-x-6">
+                <button 
+                  onClick={handleHomeNavigation}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Home
+                </button>
                 <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Dashboard
                 </Link>
@@ -310,12 +341,24 @@ export function Header() {
             // Non-authenticated user navigation
             <>
               <nav className="hidden md:flex items-center space-x-8">
-                <Link href="#features" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <button 
+                  onClick={handleHomeNavigation}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Home
+                </button>
+                <button 
+                  onClick={() => handleSectionNavigation('features')}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
                   Features
-                </Link>
-                <Link href="#pricing" className="text-gray-600 hover:text-gray-900 transition-colors">
+                </button>
+                <button 
+                  onClick={() => handleSectionNavigation('pricing')}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
                   Pricing
-                </Link>
+                </button>
                 <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
                   For Coaches
                 </Link>
@@ -349,6 +392,15 @@ export function Header() {
           <div className="md:hidden py-4 border-t border-gray-200">
             {user && profile ? (
               <nav className="flex flex-col space-y-4">
+                <button 
+                  onClick={() => {
+                    handleHomeNavigation();
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                >
+                  Home
+                </button>
                 <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Dashboard
                 </Link>
@@ -382,12 +434,33 @@ export function Header() {
               </nav>
             ) : (
               <nav className="flex flex-col space-y-4">
-                <Link href="#features" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <button 
+                  onClick={() => {
+                    handleHomeNavigation();
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                >
+                  Home
+                </button>
+                <button 
+                  onClick={() => {
+                    handleSectionNavigation('features');
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                >
                   Features
-                </Link>
-                <Link href="#pricing" className="text-gray-600 hover:text-gray-900 transition-colors">
+                </button>
+                <button 
+                  onClick={() => {
+                    handleSectionNavigation('pricing');
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                >
                   Pricing
-                </Link>
+                </button>
                 <Link href="/coaches" className="text-gray-600 hover:text-gray-900 transition-colors">
                   For Coaches
                 </Link>
