@@ -22,9 +22,18 @@ export interface ElevenLabsConversation {
   status: 'active' | 'archived';
   start_time: string;
   end_time?: string;
-  transcript?: string;
+  transcript?: TranscriptMessage[];
   audio_url?: string;
   metadata?: any;
+  has_audio?: boolean;
+  has_user_audio?: boolean;
+  has_response_audio?: boolean;
+}
+
+export interface TranscriptMessage {
+  role: 'user' | 'agent';
+  time_in_call_secs: number;
+  message: string;
 }
 
 export interface ElevenLabsMessage {
@@ -135,53 +144,13 @@ export async function getConversationTranscript(conversationId: string): Promise
   try {
     console.log(`🎯 Fetching transcript for REAL ID: ${conversationId}`);
     
-    // Try the transcript endpoint
-    const transcriptResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/transcript`, {
-      method: 'GET',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    console.log(`📡 Transcript API Status: ${transcriptResponse.status}`);
-
-    if (transcriptResponse.ok) {
-      const transcriptData = await transcriptResponse.json();
-      console.log('🎯 Transcript data for REAL ID:', conversationId, transcriptData);
-      
-      if (transcriptData.transcript) {
-        return transcriptData.transcript;
-      }
-      
-      // If transcript field doesn't exist, try to build from messages
-      if (transcriptData.messages) {
-        return formatMessagesToTranscript(transcriptData.messages, conversationId);
-      }
+    // Get conversation details which includes transcript
+    const conversation = await getConversationDetails(conversationId);
+    if (conversation?.transcript) {
+      return formatTranscriptToString(conversation.transcript, conversationId);
     }
 
-    // Try the messages endpoint as fallback
-    const messagesResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/messages`, {
-      method: 'GET',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    console.log(`📡 Messages API Status: ${messagesResponse.status}`);
-
-    if (messagesResponse.ok) {
-      const messages = await messagesResponse.json();
-      console.log('🎯 Messages received for REAL ID:', conversationId, messages);
-      
-      if (Array.isArray(messages) && messages.length > 0) {
-        return formatMessagesToTranscript(messages, conversationId);
-      }
-    }
-
-    // If both fail, return null (no transcript available)
-    console.warn('⚠️ Could not fetch transcript from API for REAL ID:', conversationId);
+    console.warn('⚠️ No transcript found in conversation details for REAL ID:', conversationId);
     return null;
     
   } catch (error) {
@@ -256,31 +225,34 @@ export async function getConversationAudio(conversationId: string): Promise<stri
   }
 }
 
-// Helper function to format messages into a readable transcript
-function formatMessagesToTranscript(messages: ElevenLabsMessage[], conversationId: string): string {
+// Helper function to format transcript messages into a readable string
+function formatTranscriptToString(transcript: TranscriptMessage[], conversationId: string): string {
   const header = `Conversation Transcript - ${conversationId}
 Started: ${new Date().toLocaleString()}
 Source: ElevenLabs API
 
 `;
 
-  if (!messages || messages.length === 0) {
+  if (!transcript || transcript.length === 0) {
     return header + "No messages found in this conversation.";
   }
 
-  const formattedMessages = messages
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  const formattedMessages = transcript
+    .sort((a, b) => a.time_in_call_secs - b.time_in_call_secs)
     .map(message => {
       const role = message.role === 'agent' ? 'Coach' : 'User';
-      const timestamp = new Date(message.timestamp).toLocaleTimeString();
-      return `[${timestamp}] ${role}: ${message.content}`;
+      const timeInCall = Math.floor(message.time_in_call_secs);
+      const minutes = Math.floor(timeInCall / 60);
+      const seconds = timeInCall % 60;
+      const timestamp = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      return `[${timestamp}] ${role}: ${message.message}`;
     })
     .join('\n\n');
 
   const footer = `
 
 Session ended: ${new Date().toLocaleString()}
-Total messages: ${messages.length}
+Total messages: ${transcript.length}
 Source: ElevenLabs ConvAI API`;
 
   return header + formattedMessages + footer;

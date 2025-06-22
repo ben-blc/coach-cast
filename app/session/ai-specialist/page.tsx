@@ -189,7 +189,7 @@ export default function AISpecialistSessionPage() {
     }
   };
 
-  const startTimer = () => {
+  const startConversationAndTimer = () => {
     if (!timerStarted && canStartSession()) {
       setTimerStarted(true);
     }
@@ -373,12 +373,6 @@ export default function AISpecialistSessionPage() {
                   <div className={`w-2 h-2 ${timerStarted ? 'bg-green-500' : 'bg-blue-500'} rounded-full mr-2 animate-pulse`}></div>
                   {timerStarted ? 'Active' : 'Ready'}
                 </Badge>
-                {conversationActive && (
-                  <Badge className="bg-purple-100 text-purple-800">
-                    <Mic className="w-3 h-3 mr-1" />
-                    Conversation Active
-                  </Badge>
-                )}
                 {timerStarted && (
                   <>
                     <Badge className="bg-gray-100 text-gray-800">
@@ -390,11 +384,6 @@ export default function AISpecialistSessionPage() {
                       {tokenDisplay.tokens} tokens
                     </Badge>
                   </>
-                )}
-                {conversationId && (
-                  <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                    Real ID: {conversationId.slice(-6)}
-                  </Badge>
                 )}
               </div>
             </div>
@@ -432,11 +421,6 @@ export default function AISpecialistSessionPage() {
                       <p className="text-blue-100">{selectedCoach.specialty} Specialist</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge className="bg-white/20 text-white">
-                      @elevenlabs/react
-                    </Badge>
-                  </div>
                 </div>
               </div>
 
@@ -455,22 +439,8 @@ export default function AISpecialistSessionPage() {
                     
                     <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
                       You're about to begin a conversation with {selectedCoach.name}, your AI specialist coach. 
-                      Click "Start Session" below to activate the AI coaching interface and begin your timer.
+                      Click "Start Conversation" below to activate the AI coaching interface and begin your timer.
                     </p>
-
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 max-w-2xl mx-auto">
-                      <div className="flex items-center justify-center space-x-2 text-yellow-800 mb-2">
-                        <Coins className="w-4 h-4" />
-                        <span className="text-sm font-medium">Token Usage Policy</span>
-                      </div>
-                      <div className="text-yellow-700 text-sm space-y-1">
-                        <p>• Sessions under 15 seconds are completely free</p>
-                        <p>• Sessions over 15 seconds are rounded up to the nearest minute</p>
-                        <p>• 1 token = 1 minute of coaching time</p>
-                        <p>• You have {subscription?.credits_remaining || 0} credits remaining</p>
-                        <p>• <strong>ONLY real ElevenLabs conversation IDs are captured</strong></p>
-                      </div>
-                    </div>
 
                     <div className="bg-gray-50 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
                       <h4 className="font-semibold text-gray-900 mb-2">About {selectedCoach.name}</h4>
@@ -488,13 +458,13 @@ export default function AISpecialistSessionPage() {
                     </div>
                     
                     <Button 
-                      onClick={startTimer}
+                      onClick={startConversationAndTimer}
                       className="bg-green-600 hover:bg-green-700 text-white"
                       size="lg"
                       disabled={!canStartSession()}
                     >
                       <Play className="w-5 h-5 mr-2" />
-                      {canStartSession() ? 'Start Session' : 'No Credits Available'}
+                      {canStartSession() ? 'Start Conversation' : 'No Credits Available'}
                     </Button>
                   </div>
                 ) : (
@@ -529,23 +499,11 @@ export default function AISpecialistSessionPage() {
                     <div className="flex items-center space-x-2 text-gray-600">
                       <span>Credits left: {subscription?.credits_remaining || 0}</span>
                     </div>
-                    {conversationActive && (
-                      <div className="flex items-center space-x-2 text-purple-600">
-                        <Mic className="w-4 h-4" />
-                        <span>Recording conversation</span>
-                      </div>
-                    )}
-                    {conversationId && (
-                      <div className="flex items-center space-x-2 text-green-600">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-xs">Real ID: {conversationId}</span>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span>Click "Start Session" to begin your AI coaching session</span>
+                    <span>Click "Start Conversation" to begin your AI coaching session</span>
                   </div>
                 )}
               </div>
@@ -553,12 +511,12 @@ export default function AISpecialistSessionPage() {
               <div className="flex items-center space-x-3">
                 {!timerStarted && (
                   <Button
-                    onClick={startTimer}
+                    onClick={startConversationAndTimer}
                     className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={endingSession || !canStartSession()}
                   >
                     <Play className="w-4 h-4 mr-2" />
-                    {canStartSession() ? 'Start Session' : 'No Credits'}
+                    {canStartSession() ? 'Start Conversation' : 'No Credits'}
                   </Button>
                 )}
                 {timerStarted && (
@@ -609,51 +567,6 @@ export default function AISpecialistSessionPage() {
           </Alert>
         )}
 
-        {/* Token Usage Information */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Coins className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Token Usage & Real Conversation Tracking</h3>
-              <p className="text-sm text-gray-600">
-                You have {subscription?.credits_remaining || 0} credits remaining
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-green-800">Under 15 seconds</span>
-              </div>
-              <p className="text-xs text-green-700">Completely free - no tokens used</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium text-blue-800">Over 15 seconds</span>
-              </div>
-              <p className="text-xs text-blue-700">Rounded up to nearest minute</p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span className="text-sm font-medium text-purple-800">1 Token = 1 Minute</span>
-              </div>
-              <p className="text-xs text-purple-700">Deducted from your monthly allowance</p>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-2 mb-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-yellow-800">@elevenlabs/react</span>
-              </div>
-              <p className="text-xs text-yellow-700">Official React package integration</p>
-            </div>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {aiCoaches.map((coach) => (
             <Card key={coach.id} className="hover:shadow-lg transition-shadow">
@@ -669,10 +582,6 @@ export default function AISpecialistSessionPage() {
                 <p className="text-gray-600 text-sm">
                   {coach.description}
                 </p>
-
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-xs text-gray-600 mt-1">Real-time voice conversation with @elevenlabs/react</p>
-                </div>
 
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-xs text-blue-800 font-medium mb-1">Coaching Focus:</p>
@@ -690,37 +599,6 @@ export default function AISpecialistSessionPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-
-        <div className="mt-12 text-center">
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 max-w-2xl mx-auto">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              How AI Voice Coaching Works
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="text-center">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-blue-600 font-bold">1</span>
-                </div>
-                <p className="font-medium">Choose Coach</p>
-                <p className="text-gray-600">Select your specialized AI coach</p>
-              </div>
-              <div className="text-center">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-blue-600 font-bold">2</span>
-                </div>
-                <p className="font-medium">Start Session</p>
-                <p className="text-gray-600">Begin conversation with @elevenlabs/react</p>
-              </div>
-              <div className="text-center">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-blue-600 font-bold">3</span>
-                </div>
-                <p className="font-medium">Get Guidance</p>
-                <p className="text-gray-600">Receive personalized coaching</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

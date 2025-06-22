@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mic, Video, Users, Play, Sparkles, ArrowRight, Coins } from 'lucide-react';
+import { Mic, Video, Users, Play, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getHumanCoaches, getUserProfile, getUserSubscription, ensureUserProfile, ensureUserSubscription } from '@/lib/database';
@@ -110,16 +110,6 @@ export default function DiscoveryPage() {
     loadData();
   }, [router]);
 
-  // Remove credits logic
-  // const calculateCreditsRemaining = () => {
-  //   if (!subscription) return 0;
-  //   return Math.max(0, subscription.credits_remaining);
-  // };
-
-  // const canStartSession = () => {
-  //   return calculateCreditsRemaining() > 0;
-  // };
-
   // Always allow session start
   const canStartSession = () => true;
 
@@ -159,7 +149,6 @@ export default function DiscoveryPage() {
     );
   }
 
-  // const creditsRemaining = calculateCreditsRemaining();
   const getPlanDisplayName = (planType: string) => {
     switch (planType) {
       case 'free': return 'Free Trial';
@@ -288,38 +277,6 @@ export default function DiscoveryPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-
-        {/* Credit Usage Information removed */}
-
-        <div className="text-center">
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 max-w-2xl mx-auto">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">
-              {isNewUser ? 'Ready to Begin?' : 'Explore More'}
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {isNewUser 
-                ? `Your free trial starts as soon as you choose an option above. No credit card required.`
-                : 'Upgrade your plan to unlock additional features.'
-              }
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {!isNewUser && (
-                <Button variant="outline" asChild>
-                  <Link href="/dashboard">
-                    <ArrowRight className="w-4 h-4 mr-2" />
-                    Back to Dashboard
-                  </Link>
-                </Button>
-              )}
-              <Button asChild>
-                <Link href="/pricing">
-                  <ArrowRight className="w-4 h-4 mr-2" />
-                  {isNewUser ? 'View Plans' : 'Upgrade Plan'}
-                </Link>
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

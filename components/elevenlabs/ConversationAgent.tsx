@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,8 @@ import {
   Copy, 
   CheckCircle, 
   ExternalLink,
-  RefreshCw 
+  RefreshCw,
+  MicOff
 } from 'lucide-react';
 import { getConversationDetails, isApiKeyConfigured } from '@/lib/elevenlabs';
 import type { AICoach } from '@/lib/database';
@@ -40,6 +41,8 @@ export function ConversationAgent({
   const [conversationError, setConversationError] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   // Check if ElevenLabs API key is available
   const hasApiKey = isApiKeyConfigured();
@@ -58,8 +61,33 @@ export function ConversationAgent({
     },
     onMessage: (message: any) => {
       console.log('📨 Message received:', message);
+      // Update speaking/listening states based on message
+      if (message.source === 'ai') {
+        setIsSpeaking(true);
+        setIsListening(false);
+        // Reset speaking state after a delay
+        setTimeout(() => setIsSpeaking(false), 2000);
+      } else if (message.source === 'user') {
+        setIsListening(true);
+        setIsSpeaking(false);
+        // Reset listening state after a delay
+        setTimeout(() => setIsListening(false), 1000);
+      }
     },
-    // You can add more options here if needed (clientTools, overrides, textOnly, etc.)
+    onModeChange: (mode: any) => {
+      console.log('🎤 Mode changed:', mode);
+      // Update states based on mode
+      if (mode.mode === 'listening') {
+        setIsListening(true);
+        setIsSpeaking(false);
+      } else if (mode.mode === 'speaking') {
+        setIsSpeaking(true);
+        setIsListening(false);
+      } else {
+        setIsListening(false);
+        setIsSpeaking(false);
+      }
+    }
   });
 
   // Handle conversation start
@@ -99,6 +127,8 @@ export function ConversationAgent({
   const handleConversationEnd = () => {
     console.log('🎯 Conversation ended with REAL ID:', conversationId);
     setConversationActive(false);
+    setIsSpeaking(false);
+    setIsListening(false);
     
     // Notify parent component
     if (conversationId) {
@@ -111,6 +141,8 @@ export function ConversationAgent({
     console.error('❌ Conversation error:', error);
     setConversationError(error);
     setConversationActive(false);
+    setIsSpeaking(false);
+    setIsListening(false);
   };
 
   // Copy conversation ID to clipboard
@@ -148,9 +180,6 @@ export function ConversationAgent({
   const handleStartConversation = async () => {
     setConversationError('');
     try {
-      // You can pass a URL or other options if needed
-      // For demonstration, we'll just call startSession with an empty object
-      // If you have a specific URL, pass { url }
       const id = await conversation.startSession({});
       handleConversationStart(id);
     } catch (error: any) {
@@ -172,6 +201,13 @@ export function ConversationAgent({
   const status = conversation.status || '';
   const conversationHookError = conversation.error || '';
 
+  // Auto-start conversation when session becomes active
+  useEffect(() => {
+    if (isSessionActive && !conversationActive && !conversationId && status !== 'connecting' && status !== 'connected') {
+      handleStartConversation();
+    }
+  }, [isSessionActive, conversationActive, conversationId, status]);
+
   if (!isSessionActive) {
     return (
       <div className="text-center py-8">
@@ -186,7 +222,7 @@ export function ConversationAgent({
         </p>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
           <p className="text-yellow-800 text-sm">
-            Click "Start Session" in the footer to begin your coaching session.
+            Click "Start Conversation" in the footer to begin your coaching session.
           </p>
         </div>
       </div>
@@ -213,14 +249,6 @@ export function ConversationAgent({
                 </span>
               </div>
             )}
-            {conversationId && (
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-xs text-gray-600">
-                  Real ID: {conversationId.slice(-8)}
-                </span>
-              </div>
-            )}
           </div>
           {sessionTime <= 15 && (
             <Badge className="bg-green-100 text-green-800 text-xs">
@@ -229,18 +257,6 @@ export function ConversationAgent({
           )}
         </div>
       </div>
-
-      {/* API Key Status */}
-      <Alert className="mb-4">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription className="text-sm">
-          {hasApiKey ? (
-            <span><strong>ElevenLabs API Connected:</strong> Real conversation IDs, transcripts and audio will be captured.</span>
-          ) : (
-            <span><strong>Demo Mode:</strong> ElevenLabs API key not configured. Only conversation IDs will be captured.</span>
-          )}
-        </AlertDescription>
-      </Alert>
 
       {/* Error Display */}
       {(conversationError || conversationHookError) && (
@@ -259,136 +275,115 @@ export function ConversationAgent({
             <Mic className="w-8 h-8 text-blue-600" />
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            Start Your AI Conversation
+            Starting Your AI Conversation
           </h3>
           <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            Click the button below to begin your conversation with {coach.name}. 
-            We'll capture the real conversation ID from ElevenLabs.
+            Connecting to {coach.name}...
           </p>
           
           <div className="mb-6">
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={handleStartConversation}
-              disabled={status === 'connecting' || status === 'connected'}
-            >
-              <Play className="w-4 h-4 mr-2" />
-              {status === 'connecting' ? 'Connecting...' : 'Start Conversation'}
-            </Button>
+            {status === 'connecting' ? (
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-blue-600">Connecting...</span>
+              </div>
+            ) : (
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={handleStartConversation}
+                disabled={status === 'connecting' || status === 'connected'}
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Start Conversation
+              </Button>
+            )}
           </div>
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Active Conversation Display */}
-          <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <div className="flex items-center space-x-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <div>
-                <p className="font-medium text-green-800">✅ REAL Conversation Active</p>
-                <p className="text-sm text-green-600 font-mono">ID: {conversationId}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Badge className="bg-green-100 text-green-800">
-                <Volume2 className="w-3 h-3 mr-1" />
-                Live
-              </Badge>
-              <Badge className="bg-blue-100 text-blue-800 text-xs">
-                ✅ @elevenlabs/react
-              </Badge>
-            </div>
-          </div>
-
-          {/* Conversation ID Actions */}
-          <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-            <div>
-              <p className="text-sm font-medium text-yellow-800">✅ ElevenLabs Conversation ID</p>
-              <p className="font-mono text-xs text-yellow-700 break-all">{conversationId}</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={copyConversationId}
-                className="text-yellow-700 border-yellow-300"
-              >
-                {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                className="text-yellow-700 border-yellow-300"
-              >
-                <a href={`https://elevenlabs.io/conversations/${conversationId}`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              </Button>
-            </div>
-          </div>
-
-          {/* Conversation Details */}
-          {conversationDetails && (
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-blue-800">✅ Live Conversation Details</p>
-                <div className="flex items-center space-x-2">
-                  <Badge className="bg-blue-100 text-blue-800 text-xs">
-                    ElevenLabs API
-                  </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={refreshConversationDetails}
-                    disabled={isLoading}
-                    className="text-blue-700 border-blue-300"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${isLoading ? 'animate-spin' : ''}`} />
-                  </Button>
+          {/* Microphone Feedback Display */}
+          <div className="bg-white border-2 border-green-200 rounded-lg p-8">
+            <div className="text-center">
+              <div className="relative mb-6">
+                {/* Main microphone icon */}
+                <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto transition-all duration-300 ${
+                  isListening ? 'bg-blue-100 border-4 border-blue-400' : 
+                  isSpeaking ? 'bg-green-100 border-4 border-green-400' : 
+                  'bg-gray-100 border-4 border-gray-300'
+                }`}>
+                  {isListening ? (
+                    <Mic className={`w-12 h-12 text-blue-600 ${isListening ? 'animate-pulse' : ''}`} />
+                  ) : isSpeaking ? (
+                    <Volume2 className={`w-12 h-12 text-green-600 ${isSpeaking ? 'animate-pulse' : ''}`} />
+                  ) : (
+                    <MicOff className="w-12 h-12 text-gray-600" />
+                  )}
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <p className="text-blue-600">Status:</p>
-                  <p className="font-medium text-blue-800">{conversationDetails.status}</p>
-                </div>
-                <div>
-                  <p className="text-blue-600">Agent ID:</p>
-                  <p className="font-mono text-blue-800">{conversationDetails.agent_id}</p>
-                </div>
-                {conversationDetails.metadata && (
-                  <>
-                    <div>
-                      <p className="text-blue-600">Messages:</p>
-                      <p className="font-medium text-blue-800">{conversationDetails.metadata.messageCount || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-blue-600">Language:</p>
-                      <p className="font-medium text-blue-800">{conversationDetails.metadata.language || 'en'}</p>
-                    </div>
-                  </>
+                
+                {/* Pulse animation for active states */}
+                {(isListening || isSpeaking) && (
+                  <div className={`absolute inset-0 rounded-full animate-ping ${
+                    isListening ? 'bg-blue-400' : 'bg-green-400'
+                  } opacity-20`}></div>
                 )}
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {isListening ? 'Listening...' : 
+                   isSpeaking ? `${coach.name} is speaking...` : 
+                   'Ready to talk'}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {isListening ? 'Speak now, your coach is listening' : 
+                   isSpeaking ? 'Your coach is responding' : 
+                   'Start speaking to begin the conversation'}
+                </p>
+              </div>
+              
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <Button 
+                  variant="outline" 
+                  onClick={handleEndConversation}
+                  className="bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
+                  disabled={status === 'disconnecting'}
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  {status === 'disconnecting' ? 'Ending...' : 'End Conversation'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Conversation ID Display (Simplified) */}
+          {conversationId && (
+            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+              <div>
+                <p className="text-sm font-medium text-yellow-800">Conversation ID</p>
+                <p className="font-mono text-xs text-yellow-700 break-all">{conversationId}</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyConversationId}
+                  className="text-yellow-700 border-yellow-300"
+                >
+                  {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="text-yellow-700 border-yellow-300"
+                >
+                  <a href={`https://elevenlabs.io/conversations/${conversationId}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </Button>
               </div>
             </div>
           )}
-
-          {/* ElevenLabs Conversation Component (Active State) */}
-          <div className="bg-white border-2 border-green-200 rounded-lg p-4">
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-4">
-                Conversation is active. Use the microphone to speak with {coach.name}.
-              </p>
-              <Button 
-                variant="outline" 
-                onClick={handleEndConversation}
-                className="bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
-                disabled={status === 'disconnecting'}
-              >
-                <Square className="w-4 h-4 mr-2" />
-                {status === 'disconnecting' ? 'Ending...' : 'End Conversation'}
-              </Button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -405,12 +400,6 @@ export function ConversationAgent({
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             <span>Powered by ElevenLabs</span>
           </div>
-          {conversationId && (
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>Real Conv ID: {conversationId.slice(-8)}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>
