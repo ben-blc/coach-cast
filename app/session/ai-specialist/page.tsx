@@ -69,7 +69,7 @@ export default function AISpecialistSessionPage() {
   // Timer effect - only runs when both conditions are true
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (timerStarted && sessionActive && !timeExceeded) {
+    if (timerStarted && sessionActive && !timeExceeded && !endingSession) {
       interval = setInterval(() => {
         setSessionTime(prev => {
           const newTime = prev + 1;
@@ -83,11 +83,11 @@ export default function AISpecialistSessionPage() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [timerStarted, sessionActive, timeExceeded]);
+  }, [timerStarted, sessionActive, timeExceeded, endingSession]);
 
   // Credit monitoring effect - check every 30 seconds if user has exceeded their limit
   useEffect(() => {
-    if (timerStarted && sessionActive && subscription) {
+    if (timerStarted && sessionActive && subscription && !endingSession) {
       timeCheckIntervalRef.current = setInterval(async () => {
         try {
           const user = await getCurrentUser();
@@ -116,7 +116,7 @@ export default function AISpecialistSessionPage() {
         }
       };
     }
-  }, [timerStarted, sessionActive, subscription, sessionTime]);
+  }, [timerStarted, sessionActive, subscription, sessionTime, endingSession]);
 
   // Calculate tokens based on session time
   const calculateTokens = (seconds: number): number => {
@@ -192,7 +192,7 @@ export default function AISpecialistSessionPage() {
   };
 
   const startConversationAndTimer = () => {
-    if (!timerStarted && canStartSession()) {
+    if (!timerStarted && canStartSession() && !endingSession) {
       setTimerStarted(true);
     }
   };
@@ -204,26 +204,30 @@ export default function AISpecialistSessionPage() {
     setConversationActive(true);
     
     // Start the timer when conversation begins
-    if (!timerStarted) {
+    if (!timerStarted && !endingSession) {
       setTimerStarted(true);
     }
   };
 
-  // Handle conversation end from ConversationAgent
+  // Handle conversation end from ConversationAgent - ONLY when user explicitly ends it
   const handleConversationEnd = async (id: string) => {
     console.log('🎯 Conversation ended with REAL ID:', id);
-    setConversationActive(false);
     
-    // Get final transcript from ElevenLabs API if available
-    try {
-      console.log('🎯 Fetching final transcript for REAL ID:', id);
-      const apiTranscript = await getConversationTranscript(id);
-      if (apiTranscript) {
-        setConversationTranscript(apiTranscript);
-        console.log('✅ Final transcript loaded for REAL ID:', id);
+    // Only process conversation end if we're actually ending the session
+    if (endingSession) {
+      setConversationActive(false);
+      
+      // Get final transcript from ElevenLabs API if available
+      try {
+        console.log('🎯 Fetching final transcript for REAL ID:', id);
+        const apiTranscript = await getConversationTranscript(id);
+        if (apiTranscript) {
+          setConversationTranscript(apiTranscript);
+          console.log('✅ Final transcript loaded for REAL ID:', id);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching transcript from API:', error);
       }
-    } catch (error) {
-      console.error('❌ Error fetching transcript from API:', error);
     }
   };
 
@@ -469,7 +473,7 @@ export default function AISpecialistSessionPage() {
                       onClick={startConversationAndTimer}
                       className="bg-green-600 hover:bg-green-700 text-white"
                       size="lg"
-                      disabled={!canStartSession()}
+                      disabled={!canStartSession() || endingSession}
                     >
                       <Play className="w-5 h-5 mr-2" />
                       {canStartSession() ? 'Start Conversation' : 'No Credits Available'}

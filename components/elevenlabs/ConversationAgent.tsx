@@ -37,6 +37,7 @@ export function ConversationAgent({
   const [conversationDetails, setConversationDetails] = useState<any>(null);
   const [conversationError, setConversationError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [userEndedConversation, setUserEndedConversation] = useState(false);
 
   // Only two states: isCoachSpeaking (coach is speaking), isUserTurn (user should speak)
   // Start with coach is speaking state
@@ -54,7 +55,10 @@ export function ConversationAgent({
       handleConversationStart(props.conversationId);
     },
     onDisconnect: () => {
-      handleConversationEnd();
+      // Only handle disconnect if user explicitly ended the conversation
+      if (userEndedConversation) {
+        handleConversationEnd();
+      }
     },
     onError: (err: string) => {
       handleConversationError(err);
@@ -104,6 +108,7 @@ export function ConversationAgent({
     setConversationId(id);
     setConversationActive(true);
     setConversationError('');
+    setUserEndedConversation(false);
     onConversationStart(id);
     if (hasApiKey) {
       try {
@@ -144,6 +149,7 @@ export function ConversationAgent({
   // Start a new conversation session using the new API
   const handleStartConversation = async () => {
     setConversationError('');
+    setUserEndedConversation(false);
     try {
       const id = await conversation.startSession({});
       handleConversationStart(id);
@@ -155,6 +161,7 @@ export function ConversationAgent({
   // End the conversation session
   const handleEndConversation = async () => {
     try {
+      setUserEndedConversation(true); // Mark that user explicitly ended the conversation
       await conversation.endSession();
       handleConversationEnd();
     } catch (error: any) {
