@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mic, Video, Users, Clock, Play, FileText, ExternalLink } from 'lucide-react';
+import { Mic, Video, Users, Clock, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 interface SessionCardProps {
@@ -46,6 +46,18 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
     }
   };
 
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
@@ -68,7 +80,7 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
             </div>
           </div>
           <div className="text-sm text-gray-500">
-            {new Date(session.date).toLocaleDateString()}
+            {formatDateTime(session.date)}
           </div>
         </div>
       </CardHeader>
@@ -93,23 +105,9 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
         <div className="flex items-center space-x-2 pt-4 border-t">
           <Button variant="outline" size="sm" asChild>
             <Link href={`/session-detail?id=${session.id}`}>
-              <ExternalLink className="h-3 w-3 mr-1" />
               View Details
             </Link>
           </Button>
-          
-          {detailed && (
-            <>
-              <Button variant="outline" size="sm">
-                <Play className="h-3 w-3 mr-1" />
-                Replay
-              </Button>
-              <Button variant="outline" size="sm">
-                <FileText className="h-3 w-3 mr-1" />
-                Transcript
-              </Button>
-            </>
-          )}
         </div>
       </CardContent>
     </Card>

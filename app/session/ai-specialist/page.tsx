@@ -25,6 +25,7 @@ export default function AISpecialistSessionPage() {
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
   const [timeExceeded, setTimeExceeded] = useState(false);
+  const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
   
   // ElevenLabs conversation state
   const [conversationId, setConversationId] = useState<string>('');
@@ -53,7 +54,7 @@ export default function AISpecialistSessionPage() {
 
         // Check if user has credits
         if (userSubscription && userSubscription.credits_remaining <= 0) {
-          setTimeExceeded(true);
+          setNoCreditsAvailable(true);
         }
       } catch (error) {
         console.error('Error loading AI coaches:', error);
@@ -156,7 +157,7 @@ export default function AISpecialistSessionPage() {
   const startSession = async (coach: AICoach) => {
     try {
       if (!canStartSession()) {
-        setTimeExceeded(true);
+        setNoCreditsAvailable(true);
         return;
       }
 
@@ -180,6 +181,7 @@ export default function AISpecialistSessionPage() {
         setTokensUsed(0);
         setEndingSession(false);
         setTimeExceeded(false);
+        setNoCreditsAvailable(false);
         setConversationId('');
         setConversationTranscript('');
         setConversationActive(false);
@@ -283,6 +285,7 @@ export default function AISpecialistSessionPage() {
       setTokensUsed(0);
       setEndingSession(false);
       setTimeExceeded(false);
+      setNoCreditsAvailable(false);
       setConversationId('');
       setConversationTranscript('');
       setConversationActive(false);
@@ -319,14 +322,19 @@ export default function AISpecialistSessionPage() {
   }
 
   // Show no credits message if user has no credits
-  if (timeExceeded || (subscription && subscription.credits_remaining <= 0)) {
+  if (noCreditsAvailable || timeExceeded || (subscription && subscription.credits_remaining <= 0)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
         <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">No Credits Available</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            {timeExceeded ? 'Session Ended - Credits Exhausted' : 'No Credits Available'}
+          </h1>
           <p className="text-gray-700 mb-6">
-            You've used all your available credits for this month. Upgrade your plan to continue coaching sessions.
+            {timeExceeded 
+              ? 'Your session was ended because you ran out of available credits. Upgrade your plan to continue coaching sessions.'
+              : 'You\'ve used all your available credits for this month. Upgrade your plan to continue coaching sessions.'
+            }
           </p>
           <div className="space-y-3">
             <Button asChild className="w-full">

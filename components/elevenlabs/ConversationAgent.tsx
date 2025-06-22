@@ -11,9 +11,6 @@ import {
   Square, 
   Volume2, 
   AlertCircle, 
-  Copy, 
-  CheckCircle, 
-  ExternalLink,
   RefreshCw,
   MicOff
 } from 'lucide-react';
@@ -39,7 +36,6 @@ export function ConversationAgent({
   const [conversationActive, setConversationActive] = useState(false);
   const [conversationDetails, setConversationDetails] = useState<any>(null);
   const [conversationError, setConversationError] = useState<string>('');
-  const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Only two states: isCoachSpeaking (coach is speaking), isUserTurn (user should speak)
@@ -145,35 +141,6 @@ export function ConversationAgent({
     setIsUserSpeaking(false);
   };
 
-  // Copy conversation ID to clipboard
-  const copyConversationId = async () => {
-    if (conversationId) {
-      try {
-        await navigator.clipboard.writeText(conversationId);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (error) {
-        // ignore
-      }
-    }
-  };
-
-  // Refresh conversation details
-  const refreshConversationDetails = async () => {
-    if (!conversationId || !hasApiKey) return;
-    setIsLoading(true);
-    try {
-      const details = await getConversationDetails(conversationId);
-      if (details) {
-        setConversationDetails(details);
-      }
-    } catch (error) {
-      // ignore
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Start a new conversation session using the new API
   const handleStartConversation = async () => {
     setConversationError('');
@@ -236,7 +203,7 @@ export function ConversationAgent({
             <div className="flex items-center space-x-2">
               <Volume2 className="w-4 h-4 text-gray-600" />
               <span className="text-sm font-medium text-gray-900">
-                ElevenLabs Conversation
+                AI Conversation
               </span>
             </div>
             {conversationActive && (
@@ -311,8 +278,6 @@ export function ConversationAgent({
                     <Volume2 className="w-12 h-12 text-green-600" />
                   )}
                 </div>
-                {/* Green wave is never shown */}
-                {/* (Removed: green wave effect when user is speaking) */}
               </div>
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -339,36 +304,6 @@ export function ConversationAgent({
               </div>
             </div>
           </div>
-
-          {/* Conversation ID Display (Simplified) */}
-          {conversationId && (
-            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-              <div>
-                <p className="text-sm font-medium text-yellow-800">Conversation ID</p>
-                <p className="font-mono text-xs text-yellow-700 break-all">{conversationId}</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copyConversationId}
-                  className="text-yellow-700 border-yellow-300"
-                >
-                  {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="text-yellow-700 border-yellow-300"
-                >
-                  <a href={`https://elevenlabs.io/conversations/${conversationId}`} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
