@@ -300,12 +300,6 @@ export function Navbar() {
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
                 </Link>
-                <button 
-                  onClick={() => handleSectionNavigation('coaches')}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  For Coaches
-                </button>
               </nav>
 
               {/* Only show credits if not on landing page */}
