@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+// import { Input } from '@/components/ui/input'; // Search bar hidden
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Mic, 
@@ -75,7 +75,7 @@ export default function CoachingStudioPage() {
   useEffect(() => {
     let filtered = coaches;
 
-    // Apply search filter
+    // Apply search filter (search bar hidden, but logic kept for reset/clear)
     if (searchTerm) {
       filtered = filtered.filter(coach =>
         coach.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -225,48 +225,43 @@ export default function CoachingStudioPage() {
           </div>
         </div>
 
-        {/* Search and Filters */}
+        {/* Filters (search bar hidden, improved layout) */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4 items-center">
-            {/* Search */}
-            <div className="relative flex-1 w-full lg:w-auto">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search coaches by name, specialty, or expertise..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
             {/* Coach Type Filter */}
-            <Tabs value={coachFilter} onValueChange={(value) => setCoachFilter(value as CoachFilter)}>
-              <TabsList>
-                <TabsTrigger value="all">All Coaches</TabsTrigger>
-                <TabsTrigger value="ai">AI Coaches</TabsTrigger>
-                <TabsTrigger value="human">Human Coaches</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
+            <div className="flex-1 flex flex-col md:flex-row md:items-center gap-2">
+              <span className="text-sm font-medium text-gray-700 mr-2">Coach Type:</span>
+              <Tabs value={coachFilter} onValueChange={(value) => setCoachFilter(value as CoachFilter)}>
+                <TabsList className="bg-gray-50">
+                  <TabsTrigger value="all">All Coaches</TabsTrigger>
+                  <TabsTrigger value="ai">AI Coaches</TabsTrigger>
+                  <TabsTrigger value="human">Human Coaches</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
             {/* Session Type Filter */}
-            <Tabs value={sessionFilter} onValueChange={(value) => setSessionFilter(value as SessionFilter)}>
-              <TabsList>
-                <TabsTrigger value="all">All Sessions</TabsTrigger>
-                <TabsTrigger value="audio_ai">Audio AI</TabsTrigger>
-                <TabsTrigger value="video_ai">Video AI</TabsTrigger>
-                <TabsTrigger value="human_coaching">Human Coaching</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex-1 flex flex-col md:flex-row md:items-center gap-2">
+              <span className="text-sm font-medium text-gray-700 mr-2">Session Type:</span>
+              <Tabs value={sessionFilter} onValueChange={(value) => setSessionFilter(value as SessionFilter)}>
+                <TabsList className="bg-gray-50">
+                  <TabsTrigger value="all">All Sessions</TabsTrigger>
+                  <TabsTrigger value="audio_ai">Audio AI</TabsTrigger>
+                  <TabsTrigger value="video_ai">Video AI</TabsTrigger>
+                  <TabsTrigger value="human_coaching">Human Coaching</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            {/* (Search bar hidden) */}
           </div>
 
           {/* Active Filters Display */}
-          {(coachFilter !== 'all' || sessionFilter !== 'all' || searchTerm) && (
-            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
+          {(coachFilter !== 'all' || sessionFilter !== 'all' /*|| searchTerm*/) && (
+            <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
               <Filter className="w-4 h-4 text-gray-500" />
               <span className="text-sm text-gray-600">Active filters:</span>
-              {searchTerm && (
+              {/* searchTerm && (
                 <Badge variant="outline">Search: "{searchTerm}"</Badge>
-              )}
+              ) */}
               {coachFilter !== 'all' && (
                 <Badge variant="outline">Coach: {coachFilter}</Badge>
               )}
@@ -381,7 +376,7 @@ export default function CoachingStudioPage() {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No coaches found</h3>
             <p className="text-gray-600 mb-4">
-              Try adjusting your search terms or filters to find the perfect coach for you.
+              Try adjusting your filters to find the perfect coach for you.
             </p>
             <Button
               variant="outline"
