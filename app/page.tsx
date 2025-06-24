@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Hero } from '@/components/sections/Hero';
 import { Features } from '@/components/sections/Features';
 import { Pricing } from '@/components/sections/Pricing';
@@ -42,7 +42,17 @@ export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [sessions, setSessions] = useState<CoachingSession[]>([]);
+  const [activeTab, setActiveTab] = useState('overview');
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check for tab parameter in URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['overview', 'sessions', 'goals', 'settings'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   // Calculate credits used from sessions
   const calculateCreditsUsed = (sessions: CoachingSession[]): number => {
@@ -216,7 +226,7 @@ export default function Home() {
             </div>
           </div>
 
-          <Tabs defaultValue="overview" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-4 lg:w-1/2">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="sessions">My Sessions</TabsTrigger>
@@ -344,11 +354,7 @@ export default function Home() {
                             </div>
                           </div>
                         ))}
-                        <Button variant="ghost" className="w-full mt-4" onClick={() => {
-                          // Switch to sessions tab
-                          const tabsTrigger = document.querySelector('[value="sessions"]') as HTMLElement;
-                          if (tabsTrigger) tabsTrigger.click();
-                        }}>
+                        <Button variant="ghost" className="w-full mt-4" onClick={() => setActiveTab('sessions')}>
                           View All Sessions
                         </Button>
                       </div>

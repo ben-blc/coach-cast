@@ -31,6 +31,7 @@ import {
 import { getCurrentUser } from '@/lib/auth';
 import { getSessionById, getAICoaches, getHumanCoaches } from '@/lib/database';
 import { getConversationTranscript, getConversationDetails, getConversationAudio } from '@/lib/elevenlabs';
+import { Navbar } from '@/components/sections/Navbar';
 import type { CoachingSession, AICoach, HumanCoach } from '@/lib/database';
 
 interface SessionDetails extends CoachingSession {
@@ -292,6 +293,11 @@ export default function SessionDetailPage() {
     }
   };
 
+  const handleBackToSessions = () => {
+    // Navigate to home page and select the My Sessions tab
+    router.push('/?tab=sessions');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
@@ -305,13 +311,16 @@ export default function SessionDetailPage() {
 
   if (error || !session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-          <p className="text-gray-700 mb-4">{error || 'Session not found'}</p>
-          <Button onClick={() => router.push('/?tab=sessions')}>
-            Back to Sessions
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+            <p className="text-gray-700 mb-4">{error || 'Session not found'}</p>
+            <Button onClick={handleBackToSessions}>
+              Back to Sessions
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -319,12 +328,14 @@ export default function SessionDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      <Navbar />
+      
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" onClick={() => router.push('/?tab=sessions')} className="mb-4">
+          <Button variant="ghost" onClick={handleBackToSessions} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Sessions
+            Back to My Sessions
           </Button>
           
           <div className="flex items-start justify-between">

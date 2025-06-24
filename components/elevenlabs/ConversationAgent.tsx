@@ -50,7 +50,7 @@ export function ConversationAgent({
 
   // Use the ElevenLabs useConversation hook with options
   const conversation = useConversation({
-    agentId: coach.agent_id,
+    agentId: coach.agent_id_eleven_labs, // Updated field name
     onConnect: (props: { conversationId: string }) => {
       handleConversationStart(props.conversationId);
     },

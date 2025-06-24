@@ -35,8 +35,7 @@ export type AICoach = {
   years_experience?: string;
   coach_type: 'ai' | 'human';
   session_types: string[];
-  voice_id?: string;
-  agent_id?: string; // ElevenLabs ConvAI agent ID
+  agent_id_eleven_labs?: string; // Renamed from agent_id
   personality_prompt: string;
   avatar_url?: string;
   hourly_rate?: number; // in cents
@@ -53,7 +52,6 @@ export type HumanCoach = {
   bio?: string;
   hourly_rate?: number;
   avatar_url?: string;
-  voice_id?: string;
   tavus_persona_id?: string;
   is_active: boolean;
   created_at: string;
@@ -297,7 +295,7 @@ export async function getAICoaches(): Promise<AICoach[]> {
     }
 
     const { data, error } = await supabase
-      .from('ai_coaches')
+      .from('coaches') // Updated table name
       .select('*')
       .eq('is_active', true)
       .order('created_at');
@@ -323,9 +321,9 @@ export async function getHumanCoaches(): Promise<HumanCoach[]> {
       return [];
     }
 
-    // Now get human coaches from the unified ai_coaches table
+    // Now get human coaches from the unified coaches table
     const { data, error } = await supabase
-      .from('ai_coaches')
+      .from('coaches') // Updated table name
       .select('*')
       .eq('is_active', true)
       .eq('coach_type', 'human')
@@ -345,7 +343,6 @@ export async function getHumanCoaches(): Promise<HumanCoach[]> {
       bio: coach.bio,
       hourly_rate: coach.hourly_rate,
       avatar_url: coach.avatar_url,
-      voice_id: coach.voice_id,
       tavus_persona_id: '', // Not in unified table yet
       is_active: coach.is_active,
       created_at: coach.created_at,
@@ -448,7 +445,7 @@ export async function getUserSessions(userId: string): Promise<CoachingSession[]
       .from('coaching_sessions')
       .select(`
         *,
-        ai_coaches(name, specialty)
+        coaches(name, specialty)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -486,7 +483,7 @@ export async function getSessionById(sessionId: string): Promise<CoachingSession
       .from('coaching_sessions')
       .select(`
         *,
-        ai_coaches(name, specialty)
+        coaches(name, specialty)
       `)
       .eq('id', sessionId)
       .single();
@@ -568,7 +565,7 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
 export async function createAICoach(coach: Partial<AICoach>): Promise<AICoach | null> {
   try {
     const { data, error } = await supabase
-      .from('ai_coaches')
+      .from('coaches') // Updated table name
       .insert([coach])
       .select()
       .single();
@@ -588,7 +585,7 @@ export async function createAICoach(coach: Partial<AICoach>): Promise<AICoach | 
 export async function updateAICoach(coachId: string, updates: Partial<AICoach>): Promise<AICoach | null> {
   try {
     const { data, error } = await supabase
-      .from('ai_coaches')
+      .from('coaches') // Updated table name
       .update(updates)
       .eq('id', coachId)
       .select()
@@ -618,13 +615,12 @@ export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<Huma
       session_types: ['audio_ai', 'video_ai', 'human_coaching'],
       hourly_rate: coach.hourly_rate,
       avatar_url: coach.avatar_url,
-      voice_id: coach.voice_id,
       personality_prompt: `You are ${coach.name}, a professional coach specializing in ${coach.specialty}.`,
       is_active: coach.is_active ?? true
     };
 
     const { data, error } = await supabase
-      .from('ai_coaches')
+      .from('coaches') // Updated table name
       .insert([aiCoachData])
       .select()
       .single();
@@ -643,7 +639,6 @@ export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<Huma
       bio: data.bio,
       hourly_rate: data.hourly_rate,
       avatar_url: data.avatar_url,
-      voice_id: data.voice_id,
       tavus_persona_id: '',
       is_active: data.is_active,
       created_at: data.created_at,
@@ -667,12 +662,11 @@ export async function updateHumanCoach(coachId: string, updates: Partial<HumanCo
       bio: updates.bio,
       hourly_rate: updates.hourly_rate,
       avatar_url: updates.avatar_url,
-      voice_id: updates.voice_id,
       is_active: updates.is_active
     };
 
     const { data, error } = await supabase
-      .from('ai_coaches')
+      .from('coaches') // Updated table name
       .update(aiCoachUpdates)
       .eq('id', coachId)
       .eq('coach_type', 'human')
@@ -693,7 +687,6 @@ export async function updateHumanCoach(coachId: string, updates: Partial<HumanCo
       bio: data.bio,
       hourly_rate: data.hourly_rate,
       avatar_url: data.avatar_url,
-      voice_id: data.voice_id,
       tavus_persona_id: '',
       is_active: data.is_active,
       created_at: data.created_at,
