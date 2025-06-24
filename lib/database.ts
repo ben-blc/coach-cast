@@ -39,6 +39,8 @@ export type AICoach = {
   agent_id?: string; // ElevenLabs ConvAI agent ID
   personality_prompt: string;
   avatar_url?: string;
+  hourly_rate?: number; // in cents
+  cal_com_link?: string; // Cal.com booking link
   is_active: boolean;
   created_at: string;
 };

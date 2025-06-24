@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, X, User, Settings, LogOut, CreditCard } from 'lucide-react';
+import { Menu, X, User, Settings, LogOut, CreditCard, Home, Users } from 'lucide-react';
 import { getCurrentUser, signOut, onAuthStateChange } from '@/lib/auth';
 import { getUserProfile, getUserSubscription } from '@/lib/database';
 import { useRouter, usePathname } from 'next/navigation';
@@ -209,7 +209,10 @@ export function Navbar() {
 
   // Function to handle home navigation
   const handleHomeNavigation = () => {
-    if (isLandingPage) {
+    if (user) {
+      // If user is logged in, go to dashboard
+      router.push('/dashboard');
+    } else if (isLandingPage) {
       // If on landing page, scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
@@ -223,7 +226,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center">
+            <Link href={user ? "/dashboard" : "/"} className="flex items-center">
               <img 
                 src="/coachcast-logo.jpeg" 
                 alt="Coach Cast" 
@@ -253,15 +256,14 @@ export function Navbar() {
               <nav className="hidden md:flex items-center space-x-6">
                 <button 
                   onClick={handleHomeNavigation}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                  className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1"
                 >
-                  Home
+                  <Home className="w-4 h-4" />
+                  <span>Home</span>
                 </button>
-                <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 transition-colors">
-                  Dashboard
-                </Link>
-                <Link href="/discovery" className="text-gray-600 hover:text-gray-900 transition-colors">
-                  Start Session
+                <Link href="/coaching-studio" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1">
+                  <Users className="w-4 h-4" />
+                  <span>Coach Studio</span>
                 </Link>
                 <button 
                   onClick={() => handleSectionNavigation('coaches')}
@@ -403,15 +405,14 @@ export function Navbar() {
                     handleHomeNavigation();
                     setIsMenuOpen(false);
                   }}
-                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                  className="text-gray-600 hover:text-gray-900 transition-colors text-left flex items-center space-x-2"
                 >
-                  Home
+                  <Home className="w-4 h-4" />
+                  <span>Home</span>
                 </button>
-                <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 transition-colors">
-                  Dashboard
-                </Link>
-                <Link href="/discovery" className="text-gray-600 hover:text-gray-900 transition-colors">
-                  Start Session
+                <Link href="/coaching-studio" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-2">
+                  <Users className="w-4 h-4" />
+                  <span>Coach Studio</span>
                 </Link>
                 <button 
                   onClick={() => {
