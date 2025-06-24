@@ -1,17 +1,29 @@
 /*
-  # Clean Unified Coaches Migration
+  # Unified Coaches Table Migration - Final Clean Version
 
   1. Changes
-    - Add all necessary columns to ai_coaches table for unified coach management
+    - Add unique constraint on name column for ON CONFLICT to work
+    - Add all necessary columns to ai_coaches table
     - Migrate human coaches data safely
-    - Add Natalie and Fatten as human coaches with proper pricing
-    - Update AI coach names and session types
-    - Clean up old references
+    - Update existing AI coaches with proper values
+    - Clean up old human_coaches table and references
 
   2. Security
     - Maintains existing RLS policies
     - Updates policies for unified table structure
 */
+
+-- First, add unique constraint on name column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'ai_coaches_name_key' 
+    AND table_name = 'ai_coaches'
+  ) THEN
+    ALTER TABLE ai_coaches ADD CONSTRAINT ai_coaches_name_key UNIQUE (name);
+  END IF;
+END $$;
 
 -- Add all necessary columns to ai_coaches table
 DO $$
@@ -72,11 +84,68 @@ UPDATE ai_coaches SET
   hourly_rate = 2500 -- $25/hour for AI coaches
 WHERE coach_type IS NULL;
 
+-- Migrate data from human_coaches table if it exists
+DO $$
+DECLARE
+    human_coach_record RECORD;
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'human_coaches') THEN
+    -- Loop through each human coach and insert into ai_coaches
+    FOR human_coach_record IN 
+      SELECT 
+        name,
+        specialty,
+        COALESCE(bio, 'Experienced human coach') as description,
+        bio,
+        COALESCE(hourly_rate, 15000) as hourly_rate,
+        avatar_url,
+        is_active,
+        created_at
+      FROM human_coaches 
+      WHERE is_active = true
+    LOOP
+      INSERT INTO ai_coaches (
+        name, 
+        specialty, 
+        description, 
+        bio,
+        coach_type,
+        session_types,
+        hourly_rate,
+        cal_com_link,
+        avatar_url,
+        personality_prompt,
+        is_active,
+        created_at
+      ) VALUES (
+        human_coach_record.name,
+        human_coach_record.specialty,
+        human_coach_record.description,
+        human_coach_record.bio,
+        'human',
+        ARRAY['audio_ai', 'video_ai', 'human_coaching'],
+        human_coach_record.hourly_rate,
+        'https://cal.com/' || lower(replace(human_coach_record.name, ' ', '-')),
+        human_coach_record.avatar_url,
+        'You are ' || human_coach_record.name || ', a professional coach specializing in ' || human_coach_record.specialty || '.',
+        human_coach_record.is_active,
+        human_coach_record.created_at
+      ) ON CONFLICT (name) DO UPDATE SET
+        bio = EXCLUDED.bio,
+        hourly_rate = EXCLUDED.hourly_rate,
+        cal_com_link = EXCLUDED.cal_com_link,
+        avatar_url = EXCLUDED.avatar_url,
+        coach_type = EXCLUDED.coach_type,
+        session_types = EXCLUDED.session_types;
+    END LOOP;
+  END IF;
+END $$;
+
 -- Update AI coach names to be more distinctive
-UPDATE ai_coaches SET name = 'Sprint AI' WHERE name = 'Career Growth Coach';
-UPDATE ai_coaches SET name = 'Pivot AI' WHERE name = 'Career Change Coach';
-UPDATE ai_coaches SET name = 'Confidence AI' WHERE name = 'Confidence Coach';
-UPDATE ai_coaches SET name = 'Balance AI' WHERE name = 'Wellness Coach';
+UPDATE ai_coaches SET name = 'Sprint AI' WHERE name = 'Career Growth Coach' AND coach_type = 'ai';
+UPDATE ai_coaches SET name = 'Pivot AI' WHERE name = 'Career Change Coach' AND coach_type = 'ai';
+UPDATE ai_coaches SET name = 'Confidence AI' WHERE name = 'Confidence Coach' AND coach_type = 'ai';
+UPDATE ai_coaches SET name = 'Balance AI' WHERE name = 'Wellness Coach' AND coach_type = 'ai';
 
 -- Add Natalie Sejean as human coach
 INSERT INTO ai_coaches (
@@ -148,6 +217,21 @@ INSERT INTO ai_coaches (
   cal_com_link = EXCLUDED.cal_com_link,
   coach_type = EXCLUDED.coach_type,
   session_types = EXCLUDED.session_types;
+
+-- Update coaching_sessions to reference unified table
+DO $$
+BEGIN
+  -- Update sessions that reference human coaches to use ai_coaches
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'human_coaches') THEN
+    UPDATE coaching_sessions cs
+    SET ai_coach_id = ac.id
+    FROM ai_coaches ac, human_coaches hc
+    WHERE cs.human_coach_id = hc.id 
+    AND ac.name = hc.name 
+    AND ac.coach_type = 'human'
+    AND cs.ai_coach_id IS NULL;
+  END IF;
+END $$;
 
 -- Remove human_coach_id column from coaching_sessions if it exists
 DO $$
