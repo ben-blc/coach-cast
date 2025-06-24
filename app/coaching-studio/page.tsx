@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-// import { Input } from '@/components/ui/input'; // Search bar hidden
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Mic, 
@@ -18,7 +17,8 @@ import {
   Star,
   Clock,
   Calendar,
-  Sparkles
+  Sparkles,
+  DollarSign
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getUserSubscription, createCoachingSession } from '@/lib/database';
@@ -137,6 +137,10 @@ export default function CoachingStudioPage() {
     return '';
   };
 
+  const formatPrice = (priceInCents: number) => {
+    return `$${(priceInCents / 100).toLocaleString()}`;
+  };
+
   const canStartSession = (sessionType: string) => {
     if (!subscription) return false;
     
@@ -174,8 +178,7 @@ export default function CoachingStudioPage() {
       } else if (sessionType === 'video_ai') {
         router.push(`/session/digital-chemistry?coach=${coach.id}`);
       } else if (sessionType === 'human_coaching') {
-        // Redirect to Cal.com or booking system
-        window.open(`https://cal.com/${coach.name.toLowerCase().replace(' ', '-')}`, '_blank');
+        router.push(`/session/human-coaching?coach=${coach.id}`);
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -198,7 +201,7 @@ export default function CoachingStudioPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+          <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
@@ -225,7 +228,7 @@ export default function CoachingStudioPage() {
           </div>
         </div>
 
-        {/* Filters (search bar hidden, improved layout) */}
+        {/* Filters */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 mb-8">
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             {/* Coach Type Filter */}
@@ -251,17 +254,13 @@ export default function CoachingStudioPage() {
                 </TabsList>
               </Tabs>
             </div>
-            {/* (Search bar hidden) */}
           </div>
 
           {/* Active Filters Display */}
-          {(coachFilter !== 'all' || sessionFilter !== 'all' /*|| searchTerm*/) && (
+          {(coachFilter !== 'all' || sessionFilter !== 'all') && (
             <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
               <Filter className="w-4 h-4 text-gray-500" />
               <span className="text-sm text-gray-600">Active filters:</span>
-              {/* searchTerm && (
-                <Badge variant="outline">Search: "{searchTerm}"</Badge>
-              ) */}
               {coachFilter !== 'all' && (
                 <Badge variant="outline">Coach: {coachFilter}</Badge>
               )}
@@ -298,8 +297,18 @@ export default function CoachingStudioPage() {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-400 to-green-600 flex items-center justify-center text-white font-bold text-xl">
-                      {coach.name.charAt(0)}
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-r from-blue-400 to-green-600 flex items-center justify-center">
+                      {coach.avatar_url ? (
+                        <img 
+                          src={coach.avatar_url} 
+                          alt={coach.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white font-bold text-xl">
+                          {coach.name.charAt(0)}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-xl">{coach.name}</CardTitle>
@@ -314,6 +323,14 @@ export default function CoachingStudioPage() {
                         <div className="flex items-center space-x-2 mt-1">
                           <Clock className="w-3 h-3 text-gray-500" />
                           <span className="text-xs text-gray-500">{coach.years_experience} years experience</span>
+                        </div>
+                      )}
+                      {coach.hourly_rate && coach.hourly_rate > 0 && coach.coach_type === 'human' && (
+                        <div className="flex items-center space-x-2 mt-1">
+                          <DollarSign className="w-3 h-3 text-green-600" />
+                          <span className="text-xs text-green-600 font-medium">
+                            {formatPrice(coach.hourly_rate)}/hour
+                          </span>
                         </div>
                       )}
                     </div>
@@ -338,12 +355,19 @@ export default function CoachingStudioPage() {
                             {getSessionTypeLabel(sessionType)}
                           </span>
                         </div>
-                        <Badge 
-                          variant={sessionType === 'human_coaching' ? 'outline' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {getTrialInfo(sessionType, coach.coach_type)}
-                        </Badge>
+                        <div className="flex items-center space-x-2">
+                          <Badge 
+                            variant={sessionType === 'human_coaching' ? 'outline' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {getTrialInfo(sessionType, coach.coach_type)}
+                          </Badge>
+                          {sessionType === 'human_coaching' && coach.hourly_rate && (
+                            <Badge className="bg-green-100 text-green-800 text-xs">
+                              {formatPrice(coach.hourly_rate)}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       
                       <p className="text-xs text-gray-600">

@@ -323,10 +323,12 @@ export async function getHumanCoaches(): Promise<HumanCoach[]> {
       return [];
     }
 
+    // Now get human coaches from the unified ai_coaches table
     const { data, error } = await supabase
-      .from('human_coaches')
+      .from('ai_coaches')
       .select('*')
       .eq('is_active', true)
+      .eq('coach_type', 'human')
       .order('created_at');
 
     if (error) {
@@ -334,7 +336,23 @@ export async function getHumanCoaches(): Promise<HumanCoach[]> {
       return [];
     }
 
-    return data || [];
+    // Transform the data to match HumanCoach interface
+    const humanCoaches: HumanCoach[] = (data || []).map(coach => ({
+      id: coach.id,
+      user_id: '', // Not applicable for unified table
+      name: coach.name,
+      specialty: coach.specialty,
+      bio: coach.bio,
+      hourly_rate: coach.hourly_rate,
+      avatar_url: coach.avatar_url,
+      voice_id: coach.voice_id,
+      tavus_persona_id: '', // Not in unified table yet
+      is_active: coach.is_active,
+      created_at: coach.created_at,
+      updated_at: coach.created_at // Use created_at as fallback
+    }));
+
+    return humanCoaches;
   } catch (error) {
     console.error('Unexpected error in getHumanCoaches:', error);
     return [];
@@ -430,8 +448,7 @@ export async function getUserSessions(userId: string): Promise<CoachingSession[]
       .from('coaching_sessions')
       .select(`
         *,
-        ai_coaches(name, specialty),
-        human_coaches(name, specialty)
+        ai_coaches(name, specialty)
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -469,8 +486,7 @@ export async function getSessionById(sessionId: string): Promise<CoachingSession
       .from('coaching_sessions')
       .select(`
         *,
-        ai_coaches(name, specialty),
-        human_coaches(name, specialty)
+        ai_coaches(name, specialty)
       `)
       .eq('id', sessionId)
       .single();
@@ -592,9 +608,24 @@ export async function updateAICoach(coachId: string, updates: Partial<AICoach>):
 
 export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<HumanCoach | null> {
   try {
+    // Convert HumanCoach to AICoach format for unified table
+    const aiCoachData: Partial<AICoach> = {
+      name: coach.name,
+      specialty: coach.specialty || '',
+      description: coach.bio || '',
+      bio: coach.bio,
+      coach_type: 'human',
+      session_types: ['audio_ai', 'video_ai', 'human_coaching'],
+      hourly_rate: coach.hourly_rate,
+      avatar_url: coach.avatar_url,
+      voice_id: coach.voice_id,
+      personality_prompt: `You are ${coach.name}, a professional coach specializing in ${coach.specialty}.`,
+      is_active: coach.is_active ?? true
+    };
+
     const { data, error } = await supabase
-      .from('human_coaches')
-      .insert([coach])
+      .from('ai_coaches')
+      .insert([aiCoachData])
       .select()
       .single();
 
@@ -603,7 +634,23 @@ export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<Huma
       return null;
     }
 
-    return data;
+    // Transform back to HumanCoach format
+    const humanCoach: HumanCoach = {
+      id: data.id,
+      user_id: '',
+      name: data.name,
+      specialty: data.specialty,
+      bio: data.bio,
+      hourly_rate: data.hourly_rate,
+      avatar_url: data.avatar_url,
+      voice_id: data.voice_id,
+      tavus_persona_id: '',
+      is_active: data.is_active,
+      created_at: data.created_at,
+      updated_at: data.created_at
+    };
+
+    return humanCoach;
   } catch (error) {
     console.error('Unexpected error in createHumanCoach:', error);
     return null;
@@ -612,10 +659,23 @@ export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<Huma
 
 export async function updateHumanCoach(coachId: string, updates: Partial<HumanCoach>): Promise<HumanCoach | null> {
   try {
+    // Convert HumanCoach updates to AICoach format
+    const aiCoachUpdates: Partial<AICoach> = {
+      name: updates.name,
+      specialty: updates.specialty,
+      description: updates.bio,
+      bio: updates.bio,
+      hourly_rate: updates.hourly_rate,
+      avatar_url: updates.avatar_url,
+      voice_id: updates.voice_id,
+      is_active: updates.is_active
+    };
+
     const { data, error } = await supabase
-      .from('human_coaches')
-      .update(updates)
+      .from('ai_coaches')
+      .update(aiCoachUpdates)
       .eq('id', coachId)
+      .eq('coach_type', 'human')
       .select()
       .single();
 
@@ -624,7 +684,23 @@ export async function updateHumanCoach(coachId: string, updates: Partial<HumanCo
       return null;
     }
 
-    return data;
+    // Transform back to HumanCoach format
+    const humanCoach: HumanCoach = {
+      id: data.id,
+      user_id: '',
+      name: data.name,
+      specialty: data.specialty,
+      bio: data.bio,
+      hourly_rate: data.hourly_rate,
+      avatar_url: data.avatar_url,
+      voice_id: data.voice_id,
+      tavus_persona_id: '',
+      is_active: data.is_active,
+      created_at: data.created_at,
+      updated_at: data.created_at
+    };
+
+    return humanCoach;
   } catch (error) {
     console.error('Unexpected error in updateHumanCoach:', error);
     return null;
