@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -29,15 +29,34 @@ export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Use refs to prevent unnecessary re-renders
+  const lastRefreshTime = useRef<number>(0);
+  const refreshInProgress = useRef<boolean>(false);
+  const mounted = useRef<boolean>(true);
+
   // Check if we're on the landing page
   const isLandingPage = pathname === '/' && !user;
   // Check if we should show credits (not on landing page and user is authenticated)
   const shouldShowCredits = !isLandingPage && user && profile && subscription;
 
-  // Function to load user data
-  const loadUserData = async (showRefreshIndicator = false) => {
+  // Memoized function to load user data with debouncing
+  const loadUserData = useCallback(async (showRefreshIndicator = false) => {
+    // Prevent multiple simultaneous refreshes
+    if (refreshInProgress.current) return;
+    
+    // Debounce rapid refresh calls (minimum 5 seconds between refreshes)
+    const now = Date.now();
+    if (now - lastRefreshTime.current < 5000 && !showRefreshIndicator) {
+      return;
+    }
+
     try {
+      refreshInProgress.current = true;
+      lastRefreshTime.current = now;
+
       const currentUser = await getCurrentUser();
+      if (!mounted.current) return;
+
       if (currentUser) {
         setUser(currentUser);
         
@@ -45,6 +64,8 @@ export function Navbar() {
           getUserProfile(currentUser.id),
           getUserSubscription(currentUser.id)
         ]);
+        
+        if (!mounted.current) return;
         
         setProfile(userProfile);
         setSubscription(userSubscription);
@@ -57,20 +78,23 @@ export function Navbar() {
     } catch (error) {
       console.error('Error loading user data in navbar:', error);
     } finally {
-      setLoading(false);
+      if (mounted.current) {
+        setLoading(false);
+        refreshInProgress.current = false;
+      }
     }
-  };
+  }, []);
 
   // Initial load and auth state listener
   useEffect(() => {
-    let mounted = true;
+    mounted.current = true;
 
     // Initial load
     loadUserData();
 
     // Listen for auth state changes
     const { data: { subscription } } = onAuthStateChange((user) => {
-      if (!mounted) return;
+      if (!mounted.current) return;
       
       console.log('Auth state changed in Navbar:', user?.id);
       
@@ -78,7 +102,7 @@ export function Navbar() {
         // User signed in, load their data
         loadUserData();
       } else {
-        // User signed out, clear data
+        // User signed out, clear data immediately
         setUser(null);
         setProfile(null);
         setSubscription(null);
@@ -87,24 +111,32 @@ export function Navbar() {
     });
 
     return () => {
-      mounted = false;
+      mounted.current = false;
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [loadUserData]);
 
-  // Auto-refresh when returning from sessions or when page becomes visible
+  // Controlled refresh on visibility change (less aggressive)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && user && !loading) {
-        console.log('Page became visible, refreshing navbar data...');
-        loadUserData(true);
+      if (!document.hidden && user && !loading && mounted.current) {
+        // Only refresh if it's been more than 30 seconds since last refresh
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
+        if (timeSinceLastRefresh > 30000) {
+          console.log('Page became visible, refreshing navbar data...');
+          loadUserData(true);
+        }
       }
     };
 
     const handleFocus = () => {
-      if (user && !loading) {
-        console.log('Window focused, refreshing navbar data...');
-        loadUserData(true);
+      if (user && !loading && mounted.current) {
+        // Only refresh if it's been more than 30 seconds since last refresh
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
+        if (timeSinceLastRefresh > 30000) {
+          console.log('Window focused, refreshing navbar data...');
+          loadUserData(true);
+        }
       }
     };
 
@@ -115,31 +147,34 @@ export function Navbar() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [user, loading]);
+  }, [user, loading, loadUserData]);
 
-  // Refresh data when navigating between pages (especially from sessions)
+  // Controlled refresh on navigation (only for specific routes)
   useEffect(() => {
-    if (user && !loading) {
-      // Refresh data when pathname changes, especially from session pages
+    if (user && !loading && mounted.current) {
+      // Only refresh data when navigating from session pages (where credits might have changed)
       if (pathname.includes('/session/') || pathname.includes('/coaching-studio')) {
-        console.log('Navigation detected, refreshing navbar data...');
-        loadUserData(true);
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
+        if (timeSinceLastRefresh > 10000) { // 10 seconds minimum
+          console.log('Navigation from session detected, refreshing navbar data...');
+          loadUserData(true);
+        }
       }
     }
-  }, [pathname, user, loading]);
+  }, [pathname, user, loading, loadUserData]);
 
-  // Periodic refresh every 30 seconds when user is active (but not on landing page)
+  // Reduced frequency periodic refresh (every 2 minutes instead of 30 seconds)
   useEffect(() => {
-    if (user && !loading && !isLandingPage) {
+    if (user && !loading && !isLandingPage && mounted.current) {
       const interval = setInterval(() => {
-        if (!document.hidden) {
+        if (!document.hidden && mounted.current) {
           loadUserData(false); // Silent refresh
         }
-      }, 30000);
+      }, 120000); // 2 minutes instead of 30 seconds
 
       return () => clearInterval(interval);
     }
-  }, [user, loading, isLandingPage]);
+  }, [user, loading, isLandingPage, loadUserData]);
 
   const handleSignOut = async () => {
     try {
@@ -178,7 +213,7 @@ export function Navbar() {
     }
   };
 
-  const getPlanDisplayName = (planType: string) => {
+  const getPlanDisplayName = useCallback((planType: string) => {
     switch (planType) {
       case 'free': return 'Free Trial';
       case 'ai_explorer': return 'AI Explorer';
@@ -186,15 +221,15 @@ export function Navbar() {
       case 'coaching_accelerator': return 'Coaching Accelerator';
       default: return 'Free Trial';
     }
-  };
+  }, []);
 
-  const calculateCreditsRemaining = () => {
+  const calculateCreditsRemaining = useCallback(() => {
     if (!subscription) return 0;
     return Math.max(0, subscription.credits_remaining);
-  };
+  }, [subscription]);
 
   // Function to handle navigation to sections
-  const handleSectionNavigation = (sectionId: string) => {
+  const handleSectionNavigation = useCallback((sectionId: string) => {
     if (isLandingPage) {
       // If on landing page, scroll to section
       const element = document.getElementById(sectionId);
@@ -205,12 +240,12 @@ export function Navbar() {
       // If not on landing page, navigate to home page with hash
       router.push(`/#${sectionId}`);
     }
-  };
+  }, [isLandingPage, router]);
 
   // Function to handle home navigation
-  const handleHomeNavigation = () => {
+  const handleHomeNavigation = useCallback(() => {
     if (user) {
-      // If user is logged in, go to dashboard (which is now at /)
+      // If user is logged in, go to home (which is now the dashboard)
       router.push('/');
     } else if (isLandingPage) {
       // If on landing page, scroll to top
@@ -219,7 +254,7 @@ export function Navbar() {
       // If not on landing page, navigate to home
       router.push('/');
     }
-  };
+  }, [user, isLandingPage, router]);
 
   return (
     <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
