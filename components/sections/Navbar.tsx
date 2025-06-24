@@ -30,7 +30,7 @@ export function Navbar() {
   const pathname = usePathname();
 
   // Check if we're on the landing page
-  const isLandingPage = pathname === '/';
+  const isLandingPage = pathname === '/' && !user;
   // Check if we should show credits (not on landing page and user is authenticated)
   const shouldShowCredits = !isLandingPage && user && profile && subscription;
 
@@ -121,7 +121,7 @@ export function Navbar() {
   useEffect(() => {
     if (user && !loading) {
       // Refresh data when pathname changes, especially from session pages
-      if (pathname.includes('/session/') || pathname.includes('/dashboard')) {
+      if (pathname.includes('/session/') || pathname.includes('/coaching-studio')) {
         console.log('Navigation detected, refreshing navbar data...');
         loadUserData(true);
       }
@@ -135,7 +135,7 @@ export function Navbar() {
         if (!document.hidden) {
           loadUserData(false); // Silent refresh
         }
-      }, 30000); // Every 30 seconds
+      }, 30000);
 
       return () => clearInterval(interval);
     }
@@ -210,8 +210,8 @@ export function Navbar() {
   // Function to handle home navigation
   const handleHomeNavigation = () => {
     if (user) {
-      // If user is logged in, go to dashboard
-      router.push('/dashboard');
+      // If user is logged in, go to dashboard (which is now at /)
+      router.push('/');
     } else if (isLandingPage) {
       // If on landing page, scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -226,7 +226,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
-            <Link href={user ? "/dashboard" : "/"} className="flex items-center">
+            <Link href="/" className="flex items-center">
               <img 
                 src="/coachcast-logo.jpeg" 
                 alt="Coach Cast" 
@@ -314,7 +314,7 @@ export function Navbar() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/dashboard">
+                    <Link href="/">
                       <User className="mr-2 h-4 w-4" />
                       <span>Dashboard</span>
                     </Link>
