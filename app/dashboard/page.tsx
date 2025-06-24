@@ -216,7 +216,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button asChild>
-                  <a href="/discovery">
+                  <a href="/coaching-studio">
                     <Play className="w-4 h-4 mr-2" />
                     Start Session
                   </a>
@@ -311,9 +311,9 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button className="w-full justify-start" asChild>
-                    <a href="/discovery">
+                    <a href="/coaching-studio">
                       <Play className="h-4 w-4 mr-2" />
-                      Start AI Coaching Session
+                      Browse Coaching Studio
                     </a>
                   </Button>
                   <Button variant="outline" className="w-full justify-start">
@@ -372,7 +372,7 @@ export default function DashboardPage() {
                       <p className="text-gray-600 font-medium">No sessions yet</p>
                       <p className="text-sm text-gray-500 mb-4">Start your first coaching session to see it here</p>
                       <Button asChild>
-                        <a href="/discovery">
+                        <a href="/coaching-studio">
                           <Play className="h-4 w-4 mr-2" />
                           Start First Session
                         </a>
@@ -435,7 +435,7 @@ export default function DashboardPage() {
               <h2 className="text-2xl font-bold text-gray-900">My Sessions</h2>
               <div className="flex items-center space-x-3">
                 <Button asChild>
-                  <a href="/discovery">
+                  <a href="/coaching-studio">
                     <Play className="h-4 w-4 mr-2" />
                     New Session
                   </a>
@@ -469,7 +469,7 @@ export default function DashboardPage() {
                   Start your first coaching session to begin your journey.
                 </p>
                 <Button asChild>
-                  <a href="/discovery">
+                  <a href="/coaching-studio">
                     <Play className="h-4 w-4 mr-2" />
                     Start First Session
                   </a>

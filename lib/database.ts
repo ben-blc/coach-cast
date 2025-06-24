@@ -31,6 +31,10 @@ export type AICoach = {
   name: string;
   specialty: string;
   description: string;
+  bio?: string;
+  years_experience?: string;
+  coach_type: 'ai' | 'human';
+  session_types: string[];
   voice_id?: string;
   agent_id?: string; // ElevenLabs ConvAI agent ID
   personality_prompt: string;
