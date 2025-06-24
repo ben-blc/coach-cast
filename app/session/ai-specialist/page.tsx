@@ -343,7 +343,7 @@ export default function AISpecialistSessionPage() {
       if (!sessionId) {
         console.error('No session ID found when ending session');
         // Still redirect to dashboard even if we can't update the session
-        router.push('/dashboard?tab=sessions&refresh=true');
+        router.push('/?tab=sessions&refresh=true');
         return;
       }
 
@@ -397,7 +397,7 @@ export default function AISpecialistSessionPage() {
       
       // Navigate to dashboard with refresh parameter
       console.log('Redirecting to dashboard...');
-      router.push('/dashboard?tab=sessions&refresh=true');
+      router.push('/?tab=sessions&refresh=true');
       
     } catch (error) {
       console.error('Error ending session:', error);
@@ -405,7 +405,7 @@ export default function AISpecialistSessionPage() {
       
       // Even if there's an error, try to redirect to dashboard
       // The user shouldn't be stuck on the session page
-      router.push('/dashboard?tab=sessions&refresh=true');
+      router.push('/?tab=sessions&refresh=true');
     }
   };
 
@@ -415,6 +415,22 @@ export default function AISpecialistSessionPage() {
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading AI coach...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedCoach) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Coach Not Found</h1>
+          <p className="text-gray-700 mb-4">
+            The requested coach could not be found.
+          </p>
+          <Button asChild>
+            <a href="/coaching-studio">Back to Coaching Studio</a>
+          </Button>
         </div>
       </div>
     );
@@ -440,25 +456,9 @@ export default function AISpecialistSessionPage() {
               <a href="/pricing">Upgrade Plan</a>
             </Button>
             <Button variant="outline" asChild className="w-full">
-              <a href="/dashboard">Back to Dashboard</a>
+              <a href="/">Back to Dashboard</a>
             </Button>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!selectedCoach) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Coach Not Found</h1>
-          <p className="text-gray-700 mb-4">
-            The requested coach could not be found.
-          </p>
-          <Button asChild>
-            <a href="/coaching-studio">Back to Coaching Studio</a>
-          </Button>
         </div>
       </div>
     );
