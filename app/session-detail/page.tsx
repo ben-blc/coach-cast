@@ -300,10 +300,13 @@ export default function SessionDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading session details...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading session details...</p>
+          </div>
         </div>
       </div>
     );
@@ -318,7 +321,7 @@ export default function SessionDetailPage() {
             <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
             <p className="text-gray-700 mb-4">{error || 'Session not found'}</p>
             <Button onClick={handleBackToSessions}>
-              Back to Sessions
+              Back to My Sessions
             </Button>
           </div>
         </div>
@@ -702,9 +705,11 @@ export default function SessionDetailPage() {
                 <CardTitle>Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Similar Session
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <a href="/coaching-studio">
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Similar Session
+                  </a>
                 </Button>
                 
                 <Button variant="outline" className="w-full justify-start">

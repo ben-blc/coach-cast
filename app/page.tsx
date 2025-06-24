@@ -310,17 +310,23 @@ export default function Home() {
                         Browse Coaching Studio
                       </a>
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Video className="h-4 w-4 mr-2" />
-                      Watch Coach Previews
+                    <Button variant="outline" className="w-full justify-start" asChild>
+                      <a href="/coaching-studio">
+                        <Video className="h-4 w-4 mr-2" />
+                        Watch Coach Previews
+                      </a>
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Schedule Live Session
+                    <Button variant="outline" className="w-full justify-start" asChild>
+                      <a href="/coaching-studio">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Schedule Live Session
+                      </a>
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Users className="h-4 w-4 mr-2" />
-                      Browse All Coaches
+                    <Button variant="outline" className="w-full justify-start" asChild>
+                      <a href="/coaching-studio">
+                        <Users className="h-4 w-4 mr-2" />
+                        Browse All Coaches
+                      </a>
                     </Button>
                   </CardContent>
                 </Card>
