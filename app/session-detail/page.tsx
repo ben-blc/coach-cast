@@ -712,7 +712,7 @@ export default function SessionDetailPage() {
                   </a>
                 </Button>
                 
-                <Button variant="outline" className="w-full justify-start">
+                {/* <Button variant="outline" className="w-full justify-start">
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Contact Coach
                 </Button>
@@ -729,7 +729,7 @@ export default function SessionDetailPage() {
                       View in ElevenLabs
                     </a>
                   </Button>
-                )}
+                )} */}
               </CardContent>
             </Card>
           </div>
