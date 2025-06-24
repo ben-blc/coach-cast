@@ -309,7 +309,7 @@ export default function SessionDetailPage() {
         <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
           <p className="text-gray-700 mb-4">{error || 'Session not found'}</p>
-          <Button onClick={() => router.push('/dashboard?tab=sessions')}>
+          <Button onClick={() => router.push('/?tab=sessions')}>
             Back to Sessions
           </Button>
         </div>
@@ -322,7 +322,7 @@ export default function SessionDetailPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" onClick={() => router.push('/dashboard?tab=sessions')} className="mb-4">
+          <Button variant="ghost" onClick={() => router.push('/?tab=sessions')} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Sessions
           </Button>

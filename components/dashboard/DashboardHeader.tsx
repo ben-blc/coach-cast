@@ -127,6 +127,21 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
     }
   };
 
+  const getPlanDisplayName = (planType: string) => {
+    switch (planType) {
+      case 'free': return 'Free Trial';
+      case 'ai_explorer': return 'AI Explorer';
+      case 'coaching_starter': return 'Coaching Starter';
+      case 'coaching_accelerator': return 'Coaching Accelerator';
+      default: return 'Free Trial';
+    }
+  };
+
+  const calculateCreditsRemaining = () => {
+    if (!user) return 0;
+    return Math.max(0, user.creditsRemaining);
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -164,7 +179,7 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
             <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
               <span>Credits:</span>
               <Badge variant="secondary">
-                {user.creditsRemaining}/{user.totalCredits}
+                {calculateCreditsRemaining()}/{user.totalCredits}
               </Badge>
             </div>
 
@@ -190,7 +205,7 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                         {user.plan}
                       </Badge>
                       <div className="text-xs text-muted-foreground">
-                        {user.creditsRemaining}/{user.totalCredits} credits
+                        {calculateCreditsRemaining()}/{user.totalCredits} credits
                       </div>
                     </div>
                   </div>

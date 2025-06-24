@@ -34,9 +34,9 @@ export default function VerifyEmailPage() {
     const checkVerification = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email_confirmed_at) {
-        // User is already verified, redirect to discovery
+        // User is already verified, redirect to home
         localStorage.removeItem('pendingVerificationEmail');
-        router.push('/discovery');
+        router.push('/');
       }
     };
 
@@ -50,7 +50,7 @@ export default function VerifyEmailPage() {
           title: 'Email verified successfully!',
           description: 'Welcome to Coach Cast. Let\'s start your coaching journey!',
         });
-        router.push('/discovery');
+        router.push('/');
       }
     });
 

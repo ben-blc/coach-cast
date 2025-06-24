@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getUserSubscription, createCoachingSession } from '@/lib/database';
+import { Navbar } from '@/components/sections/Navbar';
 import type { AICoach, Subscription } from '@/lib/database';
 
 // Extended coach type to include all coach data
@@ -198,12 +199,14 @@ export default function CoachingStudioPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      <Navbar />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-4">
+          <Button variant="ghost" onClick={() => router.push('/')} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            Back to Home
           </Button>
           
           <div className="text-center mb-8">

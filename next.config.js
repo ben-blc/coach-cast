@@ -17,9 +17,8 @@ const nextConfig = {
     return {
       '/': { page: '/' },
       '/auth': { page: '/auth' },
-      '/dashboard': { page: '/dashboard' },
-      '/discovery': { page: '/discovery' },
       '/coaches': { page: '/coaches' },
+      '/coaching-studio': { page: '/coaching-studio' },
       '/verify-email': { page: '/verify-email' },
       '/session/ai-specialist': { page: '/session/ai-specialist' },
       '/session/digital-chemistry': { page: '/session/digital-chemistry' },

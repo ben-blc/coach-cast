@@ -64,11 +64,11 @@ export default function AuthPage() {
         // If email is already confirmed (shouldn't happen with new signups, but just in case)
         toast({
           title: 'Account created successfully!',
-          description: 'Welcome to Coach Cast. Redirecting to your dashboard...',
+          description: 'Welcome to Coach Cast. Redirecting to your home...',
         });
         
-        // Redirect to the intended page or dashboard
-        const destination = redirectTo || '/dashboard';
+        // Redirect to the intended page or home
+        const destination = redirectTo || '/';
         router.push(destination);
       } else {
         await signIn(formData.email, formData.password);
@@ -77,8 +77,8 @@ export default function AuthPage() {
           description: 'Successfully signed in to your account.',
         });
         
-        // Redirect to the intended page or dashboard
-        const destination = redirectTo || '/dashboard';
+        // Redirect to the intended page or home
+        const destination = redirectTo || '/';
         router.push(destination);
       }
     } catch (error: any) {

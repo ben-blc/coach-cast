@@ -38,9 +38,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
           return;
         }
         
-        // If user is authenticated and trying to access auth page, redirect to discovery
+        // If user is authenticated and trying to access auth page, redirect to home
         if (currentUser && pathname === '/auth') {
-          router.push('/discovery');
+          router.push('/');
           return;
         }
         
@@ -51,9 +51,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
           return;
         }
         
-        // If user is authenticated with confirmed email and on verify-email page, redirect to discovery
+        // If user is authenticated with confirmed email and on verify-email page, redirect to home
         if (currentUser && currentUser.email_confirmed_at && pathname === '/verify-email') {
-          router.push('/discovery');
+          router.push('/');
           return;
         }
         
@@ -89,9 +89,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
         router.push('/');
       }
       
-      // If user logged in and on auth page, redirect to discovery
+      // If user logged in and on auth page, redirect to home
       if (user && pathname === '/auth') {
-        router.push('/discovery');
+        router.push('/');
       }
       
       // Handle email verification flow
@@ -100,9 +100,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
         router.push(`/verify-email?email=${encodeURIComponent(user.email || '')}`);
       }
       
-      // If user verified email and on verify page, redirect to discovery
+      // If user verified email and on verify page, redirect to home
       if (user && user.email_confirmed_at && pathname === '/verify-email') {
-        router.push('/discovery');
+        router.push('/');
       }
     });
 
