@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthGuard } from '@/components/AuthGuard';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'Coach Cast - AI & Human Coaching Platform',
@@ -16,10 +17,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <AuthGuard>
-          {children}
-        </AuthGuard>
-        <Toaster />
+        <ErrorBoundary>
+          <AuthGuard>
+            {children}
+          </AuthGuard>
+          <Toaster />
+        </ErrorBoundary>
       </body>
     </html>
   );
