@@ -23,7 +23,10 @@ const nextConfig = {
       '/session/ai-specialist': { page: '/session/ai-specialist' },
       '/session/digital-chemistry': { page: '/session/digital-chemistry' },
       '/session/human-voice-ai': { page: '/session/human-voice-ai' },
-      '/session-detail': { page: '/session-detail' }, // Static route for session details
+      '/session-detail': { page: '/session-detail' },
+      '/privacy': { page: '/privacy' },
+      '/terms': { page: '/terms' },
+      // Note: Dynamic routes like /coach/[id] will be handled at runtime
     };
   },
   // Disable font optimization to prevent fetch errors

@@ -10,18 +10,17 @@ import {
   Mic, 
   Video, 
   Users, 
-  Play, 
   ArrowLeft, 
   Search,
   Filter,
   Star,
   Clock,
-  Calendar,
   Sparkles,
-  DollarSign
+  DollarSign,
+  ExternalLink
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAICoaches, getUserSubscription, createCoachingSession } from '@/lib/database';
+import { getAICoaches, getUserSubscription } from '@/lib/database';
 import { Navbar } from '@/components/sections/Navbar';
 import type { AICoach, Subscription } from '@/lib/database';
 
@@ -76,7 +75,7 @@ export default function CoachingStudioPage() {
   useEffect(() => {
     let filtered = coaches;
 
-    // Apply search filter (search bar hidden, but logic kept for reset/clear)
+    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(coach =>
         coach.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,98 +99,31 @@ export default function CoachingStudioPage() {
     setFilteredCoaches(filtered);
   }, [coaches, searchTerm, coachFilter, sessionFilter]);
 
-  const getSessionTypeIcon = (sessionType: string) => {
-    switch (sessionType) {
-      case 'audio_ai': return <Mic className="w-4 h-4" />;
-      case 'video_ai': return <Video className="w-4 h-4" />;
-      case 'human_coaching': return <Users className="w-4 h-4" />;
-      default: return <Mic className="w-4 h-4" />;
-    }
-  };
-
-  const getSessionTypeLabel = (sessionType: string) => {
-    switch (sessionType) {
-      case 'audio_ai': return 'Audio AI';
-      case 'video_ai': return 'Video AI';
-      case 'human_coaching': return 'Human Coaching';
-      default: return sessionType;
-    }
-  };
-
-  const getSessionTypeDescription = (sessionType: string, coachName: string) => {
-    switch (sessionType) {
-      case 'audio_ai': return `Voice conversation with ${coachName} AI`;
-      case 'video_ai': return `Personalized video preview from ${coachName}`;
-      case 'human_coaching': return `Live session with ${coachName}`;
-      default: return 'Coaching session';
-    }
-  };
-
-  const getTrialInfo = (sessionType: string, coachType: 'ai' | 'human') => {
-    if (sessionType === 'audio_ai') {
-      return '7 minutes free trial';
-    } else if (sessionType === 'video_ai') {
-      return 'Free personalized preview';
-    } else if (sessionType === 'human_coaching') {
-      return 'No free trial';
-    }
-    return '';
-  };
-
   const formatPrice = (priceInCents: number) => {
     return `$${(priceInCents / 100).toLocaleString()}`;
   };
 
-  const canStartSession = (sessionType: string) => {
-    if (!subscription) return false;
-    
-    // Free trials available for audio_ai and video_ai
-    if (sessionType === 'audio_ai' || sessionType === 'video_ai') {
-      return subscription.credits_remaining > 0;
-    }
-    
-    // Human coaching requires paid plan
-    if (sessionType === 'human_coaching') {
-      return subscription.plan_type !== 'free' && subscription.live_sessions_remaining > 0;
-    }
-    
-    return false;
-  };
-
-  const startSession = async (coach: Coach, sessionType: string) => {
-    try {
-      const user = await getCurrentUser();
-      if (!user) return;
-
-      // Route to appropriate session type
-      if (sessionType === 'audio_ai') {
-        // Create session and redirect to AI specialist page
-        const session = await createCoachingSession({
-          user_id: user.id,
-          session_type: 'ai_specialist',
-          ai_coach_id: coach.id,
-          status: 'active'
-        });
-        
-        if (session) {
-          router.push(`/session/ai-specialist?coach=${coach.id}`);
-        }
-      } else if (sessionType === 'video_ai') {
-        router.push(`/session/digital-chemistry?coach=${coach.id}`);
-      } else if (sessionType === 'human_coaching') {
-        router.push(`/session/human-coaching?coach=${coach.id}`);
+  const getAvailableSessionsText = (sessionTypes: string[]) => {
+    const types = sessionTypes.map(type => {
+      switch (type) {
+        case 'audio_ai': return 'Audio AI';
+        case 'video_ai': return 'Video AI';
+        case 'human_coaching': return 'Live Coaching';
+        default: return type;
       }
-    } catch (error) {
-      console.error('Error starting session:', error);
-    }
+    });
+    return types.join(', ');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading Coaching Studio...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading Coaching Studio...</p>
+          </div>
         </div>
       </div>
     );
@@ -253,7 +185,7 @@ export default function CoachingStudioPage() {
                   <TabsTrigger value="all">All Sessions</TabsTrigger>
                   <TabsTrigger value="audio_ai">Audio AI</TabsTrigger>
                   <TabsTrigger value="video_ai">Video AI</TabsTrigger>
-                  <TabsTrigger value="human_coaching">Human Coaching</TabsTrigger>
+                  <TabsTrigger value="human_coaching">Live Coaching</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -268,7 +200,7 @@ export default function CoachingStudioPage() {
                 <Badge variant="outline">Coach: {coachFilter}</Badge>
               )}
               {sessionFilter !== 'all' && (
-                <Badge variant="outline">Session: {getSessionTypeLabel(sessionFilter)}</Badge>
+                <Badge variant="outline">Session: {sessionFilter.replace('_', ' ')}</Badge>
               )}
               <Button
                 variant="ghost"
@@ -322,16 +254,22 @@ export default function CoachingStudioPage() {
                         {coach.coach_type === 'human' ? 'Human Coach' : 'AI Coach'}
                       </Badge>
                       <p className="text-sm text-gray-600 mt-1">{coach.specialty}</p>
-                      {coach.years_experience && (
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Clock className="w-3 h-3 text-gray-500" />
-                          <span className="text-xs text-gray-500">{coach.years_experience} years experience</span>
+                      <div className="flex items-center space-x-4 mt-2">
+                        {coach.years_experience && (
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-3 h-3 text-gray-500" />
+                            <span className="text-xs text-gray-500">{coach.years_experience} years</span>
+                          </div>
+                        )}
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                          <span className="text-xs text-gray-500">4.9</span>
                         </div>
-                      )}
+                      </div>
                       {coach.hourly_rate && coach.hourly_rate > 0 && coach.coach_type === 'human' && (
-                        <div className="flex items-center space-x-2 mt-1">
-                          <DollarSign className="w-3 h-3 text-green-600" />
-                          <span className="text-xs text-green-600 font-medium">
+                        <div className="flex items-center space-x-2 mt-2">
+                          <DollarSign className="w-4 h-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
                             {formatPrice(coach.hourly_rate)}/hour
                           </span>
                         </div>
@@ -342,54 +280,27 @@ export default function CoachingStudioPage() {
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-600 text-sm line-clamp-3">
                   {coach.bio || coach.description}
                 </p>
 
-                {/* Available Session Types */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900">Available Sessions:</h4>
-                  {coach.session_types?.map((sessionType) => (
-                    <div key={sessionType} className="border rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          {getSessionTypeIcon(sessionType)}
-                          <span className="font-medium text-sm">
-                            {getSessionTypeLabel(sessionType)}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge 
-                            variant={sessionType === 'human_coaching' ? 'outline' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {getTrialInfo(sessionType, coach.coach_type)}
-                          </Badge>
-                          {sessionType === 'human_coaching' && coach.hourly_rate && (
-                            <Badge className="bg-green-100 text-green-800 text-xs">
-                              {formatPrice(coach.hourly_rate)}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <p className="text-xs text-gray-600">
-                        {getSessionTypeDescription(sessionType, coach.name)}
-                      </p>
-                      
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={() => startSession(coach, sessionType)}
-                        disabled={!canStartSession(sessionType)}
-                        variant={sessionType === 'human_coaching' ? 'outline' : 'default'}
-                      >
-                        <Play className="w-3 h-3 mr-2" />
-                        {sessionType === 'human_coaching' ? 'Book Session' : 'Start Session'}
-                      </Button>
-                    </div>
-                  ))}
+                {/* Available Sessions Summary */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h4 className="font-medium text-gray-900 text-sm mb-1">Available Sessions:</h4>
+                  <p className="text-xs text-gray-600">
+                    {getAvailableSessionsText(coach.session_types || [])}
+                  </p>
                 </div>
+
+                {/* Call to Action */}
+                <Button
+                  onClick={() => router.push(`/coach/${coach.id}`)}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Explore Coach
+                </Button>
               </CardContent>
             </Card>
           ))}
