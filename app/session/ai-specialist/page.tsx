@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Play, Square, ArrowLeft, Clock, AlertCircle, Coins, MicOff } from 'lucide-react';
+import { Mic, Play, Square, ArrowLeft, Clock, AlertCircle, Coins, MicOff, Star, Users } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits, getUserSubscription } from '@/lib/database';
 import { getConversationTranscript } from '@/lib/elevenlabs';
 import { ConversationAgent } from '@/components/elevenlabs/ConversationAgent';
+import { Navbar } from '@/components/sections/Navbar';
 import type { AICoach, Subscription } from '@/lib/database';
 
 export default function AISpecialistSessionPage() {
@@ -39,6 +40,48 @@ export default function AISpecialistSessionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const coachId = searchParams.get('coach');
+
+  // Helper function to render coach avatar
+  const renderCoachAvatar = (size: 'sm' | 'md' | 'lg' = 'md') => {
+    if (!selectedCoach) return null;
+
+    const sizeClasses = {
+      sm: 'w-8 h-8',
+      md: 'w-12 h-12',
+      lg: 'w-20 h-20'
+    };
+
+    const textSizeClasses = {
+      sm: 'text-sm',
+      md: 'text-xl',
+      lg: 'text-3xl'
+    };
+
+    return (
+      <div className={`${sizeClasses[size]} rounded-full overflow-hidden bg-gradient-to-r from-blue-400 to-green-600 flex items-center justify-center flex-shrink-0`}>
+        {selectedCoach.avatar_url ? (
+          <img 
+            src={selectedCoach.avatar_url} 
+            alt={selectedCoach.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const parent = target.parentElement;
+              if (parent) {
+                parent.innerHTML = `<span class="text-white font-bold ${textSizeClasses[size]}">${selectedCoach.name.charAt(0)}</span>`;
+              }
+            }}
+          />
+        ) : (
+          <span className={`text-white font-bold ${textSizeClasses[size]}`}>
+            {selectedCoach.name.charAt(0)}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   // Check if microphone is available (but don't request permission yet)
   useEffect(() => {
@@ -409,54 +452,15 @@ export default function AISpecialistSessionPage() {
     }
   };
 
-  // Helper function to render coach avatar
-  const renderCoachAvatar = (size: 'sm' | 'md' | 'lg' = 'md') => {
-    if (!selectedCoach) return null;
-
-    const sizeClasses = {
-      sm: 'w-8 h-8',
-      md: 'w-12 h-12',
-      lg: 'w-16 h-16'
-    };
-
-    const textSizeClasses = {
-      sm: 'text-sm',
-      md: 'text-xl',
-      lg: 'text-2xl'
-    };
-
-    return (
-      <div className={`${sizeClasses[size]} rounded-full overflow-hidden bg-gradient-to-r from-blue-400 to-green-600 flex items-center justify-center flex-shrink-0`}>
-        {selectedCoach.avatar_url ? (
-          <img 
-            src={selectedCoach.avatar_url} 
-            alt={selectedCoach.name}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              // Fallback to initials if image fails to load
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              const parent = target.parentElement;
-              if (parent) {
-                parent.innerHTML = `<span class="text-white font-bold ${textSizeClasses[size]}">${selectedCoach.name.charAt(0)}</span>`;
-              }
-            }}
-          />
-        ) : (
-          <span className={`text-white font-bold ${textSizeClasses[size]}`}>
-            {selectedCoach.name.charAt(0)}
-          </span>
-        )}
-      </div>
-    );
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading AI coach...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading AI coach...</p>
+          </div>
         </div>
       </div>
     );
@@ -464,15 +468,18 @@ export default function AISpecialistSessionPage() {
 
   if (!selectedCoach) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Coach Not Found</h1>
-          <p className="text-gray-700 mb-4">
-            The requested coach could not be found.
-          </p>
-          <Button asChild>
-            <a href="/coaching-studio">Back to Coaching Studio</a>
-          </Button>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Coach Not Found</h1>
+            <p className="text-gray-700 mb-4">
+              The requested coach could not be found.
+            </p>
+            <Button asChild>
+              <a href="/coaching-studio">Back to Coaching Studio</a>
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -481,25 +488,28 @@ export default function AISpecialistSessionPage() {
   // Show no credits message if user has no credits
   if (noCreditsAvailable || timeExceeded || (subscription && subscription.credits_remaining <= 0)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            {timeExceeded ? 'Session Ended - Credits Exhausted' : 'No Credits Available'}
-          </h1>
-          <p className="text-gray-700 mb-6">
-            {timeExceeded 
-              ? 'Your session was ended because you ran out of available credits. Upgrade your plan to continue coaching sessions.'
-              : 'You\'ve used all your available credits for this month. Upgrade your plan to continue coaching sessions.'
-            }
-          </p>
-          <div className="space-y-3">
-            <Button asChild className="w-full">
-              <a href="/pricing">Upgrade Plan</a>
-            </Button>
-            <Button variant="outline" asChild className="w-full">
-              <a href="/">Back to Dashboard</a>
-            </Button>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+              {timeExceeded ? 'Session Ended - Credits Exhausted' : 'No Credits Available'}
+            </h1>
+            <p className="text-gray-700 mb-6">
+              {timeExceeded 
+                ? 'Your session was ended because you ran out of available credits. Upgrade your plan to continue coaching sessions.'
+                : 'You\'ve used all your available credits for this month. Upgrade your plan to continue coaching sessions.'
+              }
+            </p>
+            <div className="space-y-3">
+              <Button asChild className="w-full">
+                <a href="/pricing">Upgrade Plan</a>
+              </Button>
+              <Button variant="outline" asChild className="w-full">
+                <a href="/">Back to Home</a>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -510,29 +520,30 @@ export default function AISpecialistSessionPage() {
     const tokenDisplay = getTokenDisplay();
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex flex-col">
-        {/* Fixed Header */}
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
-          <div className="max-w-6xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <Button 
+              variant="ghost" 
+              onClick={() => endSession()}
+              disabled={endingSession || !timerStarted}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              {endingSession ? 'Ending Session...' : 'End Session'}
+            </Button>
+            
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => endSession()}
-                  disabled={endingSession || !timerStarted}
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  {endingSession ? 'Ending...' : 'Back'}
-                </Button>
-                <div className="flex items-center space-x-3">
-                  {renderCoachAvatar('sm')}
-                  <div>
-                    <h1 className="text-xl font-bold text-gray-900">
-                      {selectedCoach.name}
-                    </h1>
-                    <p className="text-sm text-gray-600">{selectedCoach.specialty}</p>
-                  </div>
+                {renderCoachAvatar('md')}
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {selectedCoach.name}
+                  </h1>
+                  <p className="text-lg text-gray-600">{selectedCoach.specialty}</p>
                 </div>
               </div>
               
@@ -556,174 +567,201 @@ export default function AISpecialistSessionPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Time Exceeded Warning */}
-        {timeExceeded && (
-          <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 lg:px-8 py-3">
-            <div className="max-w-6xl mx-auto">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Your session will end soon due to credit limits. Please wrap up your conversation.
-                </AlertDescription>
-              </Alert>
-            </div>
-          </div>
-        )}
+          {/* Time Exceeded Warning */}
+          {timeExceeded && (
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Your session will end soon due to credit limits. Please wrap up your conversation.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {/* Microphone Permission Alert */}
-        {micPermission === 'denied' && (
-          <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 lg:px-8 py-3">
-            <div className="max-w-6xl mx-auto">
-              <Alert variant="destructive">
-                <MicOff className="h-4 w-4" />
-                <AlertDescription>
-                  {micPermissionError}
-                </AlertDescription>
-              </Alert>
-            </div>
-          </div>
-        )}
+          {/* Microphone Permission Alert */}
+          {micPermission === 'denied' && (
+            <Alert variant="destructive" className="mb-6">
+              <MicOff className="h-4 w-4" />
+              <AlertDescription>
+                {micPermissionError}
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-          <div className="w-full max-w-4xl">
-            {/* ElevenLabs Widget Container */}
-            <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
-              {/* Widget Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-green-600 p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Main Session Area */}
+            <div className="lg:col-span-2">
+              <Card className="shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
                       {renderCoachAvatar('sm')}
+                      <div>
+                        <CardTitle className="text-xl">{selectedCoach.name}</CardTitle>
+                        <p className="text-blue-100">{selectedCoach.specialty} Specialist</p>
+                      </div>
                     </div>
+                    <Badge className="bg-white/20 text-white">
+                      AI Coaching Session
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-8">
+                  {!timerStarted ? (
+                    <div className="text-center py-12">
+                      <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-6">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        <span className="text-blue-800 text-sm font-medium">Session Ready</span>
+                      </div>
+                      
+                      <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                        Ready to Start Your AI Coaching Session?
+                      </h3>
+                      
+                      <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+                        You're about to begin a conversation with {selectedCoach.name}, your AI specialist coach. 
+                        Click "Start Conversation" below to begin your session.
+                      </p>
+                      
+                      <Button 
+                        onClick={startConversationAndTimer}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        size="lg"
+                        disabled={micPermission !== 'granted'}
+                      >
+                        <Play className="w-5 h-5 mr-2" />
+                        {micPermission === 'granted' ? 'Start Conversation' : 'Microphone Required'}
+                      </Button>
+
+                      {micPermission !== 'granted' && (
+                        <p className="text-sm text-gray-500 mt-4">
+                          Microphone access is required for voice coaching sessions
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <ConversationAgent
+                      coach={selectedCoach}
+                      onConversationStart={handleConversationStart}
+                      onConversationEnd={handleConversationEnd}
+                      isSessionActive={timerStarted}
+                      sessionTime={sessionTime}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Coach Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="w-5 h-5" />
+                    <span>Your Coach</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-4 mb-4">
+                    {renderCoachAvatar('md')}
                     <div>
-                      <h2 className="text-xl font-semibold">{selectedCoach.name}</h2>
-                      <p className="text-blue-100">{selectedCoach.specialty} Specialist</p>
+                      <h3 className="font-semibold text-gray-900">{selectedCoach.name}</h3>
+                      <p className="text-sm text-gray-600">{selectedCoach.specialty}</p>
+                      <div className="flex items-center space-x-1 mt-1">
+                        <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                        <span className="text-xs text-gray-500">4.9 rating</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {selectedCoach.description}
+                  </p>
+                </CardContent>
+              </Card>
 
-              {/* Main ElevenLabs Widget Area */}
-              <div className="p-8">
-                {!timerStarted ? (
-                  <div className="text-center py-12">
-                    <div className="inline-flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-full mb-6">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span className="text-blue-800 text-sm font-medium">Session Ready</span>
-                    </div>
-                    
-                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                      Ready to Start Your AI Coaching Session?
-                    </h3>
-                    
-                    <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-                      You're about to begin a conversation with {selectedCoach.name}, your AI specialist coach. 
-                      Click "Start Conversation" below to begin your session.
-                    </p>
+              {/* Session Stats */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Session Stats</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Duration</span>
+                    <span className="font-medium">{formatTime(sessionTime)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Credits Used</span>
+                    <span className="font-medium">{tokenDisplay.tokens}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Credits Left</span>
+                    <span className="font-medium">{subscription?.credits_remaining || 0}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Status</span>
+                    <Badge className={timerStarted ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                      {timerStarted ? 'Active' : 'Ready'}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
 
-                    <div className="bg-gray-50 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
-                      <div className="flex items-center space-x-4 mb-4">
-                        {renderCoachAvatar('md')}
-                        <div className="text-left">
-                          <h4 className="font-semibold text-gray-900">{selectedCoach.name}</h4>
-                          <p className="text-sm text-gray-600">{selectedCoach.specialty}</p>
-                        </div>
-                      </div>
-                      <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
-                      <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
-                        <div className="flex items-center space-x-1">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span>Specialty: {selectedCoach.specialty}</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span>Powered by ElevenLabs</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Button 
+              {/* Session Controls */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Session Controls</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {!timerStarted ? (
+                    <Button
                       onClick={startConversationAndTimer}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      size="lg"
-                      disabled={micPermission !== 'granted'}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      disabled={endingSession || micPermission !== 'granted'}
                     >
-                      <Play className="w-5 h-5 mr-2" />
+                      <Play className="w-4 h-4 mr-2" />
                       {micPermission === 'granted' ? 'Start Conversation' : 'Microphone Required'}
                     </Button>
-
-                    {micPermission !== 'granted' && (
-                      <p className="text-sm text-gray-500 mt-4">
-                        Microphone access is required for voice coaching sessions
-                      </p>
+                  ) : (
+                    <Button
+                      onClick={() => endSession()}
+                      disabled={endingSession}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <Square className="w-4 h-4 mr-2" />
+                      {endingSession ? 'Ending Session...' : 'End Session'}
+                    </Button>
+                  )}
+                  
+                  <div className="text-xs text-gray-500 text-center">
+                    {timerStarted ? (
+                      <span>{tokenDisplay.message}</span>
+                    ) : (
+                      <span>First 15 seconds are free</span>
                     )}
                   </div>
-                ) : (
-                  <ConversationAgent
-                    coach={selectedCoach}
-                    onConversationStart={handleConversationStart}
-                    onConversationEnd={handleConversationEnd}
-                    isSessionActive={timerStarted}
-                    sessionTime={sessionTime}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+                </CardContent>
+              </Card>
 
-        {/* Fixed Footer Controls */}
-        <div className="bg-white border-t border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                {timerStarted ? (
-                  <div className="flex items-center space-x-4 text-sm">
-                    <div className="flex items-center space-x-2 text-gray-600">
-                      <Clock className="w-4 h-4" />
-                      <span>Time: {formatTime(sessionTime)}</span>
-                    </div>
-                    <div className={`flex items-center space-x-2 ${tokenDisplay.color}`}>
-                      <Coins className="w-4 h-4" />
-                      <span>{tokenDisplay.message}</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
-                      <span>Credits left: {subscription?.credits_remaining || 0}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span>Click "Start Conversation" to begin your AI coaching session</span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                {!timerStarted && (
-                  <Button
-                    onClick={startConversationAndTimer}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={endingSession || micPermission !== 'granted'}
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    {micPermission === 'granted' ? 'Start Conversation' : 'Microphone Required'}
-                  </Button>
-                )}
-                {timerStarted && (
-                  <Button
-                    onClick={() => endSession()}
-                    disabled={endingSession}
-                    className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Square className="w-4 h-4 mr-2" />
-                    {endingSession ? 'Ending Session...' : 'End Session'}
-                  </Button>
-                )}
-              </div>
+              {/* Tips */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tips for Better Sessions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-sm text-gray-600 space-y-2">
+                    <li>• Speak clearly and at a normal pace</li>
+                    <li>• Use a quiet environment for best results</li>
+                    <li>• Be specific about your goals</li>
+                    <li>• Ask follow-up questions</li>
+                    <li>• Take notes during the session</li>
+                  </ul>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -733,7 +771,9 @@ export default function AISpecialistSessionPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <Navbar />
+      
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
           <Button variant="ghost" onClick={() => router.back()} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -771,54 +811,135 @@ export default function AISpecialistSessionPage() {
           </Alert>
         )}
 
-        <div className="max-w-2xl mx-auto">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                {renderCoachAvatar('lg')}
-              </div>
-              <CardTitle className="text-xl">{selectedCoach.name}</CardTitle>
-              <Badge variant="secondary">{selectedCoach.specialty}</Badge>
-            </CardHeader>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            <Card className="shadow-lg">
+              <CardHeader className="text-center">
+                <div className="flex justify-center mb-4">
+                  {renderCoachAvatar('lg')}
+                </div>
+                <CardTitle className="text-2xl">{selectedCoach.name}</CardTitle>
+                <Badge variant="secondary" className="mt-2">{selectedCoach.specialty}</Badge>
+              </CardHeader>
 
-            <CardContent className="text-center space-y-4">
-              <p className="text-gray-600 text-sm">
-                {selectedCoach.description}
-              </p>
+              <CardContent className="text-center space-y-6">
+                <p className="text-gray-600">
+                  {selectedCoach.description}
+                </p>
 
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-xs text-blue-800 font-medium mb-1">Coaching Focus:</p>
-                <p className="text-xs text-blue-700">{selectedCoach.specialty}</p>
-              </div>
+                <div className="bg-blue-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-2">About This Session</h3>
+                  <ul className="text-sm text-gray-700 space-y-1">
+                    <li>• Natural voice conversation with AI</li>
+                    <li>• Powered by ElevenLabs technology</li>
+                    <li>• First 15 seconds are free</li>
+                    <li>• Available 24/7</li>
+                  </ul>
+                </div>
 
-              <Button 
-                className={`w-full ${
-                  canStartSession() && micPermission !== 'denied'
-                    ? 'bg-blue-600 hover:bg-blue-700' 
-                    : 'bg-gray-400 cursor-not-allowed'
-                }`}
-                onClick={startSession}
-                disabled={!canStartSession() || micPermission === 'requesting' || micPermission === 'denied'}
-              >
-                {micPermission === 'requesting' ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Requesting Microphone...
-                  </>
-                ) : micPermission === 'denied' ? (
-                  <>
-                    <MicOff className="w-4 h-4 mr-2" />
-                    Microphone Required
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    {canStartSession() ? 'Start Voice Session' : 'No Credits Available'}
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+                <Button 
+                  className={`w-full ${
+                    canStartSession() && micPermission !== 'denied'
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                  }`}
+                  onClick={startSession}
+                  disabled={!canStartSession() || micPermission === 'requesting' || micPermission === 'denied'}
+                  size="lg"
+                >
+                  {micPermission === 'requesting' ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Requesting Microphone...
+                    </>
+                  ) : micPermission === 'denied' ? (
+                    <>
+                      <MicOff className="w-4 h-4 mr-2" />
+                      Microphone Required
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      {canStartSession() ? 'Start Voice Session' : 'No Credits Available'}
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Coach Stats */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Coach Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Specialty</span>
+                  <span className="font-medium text-sm">{selectedCoach.specialty}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Type</span>
+                  <Badge variant="secondary">AI Coach</Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Availability</span>
+                  <span className="font-medium text-sm">24/7</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Response Time</span>
+                  <span className="font-medium text-sm">Instant</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Your Plan */}
+            {subscription && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Your Plan</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Credits Remaining</span>
+                    <span className="font-medium">{subscription.credits_remaining}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Monthly Limit</span>
+                    <span className="font-medium">{subscription.monthly_limit}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Plan Type</span>
+                    <Badge variant="outline">{subscription.plan_type}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Session Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Session Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-sm text-gray-600 space-y-2">
+                  <li>• First 15 seconds are free</li>
+                  <li>• After 15s, charged per minute</li>
+                  <li>• High-quality voice AI</li>
+                  <li>• Session transcript available</li>
+                  <li>• Progress tracking included</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
