@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { CoachingSession } from '@/lib/database';
 
 interface SessionManagerProps {
   sessions: CoachingSession[];

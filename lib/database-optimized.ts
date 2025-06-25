@@ -1,4 +1,5 @@
 // Enhanced database functions with caching and optimization
+import { AICoach, CoachingSessionGoal, getAICoaches } from './database';
 import { supabase } from './supabase';
 
 // Add caching layer for frequently accessed data
