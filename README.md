@@ -1,4 +1,4 @@
-# Coach Cast
+# Coach Bridge
 
 A comprehensive AI and human coaching platform built with Next.js and Supabase.
 
@@ -62,3 +62,5 @@ Required environment variables:
 - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
 - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key (for admin operations)
+- `ELEVENLABS_API_KEY` - Your ElevenLabs API key (server-side only)
+- `OPENAI_API_KEY` - Your OpenAI API key (server-side only)
