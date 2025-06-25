@@ -409,6 +409,48 @@ export default function AISpecialistSessionPage() {
     }
   };
 
+  // Helper function to render coach avatar
+  const renderCoachAvatar = (size: 'sm' | 'md' | 'lg' = 'md') => {
+    if (!selectedCoach) return null;
+
+    const sizeClasses = {
+      sm: 'w-8 h-8',
+      md: 'w-12 h-12',
+      lg: 'w-16 h-16'
+    };
+
+    const textSizeClasses = {
+      sm: 'text-sm',
+      md: 'text-xl',
+      lg: 'text-2xl'
+    };
+
+    return (
+      <div className={`${sizeClasses[size]} rounded-full overflow-hidden bg-gradient-to-r from-blue-400 to-green-600 flex items-center justify-center flex-shrink-0`}>
+        {selectedCoach.avatar_url ? (
+          <img 
+            src={selectedCoach.avatar_url} 
+            alt={selectedCoach.name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const parent = target.parentElement;
+              if (parent) {
+                parent.innerHTML = `<span class="text-white font-bold ${textSizeClasses[size]}">${selectedCoach.name.charAt(0)}</span>`;
+              }
+            }}
+          />
+        ) : (
+          <span className={`text-white font-bold ${textSizeClasses[size]}`}>
+            {selectedCoach.name.charAt(0)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
@@ -483,11 +525,14 @@ export default function AISpecialistSessionPage() {
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   {endingSession ? 'Ending...' : 'Back'}
                 </Button>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">
-                    {selectedCoach.name}
-                  </h1>
-                  <p className="text-sm text-gray-600">{selectedCoach.specialty}</p>
+                <div className="flex items-center space-x-3">
+                  {renderCoachAvatar('sm')}
+                  <div>
+                    <h1 className="text-xl font-bold text-gray-900">
+                      {selectedCoach.name}
+                    </h1>
+                    <p className="text-sm text-gray-600">{selectedCoach.specialty}</p>
+                  </div>
                 </div>
               </div>
               
@@ -551,7 +596,7 @@ export default function AISpecialistSessionPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                      <Mic className="w-6 h-6" />
+                      {renderCoachAvatar('sm')}
                     </div>
                     <div>
                       <h2 className="text-xl font-semibold">{selectedCoach.name}</h2>
@@ -580,7 +625,13 @@ export default function AISpecialistSessionPage() {
                     </p>
 
                     <div className="bg-gray-50 rounded-xl p-6 mb-8 max-w-2xl mx-auto">
-                      <h4 className="font-semibold text-gray-900 mb-2">About {selectedCoach.name}</h4>
+                      <div className="flex items-center space-x-4 mb-4">
+                        {renderCoachAvatar('md')}
+                        <div className="text-left">
+                          <h4 className="font-semibold text-gray-900">{selectedCoach.name}</h4>
+                          <p className="text-sm text-gray-600">{selectedCoach.specialty}</p>
+                        </div>
+                      </div>
                       <p className="text-gray-700 text-sm mb-3">{selectedCoach.description}</p>
                       <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
                         <div className="flex items-center space-x-1">
@@ -723,8 +774,8 @@ export default function AISpecialistSessionPage() {
         <div className="max-w-2xl mx-auto">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 flex items-center justify-center">
-                <Mic className="w-8 h-8 text-blue-600" />
+              <div className="flex justify-center mb-4">
+                {renderCoachAvatar('lg')}
               </div>
               <CardTitle className="text-xl">{selectedCoach.name}</CardTitle>
               <Badge variant="secondary">{selectedCoach.specialty}</Badge>
