@@ -17,7 +17,9 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  Home,
+  Search
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getUserSubscription, createCoachingSession } from '@/lib/database';
@@ -37,6 +39,7 @@ export default function CoachDetailClient() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [notFound, setNotFound] = useState(false);
   const router = useRouter();
   const params = useParams();
   const coachId = params.id as string;
@@ -58,6 +61,7 @@ export default function CoachDetailClient() {
         
         if (!coaches || coaches.length === 0) {
           setError('No coaches available');
+          setNotFound(true);
           return;
         }
         
@@ -68,7 +72,9 @@ export default function CoachDetailClient() {
         ) as Coach;
         
         if (!foundCoach) {
-          setError(`Coach not found: ${coachId}`);
+          console.log(`Coach not found for ID: ${coachId}`);
+          console.log('Available coaches:', coaches.map(c => ({ id: c.id, name: c.name })));
+          setNotFound(true);
           return;
         }
         
@@ -198,22 +204,82 @@ export default function CoachDetailClient() {
     );
   }
 
-  if (error || !coach) {
+  // Coach Not Found Page
+  if (notFound || (!coach && !loading)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="max-w-lg w-full bg-white shadow-xl rounded-2xl p-8 text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Search className="w-10 h-10 text-red-600" />
+            </div>
+            
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Coach Not Found</h1>
+            
+            <p className="text-gray-600 mb-2">
+              We couldn't find a coach with the ID: <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">{coachId}</code>
+            </p>
+            
+            <p className="text-gray-600 mb-8">
+              The coach you're looking for might have been removed, or the link might be incorrect.
+            </p>
+
+            {error && (
+              <Alert variant="destructive" className="mb-6 text-left">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="space-y-3">
+              <Button asChild className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700">
+                <a href="/coaching-studio">
+                  <Search className="w-4 h-4 mr-2" />
+                  Browse All Coaches
+                </a>
+              </Button>
+              
+              <Button variant="outline" asChild className="w-full">
+                <a href="/">
+                  <Home className="w-4 h-4 mr-2" />
+                  Back to Home
+                </a>
+              </Button>
+              
+              <Button variant="ghost" onClick={() => router.back()} className="w-full">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Go Back
+              </Button>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <p className="text-sm text-gray-500">
+                Need help? <a href="/contact" className="text-blue-600 hover:underline">Contact our support team</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state (different from not found)
+  if (error && coach === null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <Navbar />
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Coach Not Found</h1>
-            <p className="text-gray-700 mb-4">
-              {error || 'The requested coach could not be found.'}
-            </p>
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Coach</h1>
+            <p className="text-gray-700 mb-4">{error}</p>
             <div className="space-y-3">
-              <Button asChild className="w-full">
-                <a href="/coaching-studio">Back to Coaching Studio</a>
+              <Button onClick={() => window.location.reload()} className="w-full">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Try Again
               </Button>
               <Button variant="outline" asChild className="w-full">
-                <a href="/">Back to Home</a>
+                <a href="/coaching-studio">Back to Coaching Studio</a>
               </Button>
             </div>
           </div>
@@ -222,6 +288,7 @@ export default function CoachDetailClient() {
     );
   }
 
+  // Main coach detail page
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <Navbar />
