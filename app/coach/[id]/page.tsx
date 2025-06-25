@@ -32,6 +32,25 @@ interface Coach extends AICoach {
   bio?: string;
 }
 
+// Generate static params for all coaches
+export async function generateStaticParams() {
+  try {
+    // For static export, we'll generate a few common coach IDs
+    // In a real app, you'd fetch all coach IDs from your database
+    return [
+      { id: 'natalie-sejean' },
+      { id: 'fatten' },
+      { id: 'sprint-ai' },
+      { id: 'pivot-ai' },
+      { id: 'confidence-ai' },
+      { id: 'balance-ai' },
+    ];
+  } catch (error) {
+    console.error('Error generating static params:', error);
+    return [];
+  }
+}
+
 export default function CoachDetailPage() {
   const [coach, setCoach] = useState<Coach | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -54,8 +73,12 @@ export default function CoachDetailPage() {
           getUserSubscription(user.id)
         ]);
         
-        // Find the specific coach
-        const foundCoach = coaches.find(c => c.id === coachId) as Coach;
+        // Find the specific coach by ID or by name slug
+        const foundCoach = coaches.find(c => 
+          c.id === coachId || 
+          c.name.toLowerCase().replace(/\s+/g, '-') === coachId
+        ) as Coach;
+        
         if (!foundCoach) {
           router.push('/coaching-studio');
           return;
