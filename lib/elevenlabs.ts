@@ -45,9 +45,9 @@ export interface ElevenLabsMessage {
   audio_url?: string;
 }
 
-// Get ElevenLabs API key from environment
+// Get ElevenLabs API key from environment (server-side only)
 const getApiKey = (): string => {
-  const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+  const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey || apiKey === 'your_elevenlabs_api_key_here' || apiKey.trim() === '') {
     console.warn('⚠️ ElevenLabs API key not configured');
     return '';
