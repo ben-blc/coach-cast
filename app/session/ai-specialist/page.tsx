@@ -401,7 +401,7 @@ export default function AISpecialistSessionPage() {
       const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
-        conversation_id: conversationId || null, // Use REAL conversation ID or null
+        conversation_id: conversationId || undefined, // Use REAL conversation ID or undefined
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
         summary: sessionSummary,

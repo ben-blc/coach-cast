@@ -151,7 +151,7 @@ export function ConversationAgent({
     setConversationError('');
     setUserEndedConversation(false);
     try {
-      const id = await conversation.startSession({});
+      const id = await conversation.startSession({} as any);
       handleConversationStart(id);
     } catch (error: any) {
       setConversationError(error?.message || 'Failed to start conversation');
@@ -170,8 +170,7 @@ export function ConversationAgent({
   };
 
   // Status helpers
-  const status = conversation.status || '';
-  const conversationHookError = conversation.error || '';
+  const status = conversation.status;
 
   // Auto-start conversation when session becomes active
   useEffect(() => {
@@ -231,11 +230,11 @@ export function ConversationAgent({
       </div>
 
       {/* Error Display */}
-      {(conversationError || conversationHookError) && (
+      {conversationError && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            {conversationError || conversationHookError}
+            {conversationError}
           </AlertDescription>
         </Alert>
       )}
@@ -263,7 +262,7 @@ export function ConversationAgent({
               <Button
                 className="bg-blue-600 hover:bg-blue-700"
                 onClick={handleStartConversation}
-                disabled={status === 'connecting' || status === 'connected'}
+                disabled={String(status) === 'connecting' || String(status) === 'connected'}
               >
                 <Play className="w-4 h-4 mr-2" />
                 Start Conversation

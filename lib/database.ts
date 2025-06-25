@@ -76,6 +76,7 @@ export type CoachingSession = {
   started_at: string;
   completed_at?: string;
   created_at: string;
+  coaches: AICoach | HumanCoach
 };
 
 export type CoachingSessionGoal = {

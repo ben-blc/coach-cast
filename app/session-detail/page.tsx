@@ -63,8 +63,10 @@ export default function SessionDetailPage() {
 
   // Check if ElevenLabs API key is available
   useEffect(() => {
-    const hasApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY && 
-                     process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY !== 'your_elevenlabs_api_key_here';
+    const hasApiKey = !!(
+      process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY &&
+      process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY !== 'your_elevenlabs_api_key_here'
+    );
     setApiKeyAvailable(hasApiKey);
   }, []);
 

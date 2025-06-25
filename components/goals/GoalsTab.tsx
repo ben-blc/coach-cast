@@ -36,7 +36,7 @@ import { getConversationTranscript } from '@/lib/elevenlabs';
 import { extractGoalsFromTranscript } from '@/lib/openai';
 import { getCurrentUser } from '@/lib/auth';
 
-interface SessionWithGoals extends CoachingSession {
+interface SessionWithGoals extends Omit<CoachingSession, 'goals'> {
   goals: CoachingSessionGoal[];
   coach_name?: string;
   coach_specialty?: string;

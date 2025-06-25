@@ -181,9 +181,10 @@ export default function CoachDetailClient() {
   };
 
   const handleBookHumanSession = () => {
-    if (!coach?.cal_com_link) {
+    if (!coach) return;
+    if (!coach.cal_com_link) {
       // Fallback to generic Cal.com link
-      const calLink = `https://cal.com/${coach?.name.toLowerCase().replace(/\s+/g, '-')}`;
+      const calLink = `https://cal.com/${coach.name.toLowerCase().replace(/\s+/g, '-')}`;
       window.open(calLink, '_blank');
     } else {
       window.open(coach.cal_com_link, '_blank');
@@ -274,10 +275,6 @@ export default function CoachDetailClient() {
             <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Coach</h1>
             <p className="text-gray-700 mb-4">{error}</p>
             <div className="space-y-3">
-              <Button onClick={() => window.location.reload()} className="w-full">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Try Again
-              </Button>
               <Button variant="outline" asChild className="w-full">
                 <a href="/coaching-studio">Back to Coaching Studio</a>
               </Button>
@@ -289,6 +286,12 @@ export default function CoachDetailClient() {
   }
 
   // Main coach detail page
+  // At this point, coach is guaranteed to be non-null
+  if (!coach) {
+    // Defensive: should not happen, but just in case
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <Navbar />

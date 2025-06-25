@@ -154,7 +154,7 @@ export default function CoachesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle asChild>
+            <CardTitle>
               <span className="text-sm font-medium">Total Clients</span>
             </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -167,7 +167,7 @@ export default function CoachesPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle asChild>
+            <CardTitle>
               <span className="text-sm font-medium">AI Clone Usage</span>
             </CardTitle>
             <Mic className="h-4 w-4 text-muted-foreground" />
@@ -180,7 +180,7 @@ export default function CoachesPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle asChild>
+            <CardTitle>
               <span className="text-sm font-medium">Monthly Revenue</span>
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -193,7 +193,7 @@ export default function CoachesPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle asChild>
+            <CardTitle>
               <span className="text-sm font-medium">Upcoming Sessions</span>
             </CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -416,7 +416,7 @@ export default function CoachesPage() {
                 )}
 
                 <CardHeader className="text-center pb-6">
-                  <CardTitle asChild>
+                  <CardTitle>
                     <span className="text-xl font-bold">{plan.name}</span>
                   </CardTitle>
                   <div className="flex items-baseline justify-center space-x-2">
