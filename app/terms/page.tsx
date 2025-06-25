@@ -17,190 +17,95 @@ export default function TermsOfServicePage() {
               <FileText className="w-8 h-8 text-green-600" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Terms of Service</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Terms of Service for CoachCast (MVP)</h1>
           <p className="text-xl text-gray-600">
             Please read these terms carefully before using our coaching platform.
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            Last updated: June 25, 2025
           </p>
         </div>
 
         <div className="space-y-8">
           <Card>
+            <CardContent className="pt-6">
+              <p className="text-gray-700">
+                Welcome to CoachCast. These Terms of Service ("Terms") govern your access to and use of the CoachCast voice-first AI coaching platform (the "Service"). Please read these Terms carefully.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Scale className="w-5 h-5" />
-                <span>Acceptance of Terms</span>
+                <span>Agreement to Terms</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                By accessing or using Coach Cast ("the Service"), you agree to be bound by these Terms of Service 
-                ("Terms"). If you disagree with any part of these terms, then you may not access the Service. 
-                These Terms apply to all visitors, users, and others who access or use the Service.
+                By creating an account or using our Service, you agree to be bound by these Terms.
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Description of Service</CardTitle>
+              <CardTitle>The Service</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-gray-700">
-                Coach Cast is a comprehensive coaching platform that provides:
+                CoachCast is a platform designed to make coaching more accessible by allowing you to interact with distinct AI coaching personalities and preview human coaches through AI-generated Digital Twins before booking a session.
               </p>
-              <ul className="list-disc list-inside text-gray-700 space-y-1">
-                <li>AI-powered coaching sessions using advanced voice technology</li>
-                <li>Access to certified human coaches</li>
-                <li>Personalized coaching experiences and progress tracking</li>
-                <li>Video previews and scheduling tools</li>
-                <li>Goal setting and achievement monitoring</li>
-              </ul>
-              <p className="text-gray-700">
-                The Service is designed to support personal and professional development through 
-                innovative technology and human expertise.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>User Accounts and Registration</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              
               <div>
                 <h3 className="font-semibold text-gray-900 mb-2">Account Creation</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>You must provide accurate and complete information when creating an account</li>
-                  <li>You are responsible for maintaining the security of your account credentials</li>
-                  <li>You must be at least 18 years old to use the Service</li>
-                  <li>One person may not maintain multiple accounts</li>
-                </ul>
+                <p className="text-gray-700">You must create an account using an email and password to use our Service.</p>
               </div>
               
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Account Responsibilities</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>You are responsible for all activities that occur under your account</li>
-                  <li>Notify us immediately of any unauthorized use of your account</li>
-                  <li>Keep your contact information current and accurate</li>
-                </ul>
+                <h3 className="font-semibold text-gray-900 mb-2">Microphone Consent</h3>
+                <p className="text-gray-700">The Service is voice-first and requires your permission to access your device's microphone to function.</p>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="w-5 h-5" />
-                <span>Subscription and Payment Terms</span>
-              </CardTitle>
+              <CardTitle>User Content</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Subscription Plans</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Free Trial: 7 minutes of AI coaching at no cost</li>
-                  <li>AI Explorer: $25/month for 50 AI coaching credits</li>
-                  <li>Coaching Starter: $99/month including live human sessions</li>
-                  <li>Coaching Accelerator: $189/month for intensive coaching</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Payment Terms</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Subscriptions are billed monthly in advance</li>
-                  <li>All fees are non-refundable except as required by law</li>
-                  <li>We may change pricing with 30 days' notice</li>
-                  <li>Failed payments may result in service suspension</li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Cancellation</h3>
-                <p className="text-gray-700">
-                  You may cancel your subscription at any time. Cancellation will take effect at the end 
-                  of your current billing period. You will retain access to paid features until the end 
-                  of your billing period.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Acceptable Use Policy</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Permitted Uses</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Personal and professional development coaching</li>
-                  <li>Goal setting and progress tracking</li>
-                  <li>Engaging with AI and human coaches respectfully</li>
-                  <li>Sharing feedback to improve the Service</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Prohibited Uses</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Using the Service for any illegal or unauthorized purpose</li>
-                  <li>Harassing, abusing, or threatening coaches or other users</li>
-                  <li>Attempting to gain unauthorized access to the Service</li>
-                  <li>Sharing account credentials with others</li>
-                  <li>Using the Service to provide coaching to others commercially</li>
-                  <li>Reverse engineering or attempting to extract source code</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Shield className="w-5 h-5" />
-                <span>Privacy and Data Protection</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
               <p className="text-gray-700">
-                Your privacy is important to us. Our collection and use of personal information is governed 
-                by our Privacy Policy, which is incorporated into these Terms by reference. By using the Service, 
-                you consent to the collection and use of your information as described in the Privacy Policy.
+                You may provide input to the Service, including your voice during AI coaching sessions ("Voice Input") and your spoken reflections for journaling ("Journal Entries"). Collectively, this is your "User Content."
               </p>
-              <p className="text-gray-700 mt-4">
-                <strong>Session Recordings:</strong> AI coaching sessions may be recorded for quality assurance 
-                and improvement purposes. You will be notified before any recording begins, and you may opt out 
-                of recording while still using the Service.
+              <p className="text-gray-700">
+                You retain all rights to your User Content. However, by using the Service, you grant CoachCast a worldwide, non-exclusive, royalty-free license to use, copy, reproduce, process, adapt, and display your User Content solely for the purpose of operating, providing, and improving the Service. We are committed to our ethos of "AI-Enhanced, Human-Centric", and your humanity always guides the AI.
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Intellectual Property Rights</CardTitle>
+              <CardTitle>Third-Party Services</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <p className="text-gray-700">
+                Our Service integrates technologies from third-party partners to function.
+              </p>
+              
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Our Content</h3>
-                <p className="text-gray-700">
-                  The Service and its original content, features, and functionality are owned by Coach Cast 
-                  and are protected by international copyright, trademark, patent, trade secret, and other 
-                  intellectual property laws.
-                </p>
+                <h3 className="font-semibold text-gray-900 mb-2">AI Providers</h3>
+                <p className="text-gray-700">AI voice interactions are powered by ElevenLabs and AI Digital Twins are powered by Tavus. Your use of these features is subject to their respective terms and policies.</p>
               </div>
               
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Your Content</h3>
-                <p className="text-gray-700">
-                  You retain ownership of any content you provide to the Service. However, by using the Service, 
-                  you grant us a limited license to use your content for the purpose of providing and improving 
-                  the Service.
-                </p>
+                <h3 className="font-semibold text-gray-900 mb-2">Booking</h3>
+                <p className="text-gray-700">Booking initiation with human coaches is handled through an integration with Cal.com. The actual booking and any subsequent sessions occur on their platform.</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Payments</h3>
+                <p className="text-gray-700">For this MVP, full payment integration is out of scope. Any fees mentioned are for demonstration purposes only.</p>
               </div>
             </CardContent>
           </Card>
@@ -209,34 +114,34 @@ export default function TermsOfServicePage() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <AlertTriangle className="w-5 h-5" />
-                <span>Disclaimers and Limitations</span>
+                <span>Important Disclaimers</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Service Disclaimer</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">For Informational Purposes Only</h3>
                 <p className="text-gray-700">
-                  The Service is provided "as is" and "as available" without warranties of any kind. 
-                  We do not guarantee that the Service will be uninterrupted, secure, or error-free.
+                  The coaching provided by both our AI and human coaches is for informational and educational purposes only. The Service is not a substitute for professional mental health care, medical advice, or financial advisory services.
                 </p>
               </div>
               
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Coaching Disclaimer</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">"AS IS" Service</h3>
                 <p className="text-gray-700">
-                  Coach Cast provides coaching services for personal and professional development. 
-                  Our services are not a substitute for professional medical, psychological, or therapeutic treatment. 
-                  If you are experiencing mental health issues, please consult with a qualified healthcare professional.
+                  The CoachCast Service is an MVP developed for a hackathon. It is provided "AS IS" without warranties of any kind. We do not guarantee that the Service will be uninterrupted, secure, or error-free. The AI-generated responses may contain inaccuracies.
                 </p>
               </div>
+            </CardContent>
+          </Card>
 
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Limitation of Liability</h3>
-                <p className="text-gray-700">
-                  To the maximum extent permitted by law, Coach Cast shall not be liable for any indirect, 
-                  incidental, special, consequential, or punitive damages, or any loss of profits or revenues.
-                </p>
-              </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Limitation of Liability</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700">
+                To the fullest extent permitted by law, CoachCast and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, resulting from your use of the Service. Our total liability for any claim arising out of these Terms or the Service is limited to the greater of one hundred U.S. dollars ($100) or the amount you have paid us, if any.
+              </p>
             </CardContent>
           </Card>
 
@@ -246,13 +151,7 @@ export default function TermsOfServicePage() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                We may terminate or suspend your account and access to the Service immediately, without prior 
-                notice or liability, for any reason, including if you breach these Terms. Upon termination, 
-                your right to use the Service will cease immediately.
-              </p>
-              <p className="text-gray-700 mt-4">
-                You may also terminate your account at any time by contacting us or using the account 
-                deletion feature in your settings.
+                We may terminate or suspend your access to the Service at any time, without prior notice, for conduct that we believe violates these Terms. You may terminate these Terms at any time by ceasing to use the Service and requesting the deletion of your account.
               </p>
             </CardContent>
           </Card>
@@ -263,22 +162,7 @@ export default function TermsOfServicePage() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                These Terms shall be governed by and construed in accordance with the laws of the jurisdiction 
-                in which Coach Cast operates, without regard to its conflict of law provisions. Any disputes 
-                arising from these Terms or the Service shall be resolved through binding arbitration.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Changes to Terms</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-700">
-                We reserve the right to modify or replace these Terms at any time. If a revision is material, 
-                we will provide at least 30 days' notice prior to any new terms taking effect. What constitutes 
-                a material change will be determined at our sole discretion.
+                These Terms shall be governed by the laws of Dubai International Financial Center Arbitration Courts, UAE, without regard to its conflict of law principles.
               </p>
             </CardContent>
           </Card>
@@ -292,14 +176,11 @@ export default function TermsOfServicePage() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700 mb-4">
-                If you have any questions about these Terms of Service, please contact us:
+                For any questions about these Terms, please contact us:
               </p>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-gray-700">
-                  <strong>Email:</strong> legal@coachcast.com<br />
-                  <strong>Address:</strong> Coach Cast Legal Team<br />
-                  123 Innovation Drive<br />
-                  Tech City, TC 12345
+                  <strong>Email:</strong> david@synapticx.co
                 </p>
               </div>
             </CardContent>

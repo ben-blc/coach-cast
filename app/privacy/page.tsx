@@ -17,16 +17,30 @@ export default function PrivacyPolicyPage() {
               <Shield className="w-8 h-8 text-blue-600" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Privacy Policy</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Privacy Policy for CoachCast (MVP)</h1>
           <p className="text-xl text-gray-600">
             Your privacy is important to us. This policy explains how we collect, use, and protect your information.
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            Last updated: June 25, 2025
           </p>
         </div>
 
         <div className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="w-5 h-5" />
+                <span>Introduction</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700">
+                Welcome to CoachCast. This Privacy Policy explains how we collect, use, and share information about you when you use our voice-first AI coaching platform. Our guiding principle is "Powered by AI, Guided by Humanity", and we are committed to protecting your privacy while providing you with a transformative coaching experience. This policy covers your use of our AI Coaches, journaling features, and interactions with human coach Digital Twins.
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -35,34 +49,28 @@ export default function PrivacyPolicyPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <p className="text-gray-700">
+                We collect information that is necessary to provide and improve our service, focusing on the core features of our hackathon prototype.
+              </p>
+              
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Personal Information</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Name and email address when you create an account</li>
-                  <li>Profile information you choose to provide</li>
-                  <li>Payment information for subscription services</li>
-                  <li>Communication preferences and settings</li>
-                </ul>
+                <h3 className="font-semibold text-gray-900 mb-2">Account Information</h3>
+                <p className="text-gray-700">When you create an account, we collect your email address and password.</p>
               </div>
               
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Coaching Session Data</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Session transcripts and recordings (with your consent)</li>
-                  <li>Session duration and frequency</li>
-                  <li>Goals and progress tracking information</li>
-                  <li>Feedback and ratings you provide</li>
-                </ul>
+                <h3 className="font-semibold text-gray-900 mb-2">Voice and Audio Data</h3>
+                <p className="text-gray-700">To enable our voice-first coaching sessions, we must request your permission to use your device's microphone. We collect your voice inputs during conversations with our AI Coaches.</p>
               </div>
 
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Technical Information</h3>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Device information and browser type</li>
-                  <li>IP address and location data</li>
-                  <li>Usage patterns and feature interactions</li>
-                  <li>Performance and error logs</li>
-                </ul>
+                <h3 className="font-semibold text-gray-900 mb-2">Journal Entries</h3>
+                <p className="text-gray-700">We collect the content you provide when using the voice-to-text journaling feature, including the transcribed text of your spoken reflections. This data is saved to your account.</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Interaction Data</h3>
+                <p className="text-gray-700">We collect information about your interactions with the service, such as which AI coaches you select and when you view a human coach's Digital Twin.</p>
               </div>
             </CardContent>
           </Card>
@@ -74,16 +82,25 @@ export default function PrivacyPolicyPage() {
                 <span>How We Use Your Information</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ul className="list-disc list-inside text-gray-700 space-y-2">
-                <li>Provide and improve our coaching services</li>
-                <li>Personalize your coaching experience</li>
-                <li>Process payments and manage subscriptions</li>
-                <li>Send important updates and notifications</li>
-                <li>Analyze usage patterns to enhance our platform</li>
-                <li>Ensure platform security and prevent fraud</li>
-                <li>Comply with legal obligations</li>
-              </ul>
+            <CardContent className="space-y-4">
+              <p className="text-gray-700">
+                Our use of your data is driven by our commitment to providing a seamless and impactful coaching journey.
+              </p>
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">To Provide the Service</h3>
+                <p className="text-gray-700">We use your account information, voice data, and journal entries to operate the core features of CoachCast, including facilitating AI coaching sessions, saving your journal entries, and enabling you to "meet" a human coach's AI Digital Twin.</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">To Maintain and Improve the Platform</h3>
+                <p className="text-gray-700">We use interaction data to understand how our platform is being used, which helps us focus on our goal of demonstrating a working, integrated system and improving the user experience.</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">To Personalize Your Experience</h3>
+                <p className="text-gray-700">In the future, we aim to use information like your journal entries and session history to provide better AI coach recommendations and a more personalized path. For the hackathon MVP, this is out of scope.</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -91,26 +108,37 @@ export default function PrivacyPolicyPage() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Users className="w-5 h-5" />
-                <span>Information Sharing</span>
+                <span>How We Share Your Information</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <p className="text-gray-700">
+                To provide our service, we partner with third-party technology providers. We only share the information necessary for them to perform their services.
+              </p>
+              
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">We Do Not Sell Your Data</h3>
-                <p className="text-gray-700">
-                  We never sell, rent, or trade your personal information to third parties for marketing purposes.
-                </p>
+                <h3 className="font-semibold text-gray-900 mb-2">ElevenLabs</h3>
+                <p className="text-gray-700">Your voice inputs are processed by ElevenLabs to generate the natural voice responses from our AI Coaches.</p>
               </div>
               
               <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Limited Sharing</h3>
-                <p className="text-gray-700 mb-2">We may share your information only in these specific circumstances:</p>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>With your chosen coaches (only relevant session data)</li>
-                  <li>With service providers who help us operate our platform</li>
-                  <li>When required by law or to protect our rights</li>
-                  <li>In connection with a business transfer or merger</li>
-                </ul>
+                <h3 className="font-semibold text-gray-900 mb-2">Tavus</h3>
+                <p className="text-gray-700">To provide the "Virtual Handshake," we use Tavus to generate the AI Digital Twin videos of human coaches. Interacting with a Digital Twin involves playing a video generated by their service. For coaches, creating a replica requires submitting video and audio to Tavus.</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Supabase</h3>
+                <p className="text-gray-700">Our backend, including user authentication and database storage for your account information and journal entries, is powered by Supabase.</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Cal.com</h3>
+                <p className="text-gray-700">To facilitate booking a session with a human coach, we will display their availability using a Cal.com integration. When you decide to book, you will be directed to the Cal.com interface to complete the process.</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Deployment Providers</h3>
+                <p className="text-gray-700">Our front-end application may be deployed on services like Netlify or Vercel.</p>
               </div>
             </CardContent>
           </Card>
@@ -123,22 +151,9 @@ export default function PrivacyPolicyPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <p className="text-gray-700">
-                  We implement industry-standard security measures to protect your information:
-                </p>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Encryption of data in transit and at rest</li>
-                  <li>Regular security audits and monitoring</li>
-                  <li>Access controls and authentication requirements</li>
-                  <li>Secure data centers and infrastructure</li>
-                  <li>Employee training on data protection</li>
-                </ul>
-                <p className="text-gray-700">
-                  While we strive to protect your information, no method of transmission over the internet 
-                  is 100% secure. We cannot guarantee absolute security.
-                </p>
-              </div>
+              <p className="text-gray-700">
+                We prioritize the security of your data by using reputable third-party services like Supabase for our backend infrastructure and implementing best practices for our application. However, no method of transmission over the Internet is 100% secure.
+              </p>
             </CardContent>
           </Card>
 
@@ -147,72 +162,19 @@ export default function PrivacyPolicyPage() {
               <CardTitle>Your Rights and Choices</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <p className="text-gray-700">You have the following rights regarding your personal information:</p>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li><strong>Access:</strong> Request a copy of your personal data</li>
-                  <li><strong>Correction:</strong> Update or correct inaccurate information</li>
-                  <li><strong>Deletion:</strong> Request deletion of your personal data</li>
-                  <li><strong>Portability:</strong> Export your data in a machine-readable format</li>
-                  <li><strong>Opt-out:</strong> Unsubscribe from marketing communications</li>
-                  <li><strong>Restriction:</strong> Limit how we process your information</li>
-                </ul>
-                <p className="text-gray-700">
-                  To exercise these rights, please contact us using the information provided below.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Retention</CardTitle>
-            </CardHeader>
-            <CardContent>
               <p className="text-gray-700">
-                We retain your personal information for as long as necessary to provide our services 
-                and fulfill the purposes outlined in this policy. Specifically:
+                You have choices regarding your information. You can access and update your account information. You can also request the deletion of your account and associated data, such as your journal entries, by contacting us.
               </p>
-              <ul className="list-disc list-inside text-gray-700 space-y-1 mt-2">
-                <li>Account information: Until you delete your account</li>
-                <li>Session data: For the duration of your subscription plus 2 years</li>
-                <li>Payment information: As required by law and payment processors</li>
-                <li>Marketing data: Until you opt out or we no longer need it</li>
-              </ul>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Third-Party Services</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-gray-700">
-                  Our platform integrates with third-party services to provide enhanced functionality:
-                </p>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li><strong>ElevenLabs:</strong> AI voice technology for coaching sessions</li>
-                  <li><strong>Supabase:</strong> Database and authentication services</li>
-                  <li><strong>Stripe:</strong> Payment processing</li>
-                  <li><strong>Cal.com:</strong> Scheduling services</li>
-                </ul>
-                <p className="text-gray-700">
-                  These services have their own privacy policies, and we encourage you to review them.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Changes to This Policy</CardTitle>
+              <CardTitle>Changes to This Privacy Policy</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                We may update this privacy policy from time to time. We will notify you of any 
-                material changes by posting the new policy on this page and updating the "Last updated" 
-                date. We encourage you to review this policy periodically.
+                We may update this policy in the future. We will notify you of any changes by posting the new policy on this page.
               </p>
             </CardContent>
           </Card>
@@ -226,14 +188,11 @@ export default function PrivacyPolicyPage() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700 mb-4">
-                If you have any questions about this privacy policy or our data practices, please contact us:
+                If you have any questions about this Privacy Policy, please contact us:
               </p>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-gray-700">
-                  <strong>Email:</strong> privacy@coachcast.com<br />
-                  <strong>Address:</strong> Coach Cast Privacy Team<br />
-                  123 Innovation Drive<br />
-                  Tech City, TC 12345
+                  <strong>Email:</strong> david@synapticx.co
                 </p>
               </div>
             </CardContent>
