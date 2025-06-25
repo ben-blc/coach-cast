@@ -114,11 +114,10 @@ ${transcript}`;
       console.error('❌ Error parsing OpenAI response as JSON:', parseError);
       
       // Fallback: try to extract goals from text manually
-      const lines = content.split('\n').filter(line => line.trim().length > 0);
+      const lines = content.split('\n').filter((line: string) => line.trim().length > 0);
       const extractedGoals = lines
-        .map(line => line.replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, '').trim())
-        .filter(line => line.length > 0 && line.length < 200); // Reasonable goal length
-      
+        .map((line: string) => line.replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, '').trim())
+        .filter((line: string) => line.length > 0 && line.length < 200); // Reasonable goal length
       if (extractedGoals.length > 0) {
         console.log('✅ Extracted goals from text fallback:', extractedGoals);
         return {
