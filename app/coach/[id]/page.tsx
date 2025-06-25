@@ -428,13 +428,13 @@ export default function CoachDetailPage() {
                 <CardTitle>Coach Stats</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
+                {/* <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Rating</span>
                   <div className="flex items-center space-x-1">
                     <Star className="w-4 h-4 text-yellow-400 fill-current" />
                     <span className="font-medium">4.9/5</span>
                   </div>
-                </div>
+                </div> */}
                 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Sessions</span>

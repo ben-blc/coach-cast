@@ -254,7 +254,8 @@ export default function CoachingStudioPage() {
                         {coach.coach_type === 'human' ? 'Human Coach' : 'AI Coach'}
                       </Badge>
                       <p className="text-sm text-gray-600 mt-1">{coach.specialty}</p>
-                      <div className="flex items-center space-x-4 mt-2">
+                      {/* Updated: Use flex-row with gap-3 for even spacing */}
+                      <div className="flex flex-row items-center gap-3 mt-2">
                         {coach.years_experience && (
                           <div className="flex items-center space-x-1">
                             <Clock className="w-3 h-3 text-gray-500" />
@@ -263,26 +264,41 @@ export default function CoachingStudioPage() {
                         )}
                         <div className="flex items-center space-x-1">
                           <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                          <span className="text-xs text-gray-500">4.9</span>
+                          <span className="text-xs text-gray-500">5</span>
                         </div>
+                        {coach.hourly_rate && coach.hourly_rate > 0 && coach.coach_type === 'human' && (
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs font-medium text-green-600">
+                              {formatPrice(coach.hourly_rate)}/hr
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      {coach.hourly_rate && coach.hourly_rate > 0 && coach.coach_type === 'human' && (
-                        <div className="flex items-center space-x-2 mt-2">
-                          <DollarSign className="w-4 h-4 text-green-600" />
-                          <span className="text-sm font-medium text-green-600">
-                            {formatPrice(coach.hourly_rate)}/hour
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <p className="text-gray-600 text-sm line-clamp-3">
-                  {coach.bio || coach.description}
-                </p>
+                <div
+                  className="min-h-[3.75em] max-h-[3.75em] flex items-start"
+                  style={{
+                    minHeight: '3.75em',
+                    maxHeight: '3.75em',
+                  }}
+                >
+                  <p
+                    className="text-gray-600 text-sm line-clamp-3 w-full"
+                    style={{
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                    }}
+                  >
+                    {coach.bio || coach.description}
+                  </p>
+                </div>
 
                 {/* Available Sessions Summary */}
                 <div className="bg-gray-50 rounded-lg p-3">
