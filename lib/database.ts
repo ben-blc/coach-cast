@@ -78,6 +78,16 @@ export type CoachingSession = {
   created_at: string;
 };
 
+export type CoachingSessionGoal = {
+  id: string;
+  session_id: string;
+  goal_text: string;
+  is_completed: boolean;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SessionAnalytics = {
   id: string;
   session_id: string;
@@ -555,6 +565,186 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
   } catch (error) {
     console.error('Unexpected error in updateUserCredits:', error);
     return false;
+  }
+}
+
+// Goals-related functions
+export async function getSessionGoals(sessionId: string): Promise<CoachingSessionGoal[]> {
+  try {
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getSessionGoals');
+      return [];
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('coaching_sessions_goals')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at');
+
+    if (error) {
+      console.error('Error fetching session goals:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Unexpected error in getSessionGoals:', error);
+    return [];
+  }
+}
+
+export async function createSessionGoals(sessionId: string, goals: string[]): Promise<CoachingSessionGoal[]> {
+  try {
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in createSessionGoals');
+      return [];
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return [];
+    }
+
+    const goalRecords = goals.map(goalText => ({
+      session_id: sessionId,
+      goal_text: goalText
+    }));
+
+    const { data, error } = await supabase
+      .from('coaching_sessions_goals')
+      .insert(goalRecords)
+      .select();
+
+    if (error) {
+      console.error('Error creating session goals:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Unexpected error in createSessionGoals:', error);
+    return [];
+  }
+}
+
+export async function updateSessionGoal(goalId: string, updates: Partial<CoachingSessionGoal>): Promise<CoachingSessionGoal | null> {
+  try {
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in updateSessionGoal');
+      return null;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return null;
+    }
+
+    // If marking as completed, set completed_at timestamp
+    if (updates.is_completed === true && !updates.completed_at) {
+      updates.completed_at = new Date().toISOString();
+    } else if (updates.is_completed === false) {
+      updates.completed_at = undefined;
+    }
+
+    const { data, error } = await supabase
+      .from('coaching_sessions_goals')
+      .update(updates)
+      .eq('id', goalId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating session goal:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in updateSessionGoal:', error);
+    return null;
+  }
+}
+
+export async function deleteSessionGoal(goalId: string): Promise<boolean> {
+  try {
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in deleteSessionGoal');
+      return false;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('coaching_sessions_goals')
+      .delete()
+      .eq('id', goalId);
+
+    if (error) {
+      console.error('Error deleting session goal:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Unexpected error in deleteSessionGoal:', error);
+    return false;
+  }
+}
+
+export async function addSessionGoal(sessionId: string, goalText: string): Promise<CoachingSessionGoal | null> {
+  try {
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in addSessionGoal');
+      return null;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('coaching_sessions_goals')
+      .insert([{
+        session_id: sessionId,
+        goal_text: goalText
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding session goal:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Unexpected error in addSessionGoal:', error);
+    return null;
   }
 }
 
