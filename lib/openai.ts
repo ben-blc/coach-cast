@@ -1,6 +1,6 @@
 // OpenAI API integration for goal extraction from coaching session transcripts
 
-const OPENAI_API_KEY = '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';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_API_BASE = 'https://api.openai.com/v1';
 
 export interface GoalExtractionResponse {
@@ -146,5 +146,5 @@ ${transcript}`;
 
 // Utility function to check if OpenAI API key is configured
 export function isOpenAIConfigured(): boolean {
-  return OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here';
+  return !!(OPENAI_API_KEY && OPENAI_API_KEY !== 'your_openai_api_key_here');
 }
