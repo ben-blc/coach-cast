@@ -36,6 +36,7 @@ export default function CoachDetailClient() {
   const [coach, setCoach] = useState<Coach | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const router = useRouter();
   const params = useParams();
   const coachId = params.id as string;
@@ -49,26 +50,34 @@ export default function CoachDetailClient() {
           return;
         }
 
+        // Fetch all coaches from database
         const [coaches, userSubscription] = await Promise.all([
           getAICoaches(),
           getUserSubscription(user.id)
         ]);
         
-        // Find the specific coach by ID or by name slug
-        const foundCoach = coaches.find(c => 
-          c.id === coachId || 
-          c.name.toLowerCase().replace(/\s+/g, '-') === coachId
-        ) as Coach;
-        
-        if (!foundCoach) {
-          router.push('/coaching-studio');
+        if (!coaches || coaches.length === 0) {
+          setError('No coaches available');
           return;
         }
         
+        // Find the specific coach by ID or by name slug
+        const foundCoach = coaches.find(c => 
+          c.id === coachId || 
+          c.name.toLowerCase().replace(/\s+/g, '-') === coachId.toLowerCase()
+        ) as Coach;
+        
+        if (!foundCoach) {
+          setError(`Coach not found: ${coachId}`);
+          return;
+        }
+        
+        console.log('Found coach:', foundCoach);
         setCoach(foundCoach);
         setSubscription(userSubscription);
       } catch (error) {
         console.error('Error loading coach:', error);
+        setError('Failed to load coach data');
       } finally {
         setLoading(false);
       }
@@ -79,10 +88,10 @@ export default function CoachDetailClient() {
 
   const getSessionTypeIcon = (sessionType: string) => {
     switch (sessionType) {
-      case 'audio_ai': return <Play className="w-5 h-5" />;
-      case 'video_ai': return <Video className="w-5 h-5" />;
-      case 'human_coaching': return <Users className="w-5 h-5" />;
-      default: return <Play className="w-5 h-5" />;
+      case 'audio_ai': return <Play className="w-5 h-5 text-blue-600" />;
+      case 'video_ai': return <Video className="w-5 h-5 text-green-600" />;
+      case 'human_coaching': return <Users className="w-5 h-5 text-purple-600" />;
+      default: return <Play className="w-5 h-5 text-gray-600" />;
     }
   };
 
@@ -189,7 +198,7 @@ export default function CoachDetailClient() {
     );
   }
 
-  if (!coach) {
+  if (error || !coach) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <Navbar />
@@ -197,11 +206,16 @@ export default function CoachDetailClient() {
           <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
             <h1 className="text-2xl font-bold text-red-600 mb-4">Coach Not Found</h1>
             <p className="text-gray-700 mb-4">
-              The requested coach could not be found.
+              {error || 'The requested coach could not be found.'}
             </p>
-            <Button asChild>
-              <a href="/coaching-studio">Back to Coaching Studio</a>
-            </Button>
+            <div className="space-y-3">
+              <Button asChild className="w-full">
+                <a href="/coaching-studio">Back to Coaching Studio</a>
+              </Button>
+              <Button variant="outline" asChild className="w-full">
+                <a href="/">Back to Home</a>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -234,6 +248,15 @@ export default function CoachDetailClient() {
                         src={coach.avatar_url} 
                         alt={coach.name}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fallback to initials if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `<span class="text-white font-bold text-4xl">${coach.name.charAt(0)}</span>`;
+                          }
+                        }}
                       />
                     ) : (
                       <span className="text-white font-bold text-4xl">
@@ -315,87 +338,93 @@ export default function CoachDetailClient() {
               
               <CardContent>
                 <div className="space-y-4">
-                  {coach.session_types?.map((sessionType) => (
-                    <div key={sessionType} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            {getSessionTypeIcon(sessionType)}
+                  {coach.session_types && coach.session_types.length > 0 ? (
+                    coach.session_types.map((sessionType) => (
+                      <div key={sessionType} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                              {getSessionTypeIcon(sessionType)}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg text-gray-900">
+                                {getSessionTypeLabel(sessionType)}
+                              </h3>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {getSessionTypeDescription(sessionType, coach.name)}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="font-semibold text-lg text-gray-900">
-                              {getSessionTypeLabel(sessionType)}
-                            </h3>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {getSessionTypeDescription(sessionType, coach.name)}
-                            </p>
+                          <div className="text-right">
+                            <Badge 
+                              variant={sessionType === 'human_coaching' ? 'outline' : 'secondary'}
+                              className="mb-2"
+                            >
+                              {getTrialInfo(sessionType, coach.coach_type)}
+                            </Badge>
+                            {sessionType === 'human_coaching' && coach.hourly_rate && (
+                              <div className="text-lg font-bold text-green-600">
+                                {formatPrice(coach.hourly_rate)}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <Badge 
-                            variant={sessionType === 'human_coaching' ? 'outline' : 'secondary'}
-                            className="mb-2"
-                          >
-                            {getTrialInfo(sessionType, coach.coach_type)}
-                          </Badge>
-                          {sessionType === 'human_coaching' && coach.hourly_rate && (
-                            <div className="text-lg font-bold text-green-600">
-                              {formatPrice(coach.hourly_rate)}
-                            </div>
+                        
+                        <div className="space-y-3">
+                          {sessionType === 'audio_ai' && (
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• Natural voice conversation with AI</li>
+                              <li>• Powered by ElevenLabs technology</li>
+                              <li>• Available 24/7</li>
+                              <li>• 7 minutes free trial</li>
+                            </ul>
+                          )}
+                          
+                          {sessionType === 'video_ai' && (
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• Personalized video preview</li>
+                              <li>• Tailored to your specific needs</li>
+                              <li>• Generated using Tavus AI</li>
+                              <li>• Free preview available</li>
+                            </ul>
+                          )}
+                          
+                          {sessionType === 'human_coaching' && (
+                            <ul className="text-sm text-gray-600 space-y-1">
+                              <li>• Live 1-on-1 video session</li>
+                              <li>• 60 minutes duration</li>
+                              <li>• Includes session notes & follow-up</li>
+                              <li>• Flexible scheduling</li>
+                            </ul>
+                          )}
+                          
+                          {sessionType === 'human_coaching' ? (
+                            <Button
+                              onClick={handleBookHumanSession}
+                              disabled={!canStartSession(sessionType)}
+                              className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Book Session with {coach.name}
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => startSession(sessionType)}
+                              disabled={!canStartSession(sessionType)}
+                              className="w-full"
+                            >
+                              <Play className="w-4 h-4 mr-2" />
+                              Start {getSessionTypeLabel(sessionType)}
+                            </Button>
                           )}
                         </div>
                       </div>
-                      
-                      <div className="space-y-3">
-                        {sessionType === 'audio_ai' && (
-                          <ul className="text-sm text-gray-600 space-y-1">
-                            <li>• Natural voice conversation with AI</li>
-                            <li>• Powered by ElevenLabs technology</li>
-                            <li>• Available 24/7</li>
-                            <li>• 7 minutes free trial</li>
-                          </ul>
-                        )}
-                        
-                        {sessionType === 'video_ai' && (
-                          <ul className="text-sm text-gray-600 space-y-1">
-                            <li>• Personalized video preview</li>
-                            <li>• Tailored to your specific needs</li>
-                            <li>• Generated using Tavus AI</li>
-                            <li>• Free preview available</li>
-                          </ul>
-                        )}
-                        
-                        {sessionType === 'human_coaching' && (
-                          <ul className="text-sm text-gray-600 space-y-1">
-                            <li>• Live 1-on-1 video session</li>
-                            <li>• 60 minutes duration</li>
-                            <li>• Includes session notes & follow-up</li>
-                            <li>• Flexible scheduling</li>
-                          </ul>
-                        )}
-                        
-                        {sessionType === 'human_coaching' ? (
-                          <Button
-                            onClick={handleBookHumanSession}
-                            disabled={!canStartSession(sessionType)}
-                            className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
-                          >
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Book Session with {coach.name}
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() => startSession(sessionType)}
-                            disabled={!canStartSession(sessionType)}
-                            className="w-full"
-                          >
-                            <Play className="w-4 h-4 mr-2" />
-                            Start {getSessionTypeLabel(sessionType)}
-                          </Button>
-                        )}
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No session types available for this coach.</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -411,7 +440,9 @@ export default function CoachDetailClient() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Sessions</span>
-                  <span className="font-medium">500+</span>
+                  <span className="font-medium">
+                    {coach.coach_type === 'human' ? '500+' : '∞'}
+                  </span>
                 </div>
                 
                 {coach.years_experience && (
@@ -427,15 +458,22 @@ export default function CoachDetailClient() {
                     {coach.coach_type === 'ai' ? 'Instant' : '< 24 hours'}
                   </span>
                 </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Availability</span>
+                  <span className="font-medium">
+                    {coach.coach_type === 'ai' ? '24/7' : 'Scheduled'}
+                  </span>
+                </div>
               </CardContent>
             </Card>
 
             {/* Plan Check */}
-            {!canStartSession('audio_ai') && (
+            {subscription && !canStartSession('audio_ai') && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {subscription?.plan_type === 'free' ? (
+                  {subscription.plan_type === 'free' ? (
                     <>
                       You have no credits remaining. 
                       <a href="/pricing" className="text-blue-600 hover:underline ml-1">
