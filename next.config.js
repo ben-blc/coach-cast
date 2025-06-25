@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Removed output: 'export' to allow dynamic routes
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -9,26 +9,6 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
   // Optimize fonts to prevent loading errors
   optimizeFonts: false,
-  // For static export, we define all the routes we want to pre-generate
-  exportPathMap: async function (
-    defaultPathMap,
-    { dev, dir, outDir, distDir, buildId }
-  ) {
-    return {
-      '/': { page: '/' },
-      '/auth': { page: '/auth' },
-      '/coaches': { page: '/coaches' },
-      '/coaching-studio': { page: '/coaching-studio' },
-      '/verify-email': { page: '/verify-email' },
-      '/session/ai-specialist': { page: '/session/ai-specialist' },
-      '/session/digital-chemistry': { page: '/session/digital-chemistry' },
-      '/session/human-voice-ai': { page: '/session/human-voice-ai' },
-      '/session-detail': { page: '/session-detail' },
-      '/privacy': { page: '/privacy' },
-      '/terms': { page: '/terms' },
-      // Note: Dynamic routes like /coach/[id] will be handled at runtime
-    };
-  },
   // Disable font optimization to prevent fetch errors
   experimental: {
     fontLoaders: [],
