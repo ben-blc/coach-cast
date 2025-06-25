@@ -295,8 +295,7 @@ export default function CoachingStudioPage() {
                 {/* Call to Action */}
                 <Button
                   onClick={() => router.push(`/coach/${coach.id}`)}
-                  className="w-full"
-                  variant="outline"
+                  className="w-full bg-black hover:bg-gray-800 text-white"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
                   Explore Coach
