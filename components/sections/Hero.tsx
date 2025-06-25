@@ -24,10 +24,10 @@ export function Hero() {
           </h1>
           
           <p className="text-xl text-gray-600 mb-8 max-w-4xl mx-auto">
-            At CoachCast, we bridge the gap between cutting-edge technology and profound human connection. 
+            At Coach Bridge, we bridge the gap between cutting-edge technology and profound human connection. 
             Our unique platform offers you unparalleled access to personalized coaching that fits your life and your goals. 
             Whether you seek the deep empathy of a human coach, the continuous availability of an AI digital twin, 
-            or the specialized wisdom of a CoachCast AI, you'll find guidance that resonates and empowers.
+            or the specialized wisdom of a Coach Bridge AI, you'll find guidance that resonates and empowers.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">

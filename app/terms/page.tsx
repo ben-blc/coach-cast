@@ -17,7 +17,7 @@ export default function TermsOfServicePage() {
               <FileText className="w-8 h-8 text-green-600" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Terms of Service for CoachCast (MVP)</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Terms of Service for Coach Bridge (MVP)</h1>
           <p className="text-xl text-gray-600">
             Please read these terms carefully before using our coaching platform.
           </p>
@@ -30,7 +30,7 @@ export default function TermsOfServicePage() {
           <Card>
             <CardContent className="pt-6">
               <p className="text-gray-700">
-                Welcome to CoachCast. These Terms of Service ("Terms") govern your access to and use of the CoachCast voice-first AI coaching platform (the "Service"). Please read these Terms carefully.
+                Welcome to Coach Bridge. These Terms of Service ("Terms") govern your access to and use of the Coach Bridge voice-first AI coaching platform (the "Service"). Please read these Terms carefully.
               </p>
             </CardContent>
           </Card>
@@ -55,7 +55,7 @@ export default function TermsOfServicePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-gray-700">
-                CoachCast is a platform designed to make coaching more accessible by allowing you to interact with distinct AI coaching personalities and preview human coaches through AI-generated Digital Twins before booking a session.
+                Coach Bridge is a platform designed to make coaching more accessible by allowing you to interact with distinct AI coaching personalities and preview human coaches through AI-generated Digital Twins before booking a session.
               </p>
               
               <div>
@@ -79,7 +79,7 @@ export default function TermsOfServicePage() {
                 You may provide input to the Service, including your voice during AI coaching sessions ("Voice Input") and your spoken reflections for journaling ("Journal Entries"). Collectively, this is your "User Content."
               </p>
               <p className="text-gray-700">
-                You retain all rights to your User Content. However, by using the Service, you grant CoachCast a worldwide, non-exclusive, royalty-free license to use, copy, reproduce, process, adapt, and display your User Content solely for the purpose of operating, providing, and improving the Service. We are committed to our ethos of "AI-Enhanced, Human-Centric", and your humanity always guides the AI.
+                You retain all rights to your User Content. However, by using the Service, you grant Coach Bridge a worldwide, non-exclusive, royalty-free license to use, copy, reproduce, process, adapt, and display your User Content solely for the purpose of operating, providing, and improving the Service. We are committed to our ethos of "AI-Enhanced, Human-Centric", and your humanity always guides the AI.
               </p>
             </CardContent>
           </Card>
@@ -128,7 +128,7 @@ export default function TermsOfServicePage() {
               <div>
                 <h3 className="font-semibold text-gray-900 mb-2">"AS IS" Service</h3>
                 <p className="text-gray-700">
-                  The CoachCast Service is an MVP developed for a hackathon. It is provided "AS IS" without warranties of any kind. We do not guarantee that the Service will be uninterrupted, secure, or error-free. The AI-generated responses may contain inaccuracies.
+                  The Coach Bridge Service is an MVP developed for a hackathon. It is provided "AS IS" without warranties of any kind. We do not guarantee that the Service will be uninterrupted, secure, or error-free. The AI-generated responses may contain inaccuracies.
                 </p>
               </div>
             </CardContent>
@@ -140,7 +140,7 @@ export default function TermsOfServicePage() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                To the fullest extent permitted by law, CoachCast and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, resulting from your use of the Service. Our total liability for any claim arising out of these Terms or the Service is limited to the greater of one hundred U.S. dollars ($100) or the amount you have paid us, if any.
+                To the fullest extent permitted by law, Coach Bridge and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, resulting from your use of the Service. Our total liability for any claim arising out of these Terms or the Service is limited to the greater of one hundred U.S. dollars ($100) or the amount you have paid us, if any.
               </p>
             </CardContent>
           </Card>

@@ -64,7 +64,7 @@ export default function AuthPage() {
         // If email is already confirmed (shouldn't happen with new signups, but just in case)
         toast({
           title: 'Account created successfully!',
-          description: 'Welcome to Coach Cast. Redirecting to your home...',
+          description: 'Welcome to Coach Bridge. Redirecting to your home...',
         });
         
         // Redirect to the intended page or home
@@ -104,8 +104,8 @@ export default function AuthPage() {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <img 
-              src="/coachcast-logo.jpeg" 
-              alt="Coach Cast" 
+              src="/logo_square.png" 
+              alt="Coach Bridge" 
               className="w-12 h-12 rounded-xl object-cover"
             />
           </div>

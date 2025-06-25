@@ -48,7 +48,7 @@ export default function VerifyEmailPage() {
         localStorage.removeItem('pendingVerificationEmail');
         toast({
           title: 'Email verified successfully!',
-          description: 'Welcome to Coach Cast. Let\'s start your coaching journey!',
+          description: 'Welcome to Coach Bridge. Let\'s start your coaching journey!',
         });
         router.push('/');
       }
@@ -116,8 +116,8 @@ export default function VerifyEmailPage() {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <img 
-              src="/coachcast-logo.jpeg" 
-              alt="Coach Cast" 
+              src="/logo_square.png" 
+              alt="Coach Bridge" 
               className="w-12 h-12 rounded-xl object-cover"
             />
           </div>
@@ -149,7 +149,7 @@ export default function VerifyEmailPage() {
                 <strong>Next steps:</strong>
                 <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
                   <li>Check your email inbox</li>
-                  <li>Look for an email from Coach Cast</li>
+                  <li>Look for an email from Coach Bridge</li>
                   <li>Click the verification link in the email</li>
                   <li>You'll be redirected to start your coaching journey</li>
                 </ol>

@@ -149,8 +149,8 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center">
               <img 
-                src="/coachcast-logo.jpeg" 
-                alt="Coach Cast" 
+                src="/logo_square.png" 
+                alt="Coach Bridge" 
                 className="w-8 h-8 rounded-lg object-cover"
               />
             </Link>

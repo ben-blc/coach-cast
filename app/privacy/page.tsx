@@ -17,7 +17,7 @@ export default function PrivacyPolicyPage() {
               <Shield className="w-8 h-8 text-blue-600" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Privacy Policy for CoachCast (MVP)</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Privacy Policy for Coach Bridge (MVP)</h1>
           <p className="text-xl text-gray-600">
             Your privacy is important to us. This policy explains how we collect, use, and protect your information.
           </p>
@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                Welcome to CoachCast. This Privacy Policy explains how we collect, use, and share information about you when you use our voice-first AI coaching platform. Our guiding principle is "Powered by AI, Guided by Humanity", and we are committed to protecting your privacy while providing you with a transformative coaching experience. This policy covers your use of our AI Coaches, journaling features, and interactions with human coach Digital Twins.
+                Welcome to Coach Bridge. This Privacy Policy explains how we collect, use, and share information about you when you use our voice-first AI coaching platform. Our guiding principle is "Powered by AI, Guided by Humanity", and we are committed to protecting your privacy while providing you with a transformative coaching experience. This policy covers your use of our AI Coaches, journaling features, and interactions with human coach Digital Twins.
               </p>
             </CardContent>
           </Card>
@@ -89,7 +89,7 @@ export default function PrivacyPolicyPage() {
               
               <div>
                 <h3 className="font-semibold text-gray-900 mb-2">To Provide the Service</h3>
-                <p className="text-gray-700">We use your account information, voice data, and journal entries to operate the core features of CoachCast, including facilitating AI coaching sessions, saving your journal entries, and enabling you to "meet" a human coach's AI Digital Twin.</p>
+                <p className="text-gray-700">We use your account information, voice data, and journal entries to operate the core features of Coach Bridge, including facilitating AI coaching sessions, saving your journal entries, and enabling you to "meet" a human coach's AI Digital Twin.</p>
               </div>
               
               <div>

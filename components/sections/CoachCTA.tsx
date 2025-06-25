@@ -14,7 +14,7 @@ export function CoachCTA() {
             Are you a Coach? Amplify Your Impact
           </h2>
           <p className="text-xl text-blue-100 max-w-4xl mx-auto">
-            CoachCast is your partner in expanding your reach and deepening your impact. 
+            Coach Bridge is your partner in expanding your reach and deepening your impact. 
             We empower you to leverage the immense power of AI, not to replace your expertise, 
             but to augment it. By creating your digital twin, you extend your guidance beyond 
             traditional limits, knowing that your unique coaching philosophy remains the guiding force. 
@@ -77,7 +77,7 @@ export function CoachCTA() {
             </Link>
           </Button>
           <p className="text-blue-100 mt-4 text-sm">
-            Partner with CoachCast and let your humanity guide the power of AI
+            Partner with Coach Bridge and let your humanity guide the power of AI
           </p>
         </div>
       </div>

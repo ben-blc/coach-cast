@@ -29,7 +29,7 @@ import { Footer } from '@/components/sections/Footer';
 // Updated coaching plan as per new model
 const coachingPlans = [
   {
-    name: 'CoachCast Pro',
+    name: 'Coach Bridge Pro',
     price: '$79',
     period: '/month',
     features: [
@@ -64,7 +64,7 @@ export default function CoachesPage() {
   const CoachSignupForm = () => (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Join Coach Cast</CardTitle>
+        <CardTitle>Join Coach Bridge</CardTitle>
         <p className="text-gray-600">
           Start your coaching journey and create your AI-powered coaching platform.
         </p>
@@ -132,7 +132,7 @@ export default function CoachesPage() {
                 <SelectValue placeholder="Select your plan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pro">CoachCast Pro - $79/month</SelectItem>
+                <SelectItem value="pro">Coach Bridge Pro - $79/month</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -142,7 +142,7 @@ export default function CoachesPage() {
             size="lg"
             type="submit"
           >
-            Join Coach Cast
+            Join Coach Bridge
           </Button>
         </form>
       </CardContent>

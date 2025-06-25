@@ -30,8 +30,8 @@ export function Footer() {
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <img 
-                src="/coachcast-logo.jpeg" 
-                alt="Coach Cast" 
+                src="/logo_square.png" 
+                alt="Coach Bridge" 
                 className="w-10 h-10 rounded-xl object-cover"
               />
             </div>
@@ -89,7 +89,7 @@ export function Footer() {
 
         <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400 text-sm">
-            © {new Date().getFullYear()} Coach Cast. All rights reserved.
+            © {new Date().getFullYear()} Coach Bridge. All rights reserved.
           </p>
           {/* <div className="flex items-center space-x-4 mt-4 md:mt-0">
             <Link href="#" className="text-gray-400 hover:text-white transition-colors">

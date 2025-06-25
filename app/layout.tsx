@@ -5,7 +5,7 @@ import { AuthGuard } from '@/components/AuthGuard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
-  title: 'Coach Cast - AI & Human Coaching Platform',
+  title: 'Coach Bridge - AI & Human Coaching Platform',
   description: 'Transform your life with personalized AI and human coaching',
 };
 
