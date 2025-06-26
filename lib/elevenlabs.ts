@@ -7,9 +7,10 @@ import {
   getConversationAudioAction,
   getUserConversationsAction,
   deleteConversationAction,
-  isApiKeyConfiguredAction,
-  isValidConversationId as validateConversationId
+  isApiKeyConfiguredAction
 } from './actions/elevenlabs-actions';
+
+import { isValidConversationId as validateConversationId } from './utils';
 
 export interface ConversationConfig {
   agentId: string;

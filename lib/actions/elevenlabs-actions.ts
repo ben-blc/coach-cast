@@ -416,8 +416,3 @@ export async function isApiKeyConfiguredAction(): Promise<boolean> {
   const apiKey = getApiKey();
   return apiKey.length > 0;
 }
-
-// Utility function to validate conversation ID format
-export function isValidConversationId(conversationId: string): boolean {
-  return /^conv_[a-zA-Z0-9]+$/.test(conversationId);
-}

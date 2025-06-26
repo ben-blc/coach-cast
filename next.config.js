@@ -12,6 +12,7 @@ const nextConfig = {
   // Disable font optimization to prevent fetch errors
   experimental: {
     fontLoaders: [],
+    serverActions: true, // Enable Server Actions
   },
 };
 
