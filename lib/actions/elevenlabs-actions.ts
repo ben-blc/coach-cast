@@ -192,7 +192,7 @@ export async function getConversationAudioAction(conversationId: string): Promis
 }> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn('⚠️ No API key - no audio available');
+    console.warn('⚠️ No API key - cannot fetch audio');
     return {
       success: false,
       error: 'ElevenLabs API key not configured'
@@ -211,58 +211,58 @@ export async function getConversationAudioAction(conversationId: string): Promis
   try {
     console.log(`🎯 Fetching audio for REAL ID: ${conversationId}`);
     
-    // First try to get audio URL from conversation details
-    const conversationResult = await getConversationDetailsAction(conversationId);
-    if (conversationResult.success && conversationResult.data?.audio_url) {
-      console.log('🎯 Audio URL from conversation details for REAL ID:', conversationId, conversationResult.data.audio_url);
-      return {
-        success: true,
-        data: conversationResult.data.audio_url
-      };
-    }
-
-    // Try the audio endpoint
-    const audioResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/audio`, {
+    // Use the EXACT same pattern as getConversationDetailsAction
+    const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/audio`, {
       method: 'GET',
       headers: {
         'xi-api-key': apiKey,
-        'Accept': 'audio/mpeg, audio/wav, application/json',
+        'Content-Type': 'application/json',
       },
     });
 
-    console.log(`📡 Audio API Status: ${audioResponse.status}`);
+    console.log(`📡 Audio API Response Status: ${response.status}`);
 
-    if (audioResponse.ok) {
-      const contentType = audioResponse.headers.get('content-type');
-      console.log('🎯 Audio content type:', contentType);
-      
-      if (contentType && contentType.includes('audio')) {
-        // For server actions, we can't create blob URLs, so we return the direct API URL
-        // The client will need to handle the audio streaming
-        return {
-          success: true,
-          data: `${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/audio`
-        };
-      } else {
-        // Try to parse as JSON for audio URL
-        const audioData = await audioResponse.json();
-        console.log('🎯 Audio data for REAL ID:', conversationId, audioData);
-        
-        if (audioData.audio_url) {
-          return {
-            success: true,
-            data: audioData.audio_url
-          };
-        }
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Audio API Error: ${response.status} - ${errorText}`);
+      return {
+        success: false,
+        error: `API Error: ${response.status} - ${errorText}`
+      };
     }
 
-    // No audio available
-    console.warn('⚠️ Could not fetch audio from API for REAL ID:', conversationId);
-    return {
-      success: false,
-      error: 'No audio available for this conversation'
-    };
+    const contentType = response.headers.get('content-type');
+    console.log('🎯 Audio content type:', contentType);
+    
+    if (contentType && contentType.includes('audio')) {
+      // If it's audio content, convert to blob and create data URL
+      const audioBlob = await response.blob();
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const dataUrl = `data:${contentType};base64,${base64}`;
+      
+      console.log('✅ Audio data URL created for REAL ID:', conversationId);
+      return {
+        success: true,
+        data: dataUrl
+      };
+    } else {
+      // Try to parse as JSON for audio URL
+      const audioData = await response.json();
+      console.log('✅ Audio data received for REAL ID:', conversationId, audioData);
+      
+      if (audioData.audio_url) {
+        return {
+          success: true,
+          data: audioData.audio_url
+        };
+      } else {
+        return {
+          success: false,
+          error: 'No audio URL found in response'
+        };
+      }
+    }
     
   } catch (error) {
     console.error('❌ Error fetching audio:', error);
