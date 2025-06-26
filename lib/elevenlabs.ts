@@ -1,5 +1,15 @@
-// ElevenLabs API integration for fetching conversation data
-// Uses fetch API to interact with ElevenLabs REST API
+// ElevenLabs API integration - Client-side wrapper for server actions
+// This file now acts as a client-side wrapper that calls server actions
+
+import { 
+  getConversationDetailsAction,
+  getConversationTranscriptAction,
+  getConversationAudioAction,
+  getUserConversationsAction,
+  deleteConversationAction,
+  isApiKeyConfiguredAction,
+  isValidConversationId as validateConversationId
+} from './actions/elevenlabs-actions';
 
 export interface ConversationConfig {
   agentId: string;
@@ -45,20 +55,7 @@ export interface ElevenLabsMessage {
   audio_url?: string;
 }
 
-// Get ElevenLabs API key from environment (server-side only)
-const getApiKey = (): string => {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey || apiKey === 'your_elevenlabs_api_key_here' || apiKey.trim() === '') {
-    console.warn('⚠️ ElevenLabs API key not configured');
-    return '';
-  }
-  return apiKey.trim();
-};
-
-// Base API URL for ElevenLabs
-const ELEVENLABS_API_BASE = 'https://api.elevenlabs.io/v1';
-
-// End a conversation session
+// End a conversation session (client-side only)
 export async function endConversation(conversationId: string): Promise<ConversationSession | null> {
   try {
     console.log('🎯 Ending ElevenLabs conversation with REAL ID:', conversationId);
@@ -84,257 +81,97 @@ export async function endConversation(conversationId: string): Promise<Conversat
   }
 }
 
-// Fetch conversation details from ElevenLabs API
+// Client-side wrapper for fetching conversation details
 export async function getConversationDetails(conversationId: string): Promise<ElevenLabsConversation | null> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    console.warn('⚠️ No API key - cannot fetch conversation details');
-    return null;
-  }
-
-  // Validate conversation ID format
-  if (!conversationId || !conversationId.startsWith('conv_')) {
-    console.error('🚫 Invalid conversation ID format:', conversationId);
-    return null;
-  }
-
   try {
-    console.log(`🎯 Fetching conversation details for REAL ID: ${conversationId}`);
-    
-    const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}`, {
-      method: 'GET',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    console.log(`📡 API Response Status: ${response.status}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ API Error: ${response.status} - ${errorText}`);
+    const result = await getConversationDetailsAction(conversationId);
+    if (result.success && result.data) {
+      return result.data;
+    } else {
+      console.error('❌ Failed to get conversation details:', result.error);
       return null;
     }
-
-    const data = await response.json();
-    console.log('✅ Conversation details received for REAL ID:', conversationId, data);
-    return data;
-    
   } catch (error) {
-    console.error('❌ Error fetching conversation details:', error);
+    console.error('❌ Error calling getConversationDetailsAction:', error);
     return null;
   }
 }
 
-// Fetch conversation transcript from ElevenLabs API
+// Client-side wrapper for fetching conversation transcript
 export async function getConversationTranscript(conversationId: string): Promise<string | null> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    console.warn('⚠️ No API key - cannot fetch transcript');
-    return null;
-  }
-
-  // Validate conversation ID format
-  if (!conversationId || !conversationId.startsWith('conv_')) {
-    console.error('🚫 Invalid conversation ID format:', conversationId);
-    return null;
-  }
-
   try {
-    console.log(`🎯 Fetching transcript for REAL ID: ${conversationId}`);
-    
-    // Get conversation details which includes transcript
-    const conversation = await getConversationDetails(conversationId);
-    if (conversation?.transcript) {
-      return formatTranscriptToString(conversation.transcript, conversationId);
+    const result = await getConversationTranscriptAction(conversationId);
+    if (result.success && result.data) {
+      return result.data;
+    } else {
+      console.error('❌ Failed to get conversation transcript:', result.error);
+      return null;
     }
-
-    console.warn('⚠️ No transcript found in conversation details for REAL ID:', conversationId);
-    return null;
-    
   } catch (error) {
-    console.error('❌ Error fetching transcript:', error);
+    console.error('❌ Error calling getConversationTranscriptAction:', error);
     return null;
   }
 }
 
-// Fetch conversation audio URL from ElevenLabs API
+// Client-side wrapper for fetching conversation audio
 export async function getConversationAudio(conversationId: string): Promise<string | null> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    console.warn('⚠️ No API key - no audio available');
-    return null;
-  }
-
-  // Validate conversation ID format
-  if (!conversationId || !conversationId.startsWith('conv_')) {
-    console.error('🚫 Invalid conversation ID format:', conversationId);
-    return null;
-  }
-
   try {
-    console.log(`🎯 Fetching audio for REAL ID: ${conversationId}`);
-    
-    // First try to get audio URL from conversation details
-    const conversation = await getConversationDetails(conversationId);
-    if (conversation?.audio_url) {
-      console.log('🎯 Audio URL from conversation details for REAL ID:', conversationId, conversation.audio_url);
-      return conversation.audio_url;
+    const result = await getConversationAudioAction(conversationId);
+    if (result.success && result.data) {
+      return result.data;
+    } else {
+      console.error('❌ Failed to get conversation audio:', result.error);
+      return null;
     }
-
-    // Try the audio endpoint
-    const audioResponse = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}/audio`, {
-      method: 'GET',
-      headers: {
-        'xi-api-key': apiKey,
-        'Accept': 'audio/mpeg, audio/wav, application/json',
-      },
-    });
-
-    console.log(`📡 Audio API Status: ${audioResponse.status}`);
-
-    if (audioResponse.ok) {
-      const contentType = audioResponse.headers.get('content-type');
-      console.log('🎯 Audio content type:', contentType);
-      
-      if (contentType && contentType.includes('audio')) {
-        // Create blob URL for audio data
-        const audioBlob = await audioResponse.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        console.log('✅ Created audio blob URL for REAL ID:', conversationId, audioUrl);
-        return audioUrl;
-      } else {
-        // Try to parse as JSON for audio URL
-        const audioData = await audioResponse.json();
-        console.log('🎯 Audio data for REAL ID:', conversationId, audioData);
-        
-        if (audioData.audio_url) {
-          return audioData.audio_url;
-        }
-      }
-    }
-
-    // No audio available
-    console.warn('⚠️ Could not fetch audio from API for REAL ID:', conversationId);
-    return null;
-    
   } catch (error) {
-    console.error('❌ Error fetching audio:', error);
+    console.error('❌ Error calling getConversationAudioAction:', error);
     return null;
   }
 }
 
-// Helper function to format transcript messages into a readable string
-function formatTranscriptToString(transcript: TranscriptMessage[], conversationId: string): string {
-  const header = `Conversation Transcript - ${conversationId}
-Started: ${new Date().toLocaleString()}
-Source: ElevenLabs API
-
-`;
-
-  if (!transcript || transcript.length === 0) {
-    return header + "No messages found in this conversation.";
-  }
-
-  const formattedMessages = transcript
-    .sort((a, b) => a.time_in_call_secs - b.time_in_call_secs)
-    .map(message => {
-      const role = message.role === 'agent' ? 'Coach' : 'User';
-      const timeInCall = Math.floor(message.time_in_call_secs);
-      const minutes = Math.floor(timeInCall / 60);
-      const seconds = timeInCall % 60;
-      const timestamp = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      return `[${timestamp}] ${role}: ${message.message}`;
-    })
-    .join('\n\n');
-
-  const footer = `
-
-Session ended: ${new Date().toLocaleString()}
-Total messages: ${transcript.length}
-Source: ElevenLabs ConvAI API`;
-
-  return header + formattedMessages + footer;
-}
-
-// Get all conversations for a user (if API supports it)
+// Client-side wrapper for getting all conversations for a user
 export async function getUserConversations(userId?: string): Promise<ElevenLabsConversation[]> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    console.warn('⚠️ No API key available for fetching user conversations');
-    return [];
-  }
-
   try {
-    console.log('🎯 Fetching conversations for user:', userId);
-    
-    const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations`, {
-      method: 'GET',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+    const result = await getUserConversationsAction(userId);
+    if (result.success && result.data) {
+      return result.data;
+    } else {
+      console.error('❌ Failed to get user conversations:', result.error);
+      return [];
     }
-
-    const conversations = await response.json();
-    console.log('✅ ElevenLabs user conversations:', conversations);
-    
-    return conversations;
   } catch (error) {
-    console.error('❌ Error fetching user conversations:', error);
+    console.error('❌ Error calling getUserConversationsAction:', error);
     return [];
   }
 }
 
-// Delete a conversation (if API supports it)
+// Client-side wrapper for deleting a conversation
 export async function deleteConversation(conversationId: string): Promise<boolean> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    console.warn('⚠️ No API key available for deleting conversation');
-    return false;
-  }
-
-  // Validate conversation ID format
-  if (!conversationId || !conversationId.startsWith('conv_')) {
-    console.error('🚫 Invalid conversation ID format:', conversationId);
-    return false;
-  }
-
   try {
-    console.log('🎯 Deleting conversation:', conversationId);
-    
-    const response = await fetch(`${ELEVENLABS_API_BASE}/convai/conversations/${conversationId}`, {
-      method: 'DELETE',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+    const result = await deleteConversationAction(conversationId);
+    if (result.success) {
+      return true;
+    } else {
+      console.error('❌ Failed to delete conversation:', result.error);
+      return false;
     }
-
-    console.log('✅ Conversation deleted successfully:', conversationId);
-    return true;
   } catch (error) {
-    console.error('❌ Error deleting conversation:', error);
+    console.error('❌ Error calling deleteConversationAction:', error);
     return false;
   }
 }
 
-// Utility function to check if API key is configured
-export function isApiKeyConfigured(): boolean {
-  const apiKey = getApiKey();
-  return apiKey.length > 0;
+// Client-side wrapper for checking if API key is configured
+export async function isApiKeyConfigured(): Promise<boolean> {
+  try {
+    return await isApiKeyConfiguredAction();
+  } catch (error) {
+    console.error('❌ Error checking API key configuration:', error);
+    return false;
+  }
 }
 
 // Utility function to validate conversation ID format
 export function isValidConversationId(conversationId: string): boolean {
-  return /^conv_[a-zA-Z0-9]+$/.test(conversationId);
+  return validateConversationId(conversationId);
 }
