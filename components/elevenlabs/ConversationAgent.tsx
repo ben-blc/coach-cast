@@ -110,7 +110,7 @@ export function ConversationAgent({
     setConversationError('');
     setUserEndedConversation(false);
     onConversationStart(id);
-    if (hasApiKey) {
+    if (await hasApiKey) {
       try {
         const details = await getConversationDetails(id);
         if (details) {
