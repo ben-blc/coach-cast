@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Settings, LogOut, User, CreditCard } from 'lucide-react';
 import { signOut, getCurrentUser, onAuthStateChange } from '@/lib/auth';
-import { getUserSubscription } from '@/lib/database';
+import { getUserSubscription, getSubscriptionPlanName } from '@/lib/stripe';
+import { getUserSubscription as getCoachingSubscription } from '@/lib/database';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -31,6 +32,7 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   const [user, setUser] = useState(initialUser);
   const [signingOut, setSigningOut] = useState(false);
+  const [stripeSubscription, setStripeSubscription] = useState<any>(null);
   const router = useRouter();
 
   // Function to refresh credits data
@@ -38,12 +40,25 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
     try {
       const currentUser = await getCurrentUser();
       if (currentUser) {
-        const subscription = await getUserSubscription(currentUser.id);
-        if (subscription) {
+        const [coachingSubscription, stripeSubscriptionData] = await Promise.all([
+          getCoachingSubscription(currentUser.id),
+          getUserSubscription()
+        ]);
+        
+        if (coachingSubscription) {
           setUser(prev => ({
             ...prev,
-            creditsRemaining: Math.max(0, subscription.credits_remaining),
-            totalCredits: subscription.monthly_limit
+            creditsRemaining: Math.max(0, coachingSubscription.credits_remaining),
+            totalCredits: coachingSubscription.monthly_limit
+          }));
+        }
+
+        if (stripeSubscriptionData) {
+          setStripeSubscription(stripeSubscriptionData);
+          const planName = getSubscriptionPlanName(stripeSubscriptionData.price_id);
+          setUser(prev => ({
+            ...prev,
+            plan: planName
           }));
         }
       }
@@ -77,6 +92,9 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
         router.push('/');
       }
     });
+
+    // Initial load of Stripe subscription data
+    refreshCredits();
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
@@ -124,16 +142,6 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
       window.location.href = '/';
     } finally {
       setSigningOut(false);
-    }
-  };
-
-  const getPlanDisplayName = (planType: string) => {
-    switch (planType) {
-      case 'free': return 'Free Trial';
-      case 'ai_explorer': return 'AI Explorer';
-      case 'coaching_starter': return 'Coaching Starter';
-      case 'coaching_accelerator': return 'Coaching Accelerator';
-      default: return 'Free Trial';
     }
   };
 
@@ -208,6 +216,11 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                         {calculateCreditsRemaining()}/{user.totalCredits} credits
                       </div>
                     </div>
+                    {stripeSubscription && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Status: {stripeSubscription.subscription_status}
+                      </div>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -215,9 +228,11 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  <span>Billing</span>
+                <DropdownMenuItem asChild>
+                  <Link href="/pricing">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    <span>Billing</span>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />

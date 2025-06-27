@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Menu, X, User, Settings, LogOut, CreditCard, Home, Users } from 'lucide-react';
 import { getCurrentUser, signOut, onAuthStateChange } from '@/lib/auth';
-import { getUserProfile, getUserSubscription } from '@/lib/database';
+import { getUserProfile, getUserSubscription as getCoachingSubscription } from '@/lib/database';
+import { getUserSubscription, getSubscriptionPlanName } from '@/lib/stripe';
 import { useRouter, usePathname } from 'next/navigation';
 import type { Profile, Subscription } from '@/lib/database';
 
@@ -24,6 +25,7 @@ export function Navbar() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [stripeSubscription, setStripeSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
@@ -60,20 +62,23 @@ export function Navbar() {
       if (currentUser) {
         setUser(currentUser);
         
-        const [userProfile, userSubscription] = await Promise.all([
+        const [userProfile, userSubscription, stripeSubscriptionData] = await Promise.all([
           getUserProfile(currentUser.id),
-          getUserSubscription(currentUser.id)
+          getCoachingSubscription(currentUser.id),
+          getUserSubscription()
         ]);
         
         if (!mounted.current) return;
         
         setProfile(userProfile);
         setSubscription(userSubscription);
+        setStripeSubscription(stripeSubscriptionData);
       } else {
         // Clear user data if no current user
         setUser(null);
         setProfile(null);
         setSubscription(null);
+        setStripeSubscription(null);
       }
     } catch (error) {
       console.error('Error loading user data in navbar:', error);
@@ -106,6 +111,7 @@ export function Navbar() {
         setUser(null);
         setProfile(null);
         setSubscription(null);
+        setStripeSubscription(null);
         setLoading(false);
       }
     });
@@ -187,6 +193,7 @@ export function Navbar() {
       setUser(null);
       setProfile(null);
       setSubscription(null);
+      setStripeSubscription(null);
       
       console.log('Sign out successful, redirecting to home...');
       
@@ -205,6 +212,7 @@ export function Navbar() {
       setUser(null);
       setProfile(null);
       setSubscription(null);
+      setStripeSubscription(null);
       
       // Force redirect to home
       window.location.href = '/';
@@ -213,15 +221,23 @@ export function Navbar() {
     }
   };
 
-  const getPlanDisplayName = useCallback((planType: string) => {
-    switch (planType) {
-      case 'free': return 'Free Trial';
-      case 'ai_explorer': return 'AI Explorer';
-      case 'coaching_starter': return 'Coaching Starter';
-      case 'coaching_accelerator': return 'Coaching Accelerator';
-      default: return 'Free Trial';
+  const getPlanDisplayName = useCallback(() => {
+    if (stripeSubscription && stripeSubscription.price_id) {
+      return getSubscriptionPlanName(stripeSubscription.price_id);
     }
-  }, []);
+    
+    if (subscription) {
+      switch (subscription.plan_type) {
+        case 'free': return 'Free Trial';
+        case 'ai_explorer': return 'AI Explorer';
+        case 'coaching_starter': return 'Coaching Starter';
+        case 'coaching_accelerator': return 'Coaching Accelerator';
+        default: return 'Free Trial';
+      }
+    }
+    
+    return 'Free Trial';
+  }, [subscription, stripeSubscription]);
 
   const calculateCreditsRemaining = useCallback(() => {
     if (!subscription) return 0;
@@ -332,11 +348,16 @@ export function Navbar() {
                       {subscription && (
                         <div className="flex items-center justify-between mt-2">
                           <Badge variant="outline" className="text-xs w-fit">
-                            {getPlanDisplayName(subscription.plan_type)}
+                            {getPlanDisplayName()}
                           </Badge>
                           <div className="text-xs text-muted-foreground">
                             {calculateCreditsRemaining()}/{subscription.monthly_limit} credits
                           </div>
+                        </div>
+                      )}
+                      {stripeSubscription && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Status: {stripeSubscription.subscription_status}
                         </div>
                       )}
                     </div>
@@ -348,9 +369,11 @@ export function Navbar() {
                       <span>Dashboard</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    <span>Billing</span>
+                  <DropdownMenuItem asChild>
+                    <Link href="/pricing">
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      <span>Billing</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
