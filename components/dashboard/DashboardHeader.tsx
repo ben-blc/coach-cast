@@ -12,10 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Settings, LogOut, User, CreditCard } from 'lucide-react';
+import { Settings, LogOut, User } from 'lucide-react';
 import { signOut, getCurrentUser, onAuthStateChange } from '@/lib/auth';
-import { getUserSubscription, getSubscriptionPlanName } from '@/lib/stripe';
-import { getUserSubscription as getCoachingSubscription } from '@/lib/database';
+import { getUserSubscription } from '@/lib/database';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -32,33 +31,18 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   const [user, setUser] = useState(initialUser);
   const [signingOut, setSigningOut] = useState(false);
-  const [stripeSubscription, setStripeSubscription] = useState<any>(null);
   const router = useRouter();
 
-  // Function to refresh credits data
   const refreshCredits = async () => {
     try {
       const currentUser = await getCurrentUser();
       if (currentUser) {
-        const [coachingSubscription, stripeSubscriptionData] = await Promise.all([
-          getCoachingSubscription(currentUser.id),
-          getUserSubscription()
-        ]);
-        
-        if (coachingSubscription) {
+        const subscription = await getUserSubscription(currentUser.id);
+        if (subscription) {
           setUser(prev => ({
             ...prev,
-            creditsRemaining: Math.max(0, coachingSubscription.credits_remaining),
-            totalCredits: coachingSubscription.monthly_limit
-          }));
-        }
-
-        if (stripeSubscriptionData) {
-          setStripeSubscription(stripeSubscriptionData);
-          const planName = getSubscriptionPlanName(stripeSubscriptionData.price_id);
-          setUser(prev => ({
-            ...prev,
-            plan: planName
+            creditsRemaining: Math.max(0, subscription.credits_remaining),
+            totalCredits: subscription.monthly_limit
           }));
         }
       }
@@ -67,7 +51,6 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
     }
   };
 
-  // Auto-refresh credits when page becomes visible
   useEffect(() => {
     let mounted = true;
 
@@ -77,68 +60,33 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
       }
     };
 
-    const handleFocus = () => {
-      if (mounted) {
-        refreshCredits();
-      }
-    };
-
-    // Listen for auth state changes
     const { data: { subscription } } = onAuthStateChange((authUser) => {
       if (!mounted) return;
-      
       if (!authUser) {
-        // User signed out, redirect to home
         router.push('/');
       }
     });
 
-    // Initial load of Stripe subscription data
     refreshCredits();
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
 
     return () => {
       mounted = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
       subscription?.unsubscribe();
     };
   }, [router]);
 
-  // Periodic refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!document.hidden) {
-        refreshCredits();
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleSignOut = async () => {
     try {
       setSigningOut(true);
-      console.log('Starting sign out from dashboard...');
-      
       await signOut();
-      
-      console.log('Sign out successful, redirecting to home...');
-      
-      // Force redirect to home page
       router.push('/');
-      
-      // Also force a page reload to ensure clean state
       setTimeout(() => {
         window.location.href = '/';
       }, 100);
-      
     } catch (error) {
-      console.error('Error signing out from dashboard:', error);
-      
-      // Even if there's an error, force redirect to home
+      console.error('Error signing out:', error);
       window.location.href = '/';
     } finally {
       setSigningOut(false);
@@ -163,7 +111,6 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
               />
             </Link>
             
-            {/* Bolt.new Hackathon Badge */}
             <a 
               href="https://bolt.new" 
               target="_blank" 
@@ -179,7 +126,7 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
             </a>
             
             <Badge variant="outline" className="text-xs">
-              {user.plan}
+              Free Trial
             </Badge>
           </div>
 
@@ -210,29 +157,18 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                     </p>
                     <div className="flex items-center justify-between mt-2">
                       <Badge variant="outline" className="text-xs w-fit">
-                        {user.plan}
+                        Free Trial
                       </Badge>
                       <div className="text-xs text-muted-foreground">
                         {calculateCreditsRemaining()}/{user.totalCredits} credits
                       </div>
                     </div>
-                    {stripeSubscription && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Status: {stripeSubscription.subscription_status}
-                      </div>
-                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/pricing">
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    <span>Billing</span>
-                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
