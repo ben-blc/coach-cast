@@ -67,6 +67,7 @@ export async function createCheckoutSession(
     });
 
     console.log('Checkout response status:', response.status);
+    console.log('Checkout response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
