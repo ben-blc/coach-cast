@@ -35,11 +35,11 @@ export type AICoach = {
   years_experience?: string;
   coach_type: 'ai' | 'human';
   session_types: string[];
-  agent_id_eleven_labs?: string; // Renamed from agent_id
+  agent_id_eleven_labs?: string;
   personality_prompt: string;
   avatar_url?: string;
-  hourly_rate?: number; // in cents
-  cal_com_link?: string; // Cal.com booking link
+  hourly_rate?: number; // in dollars (not cents)
+  cal_com_link?: string;
   is_active: boolean;
   created_at: string;
 };
@@ -50,7 +50,7 @@ export type HumanCoach = {
   name: string;
   specialty: string;
   bio?: string;
-  hourly_rate?: number;
+  hourly_rate?: number; // in dollars (not cents)
   avatar_url?: string;
   tavus_persona_id?: string;
   is_active: boolean;
@@ -66,7 +66,7 @@ export type CoachingSession = {
   human_coach_id?: string;
   duration_seconds: number;
   credits_used: number;
-  conversation_id?: string; // ElevenLabs conversation ID
+  conversation_id?: string;
   summary?: string;
   goals?: string[];
   audio_url?: string;
@@ -117,14 +117,12 @@ async function testSupabaseConnection(): Promise<boolean> {
 // Helper function to create profile manually if it doesn't exist
 export async function ensureUserProfile(userId: string, email: string, fullName: string): Promise<Profile | null> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in ensureUserProfile');
       return null;
     }
 
-    // First try to get existing profile
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('*')
@@ -135,7 +133,6 @@ export async function ensureUserProfile(userId: string, email: string, fullName:
       return existingProfile;
     }
 
-    // If no profile exists, create one
     const { data: newProfile, error } = await supabase
       .from('profiles')
       .insert([{
@@ -143,7 +140,7 @@ export async function ensureUserProfile(userId: string, email: string, fullName:
         email: email,
         full_name: fullName,
         user_type: 'client',
-        onboarding_completed: true // Set to true since we're using discovery instead
+        onboarding_completed: true
       }])
       .select()
       .single();
@@ -153,9 +150,7 @@ export async function ensureUserProfile(userId: string, email: string, fullName:
       return null;
     }
 
-    // Also ensure subscription exists
     await ensureUserSubscription(userId);
-
     return newProfile;
   } catch (error) {
     console.error('Unexpected error in ensureUserProfile:', error);
@@ -166,14 +161,12 @@ export async function ensureUserProfile(userId: string, email: string, fullName:
 // Helper function to create subscription manually if it doesn't exist
 export async function ensureUserSubscription(userId: string): Promise<Subscription | null> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in ensureUserSubscription');
       return null;
     }
 
-    // First try to get existing subscription
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
       .select('*')
@@ -184,7 +177,6 @@ export async function ensureUserSubscription(userId: string): Promise<Subscripti
       return existingSubscription;
     }
 
-    // If no subscription exists, create one
     const { data: newSubscription, error } = await supabase
       .from('subscriptions')
       .insert([{
@@ -213,7 +205,6 @@ export async function ensureUserSubscription(userId: string): Promise<Subscripti
 // Database functions with better error handling
 export async function getUserProfile(userId: string): Promise<Profile | null> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in getUserProfile');
@@ -236,7 +227,6 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
     if (error) {
       console.error('Error fetching user profile:', error);
       
-      // If profile doesn't exist, try to create it
       if (error.code === 'PGRST116') {
         console.log('Profile not found, attempting to create one...');
         return await ensureUserProfile(userId, session.user.email || '', session.user.user_metadata?.full_name || 'User');
@@ -254,7 +244,6 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
 
 export async function getUserSubscription(userId: string): Promise<Subscription | null> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in getUserSubscription');
@@ -268,8 +257,6 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
       return null;
     }
 
-    console.log('Fetching subscription for user:', userId);
-
     const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
@@ -279,7 +266,6 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
     if (error) {
       console.error('Error fetching user subscription:', error);
       
-      // If subscription doesn't exist, try to create it
       if (error.code === 'PGRST116') {
         console.log('Subscription not found, attempting to create one...');
         return await ensureUserSubscription(userId);
@@ -288,7 +274,6 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
       return null;
     }
 
-    console.log('Successfully fetched subscription:', data);
     return data;
   } catch (error) {
     console.error('Unexpected error in getUserSubscription:', error);
@@ -298,7 +283,6 @@ export async function getUserSubscription(userId: string): Promise<Subscription 
 
 export async function getAICoaches(): Promise<AICoach[]> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in getAICoaches');
@@ -306,7 +290,7 @@ export async function getAICoaches(): Promise<AICoach[]> {
     }
 
     const { data, error } = await supabase
-      .from('coaches') // Updated table name
+      .from('coaches')
       .select('*')
       .eq('is_active', true)
       .order('created_at');
@@ -325,16 +309,14 @@ export async function getAICoaches(): Promise<AICoach[]> {
 
 export async function getHumanCoaches(): Promise<HumanCoach[]> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in getHumanCoaches');
       return [];
     }
 
-    // Now get human coaches from the unified coaches table
     const { data, error } = await supabase
-      .from('coaches') // Updated table name
+      .from('coaches')
       .select('*')
       .eq('is_active', true)
       .eq('coach_type', 'human')
@@ -345,19 +327,18 @@ export async function getHumanCoaches(): Promise<HumanCoach[]> {
       return [];
     }
 
-    // Transform the data to match HumanCoach interface
     const humanCoaches: HumanCoach[] = (data || []).map(coach => ({
       id: coach.id,
-      user_id: '', // Not applicable for unified table
+      user_id: '',
       name: coach.name,
       specialty: coach.specialty,
       bio: coach.bio,
       hourly_rate: coach.hourly_rate,
       avatar_url: coach.avatar_url,
-      tavus_persona_id: '', // Not in unified table yet
+      tavus_persona_id: '',
       is_active: coach.is_active,
       created_at: coach.created_at,
-      updated_at: coach.created_at // Use created_at as fallback
+      updated_at: coach.created_at
     }));
 
     return humanCoaches;
@@ -369,7 +350,6 @@ export async function getHumanCoaches(): Promise<HumanCoach[]> {
 
 export async function createCoachingSession(session: Partial<CoachingSession>): Promise<CoachingSession | null> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in createCoachingSession');
@@ -403,7 +383,6 @@ export async function createCoachingSession(session: Partial<CoachingSession>): 
 
 export async function updateCoachingSession(sessionId: string, updates: Partial<CoachingSession>): Promise<CoachingSession | null> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in updateCoachingSession');
@@ -438,7 +417,6 @@ export async function updateCoachingSession(sessionId: string, updates: Partial<
 
 export async function getUserSessions(userId: string): Promise<CoachingSession[]> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in getUserSessions');
@@ -473,10 +451,8 @@ export async function getUserSessions(userId: string): Promise<CoachingSession[]
   }
 }
 
-// New function to get a single session by ID
 export async function getSessionById(sessionId: string): Promise<CoachingSession | null> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in getSessionById');
@@ -513,7 +489,6 @@ export async function getSessionById(sessionId: string): Promise<CoachingSession
 
 export async function updateUserCredits(userId: string, creditsUsed: number): Promise<boolean> {
   try {
-    // Test connection first
     const isConnected = await testSupabaseConnection();
     if (!isConnected) {
       console.error('Supabase connection failed in updateUserCredits');
@@ -527,7 +502,6 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
       return false;
     }
 
-    // First get the current credits
     const { data: currentSubscription, error: fetchError } = await supabase
       .from('subscriptions')
       .select('credits_remaining')
@@ -544,10 +518,8 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
       return false;
     }
 
-    // Calculate new credits remaining
     const newCreditsRemaining = Math.max(0, currentSubscription.credits_remaining - creditsUsed);
 
-    // Update with the calculated value
     const { error } = await supabase
       .from('subscriptions')
       .update({ 
@@ -565,6 +537,54 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
     return true;
   } catch (error) {
     console.error('Unexpected error in updateUserCredits:', error);
+    return false;
+  }
+}
+
+// Update subscription with Stripe data
+export async function updateUserSubscriptionPlan(
+  userId: string, 
+  planType: 'ai_explorer' | 'coaching_starter' | 'coaching_accelerator',
+  stripeSubscriptionId?: string
+): Promise<boolean> {
+  try {
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in updateUserSubscriptionPlan');
+      return false;
+    }
+
+    // Define plan limits
+    const planLimits = {
+      ai_explorer: { credits: 50, live_sessions: 0 },
+      coaching_starter: { credits: 250, live_sessions: 1 },
+      coaching_accelerator: { credits: 600, live_sessions: 2 }
+    };
+
+    const limits = planLimits[planType];
+
+    const { error } = await supabase
+      .from('subscriptions')
+      .update({
+        plan_type: planType,
+        credits_remaining: limits.credits,
+        monthly_limit: limits.credits,
+        live_sessions_remaining: limits.live_sessions,
+        stripe_subscription_id: stripeSubscriptionId,
+        status: 'active',
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating subscription plan:', error);
+      return false;
+    }
+
+    console.log(`Updated subscription for user ${userId} to ${planType}`);
+    return true;
+  } catch (error) {
+    console.error('Unexpected error in updateUserSubscriptionPlan:', error);
     return false;
   }
 }
@@ -655,7 +675,6 @@ export async function updateSessionGoal(goalId: string, updates: Partial<Coachin
       return null;
     }
 
-    // If marking as completed, set completed_at timestamp
     if (updates.is_completed === true && !updates.completed_at) {
       updates.completed_at = new Date().toISOString();
     } else if (updates.is_completed === false) {
@@ -749,14 +768,11 @@ export async function addSessionGoal(sessionId: string, goalText: string): Promi
   }
 }
 
-// Remove the completeOnboarding function since we're not using onboarding anymore
-// Users go directly to discovery page
-
-// Admin functions for managing data (requires service role or admin privileges)
+// Admin functions for managing data
 export async function createAICoach(coach: Partial<AICoach>): Promise<AICoach | null> {
   try {
     const { data, error } = await supabase
-      .from('coaches') // Updated table name
+      .from('coaches')
       .insert([coach])
       .select()
       .single();
@@ -776,7 +792,7 @@ export async function createAICoach(coach: Partial<AICoach>): Promise<AICoach | 
 export async function updateAICoach(coachId: string, updates: Partial<AICoach>): Promise<AICoach | null> {
   try {
     const { data, error } = await supabase
-      .from('coaches') // Updated table name
+      .from('coaches')
       .update(updates)
       .eq('id', coachId)
       .select()
@@ -796,7 +812,6 @@ export async function updateAICoach(coachId: string, updates: Partial<AICoach>):
 
 export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<HumanCoach | null> {
   try {
-    // Convert HumanCoach to AICoach format for unified table
     const aiCoachData: Partial<AICoach> = {
       name: coach.name,
       specialty: coach.specialty || '',
@@ -811,7 +826,7 @@ export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<Huma
     };
 
     const { data, error } = await supabase
-      .from('coaches') // Updated table name
+      .from('coaches')
       .insert([aiCoachData])
       .select()
       .single();
@@ -821,7 +836,6 @@ export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<Huma
       return null;
     }
 
-    // Transform back to HumanCoach format
     const humanCoach: HumanCoach = {
       id: data.id,
       user_id: '',
@@ -845,7 +859,6 @@ export async function createHumanCoach(coach: Partial<HumanCoach>): Promise<Huma
 
 export async function updateHumanCoach(coachId: string, updates: Partial<HumanCoach>): Promise<HumanCoach | null> {
   try {
-    // Convert HumanCoach updates to AICoach format
     const aiCoachUpdates: Partial<AICoach> = {
       name: updates.name,
       specialty: updates.specialty,
@@ -857,7 +870,7 @@ export async function updateHumanCoach(coachId: string, updates: Partial<HumanCo
     };
 
     const { data, error } = await supabase
-      .from('coaches') // Updated table name
+      .from('coaches')
       .update(aiCoachUpdates)
       .eq('id', coachId)
       .eq('coach_type', 'human')
@@ -869,7 +882,6 @@ export async function updateHumanCoach(coachId: string, updates: Partial<HumanCo
       return null;
     }
 
-    // Transform back to HumanCoach format
     const humanCoach: HumanCoach = {
       id: data.id,
       user_id: '',
@@ -891,7 +903,6 @@ export async function updateHumanCoach(coachId: string, updates: Partial<HumanCo
   }
 }
 
-// Analytics functions
 export async function getSessionAnalytics(sessionId: string): Promise<SessionAnalytics | null> {
   try {
     const { data, error } = await supabase

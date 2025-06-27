@@ -26,7 +26,6 @@ import { getAICoaches, getUserSubscription, createCoachingSession } from '@/lib/
 import { Navbar } from '@/components/sections/Navbar';
 import type { AICoach, Subscription } from '@/lib/database';
 
-// Extended coach type to include all coach data
 interface Coach extends AICoach {
   coach_type: 'ai' | 'human';
   session_types: string[];
@@ -53,7 +52,6 @@ export default function CoachDetailClient() {
           return;
         }
 
-        // Fetch all coaches from database
         const [coaches, userSubscription] = await Promise.all([
           getAICoaches(),
           getUserSubscription(user.id)
@@ -65,7 +63,6 @@ export default function CoachDetailClient() {
           return;
         }
         
-        // Find the specific coach by ID or by name slug
         const foundCoach = coaches.find(c => 
           c.id === coachId || 
           c.name.toLowerCase().replace(/\s+/g, '-') === coachId.toLowerCase()
@@ -130,24 +127,12 @@ export default function CoachDetailClient() {
     return '';
   };
 
-  const formatPrice = (priceInCents: number) => {
-    return `$${(priceInCents / 100).toLocaleString()}`;
+  const formatPrice = (priceInDollars: number) => {
+    return `$${priceInDollars.toLocaleString()}`;
   };
 
-  const canStartSession = (sessionType: string) => {
-    if (!subscription) return false;
-    
-    // Free trials available for audio_ai and video_ai
-    if (sessionType === 'audio_ai' || sessionType === 'video_ai') {
-      return subscription.credits_remaining > 0;
-    }
-    
-    // Human coaching requires paid plan
-    if (sessionType === 'human_coaching') {
-      return subscription.plan_type !== 'free' && subscription.live_sessions_remaining > 0;
-    }
-    
-    return false;
+  const canStartSession = () => {
+    return subscription && subscription.credits_remaining > 0;
   };
 
   const startSession = async (sessionType: string) => {
@@ -157,9 +142,7 @@ export default function CoachDetailClient() {
       const user = await getCurrentUser();
       if (!user) return;
 
-      // Route to appropriate session type
       if (sessionType === 'audio_ai') {
-        // Create session and redirect to AI specialist page
         const session = await createCoachingSession({
           user_id: user.id,
           session_type: 'ai_specialist',
@@ -183,7 +166,6 @@ export default function CoachDetailClient() {
   const handleBookHumanSession = () => {
     if (!coach) return;
     if (!coach.cal_com_link) {
-      // Fallback to generic Cal.com link
       const calLink = `https://cal.com/${coach.name.toLowerCase().replace(/\s+/g, '-')}`;
       window.open(calLink, '_blank');
     } else {
@@ -205,7 +187,6 @@ export default function CoachDetailClient() {
     );
   }
 
-  // Coach Not Found Page
   if (notFound || (!coach && !loading)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -265,7 +246,6 @@ export default function CoachDetailClient() {
     );
   }
 
-  // Error state (different from not found)
   if (error && coach === null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -285,10 +265,7 @@ export default function CoachDetailClient() {
     );
   }
 
-  // Main coach detail page
-  // At this point, coach is guaranteed to be non-null
   if (!coach) {
-    // Defensive: should not happen, but just in case
     return null;
   }
 
@@ -297,7 +274,6 @@ export default function CoachDetailClient() {
       <Navbar />
       
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
         <div className="mb-8">
           <Button variant="ghost" onClick={() => router.push('/coaching-studio')} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -306,9 +282,7 @@ export default function CoachDetailClient() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Coach Profile */}
             <Card className="shadow-lg">
               <CardHeader>
                 <div className="flex items-start space-x-6">
@@ -319,7 +293,6 @@ export default function CoachDetailClient() {
                         alt={coach.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          // Fallback to initials if image fails to load
                           const target = e.target as HTMLImageElement;
                           target.style.display = 'none';
                           const parent = target.parentElement;
@@ -397,7 +370,6 @@ export default function CoachDetailClient() {
               </CardContent>
             </Card>
 
-            {/* Available Sessions */}
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -471,7 +443,7 @@ export default function CoachDetailClient() {
                           {sessionType === 'human_coaching' ? (
                             <Button
                               onClick={handleBookHumanSession}
-                              disabled={!canStartSession(sessionType)}
+                              disabled={!canStartSession()}
                               className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
                             >
                               <ExternalLink className="w-4 h-4 mr-2" />
@@ -480,7 +452,7 @@ export default function CoachDetailClient() {
                           ) : (
                             <Button
                               onClick={() => startSession(sessionType)}
-                              disabled={!canStartSession(sessionType)}
+                              disabled={!canStartSession()}
                               className="w-full"
                             >
                               <Play className="w-4 h-4 mr-2" />
@@ -500,9 +472,7 @@ export default function CoachDetailClient() {
             </Card>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
-            {/* Quick Stats */}
             <Card>
               <CardHeader>
                 <CardTitle>Coach Stats</CardTitle>
@@ -538,8 +508,7 @@ export default function CoachDetailClient() {
               </CardContent>
             </Card>
 
-            {/* Plan Check */}
-            {subscription && !canStartSession('audio_ai') && (
+            {subscription && !canStartSession() && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -562,7 +531,6 @@ export default function CoachDetailClient() {
               </Alert>
             )}
 
-            {/* Specialties */}
             <Card>
               <CardHeader>
                 <CardTitle>Specialties</CardTitle>
@@ -578,7 +546,6 @@ export default function CoachDetailClient() {
               </CardContent>
             </Card>
 
-            {/* Contact Info */}
             {coach.coach_type === 'human' && (
               <Card>
                 <CardHeader>

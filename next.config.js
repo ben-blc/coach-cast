@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed output: 'export' - this prevents Server Actions from working
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -12,13 +11,15 @@ const nextConfig = {
   optimizeFonts: false,
   experimental: {
     fontLoaders: [],
-    serverActions: true, // Enable Server Actions
+    serverActions: true,
   },
-  // Removed distDir: 'out' - not needed without static export
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Simplified webpack config
+  // Generate static pages for better deployment compatibility
+  generateStaticParams: async () => {
+    return [];
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
