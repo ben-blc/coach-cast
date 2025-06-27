@@ -1,4 +1,4 @@
-import { stripeProducts, type StripeProduct } from '@/src/stripe-config';
+import { stripeProducts, type StripeProduct, formatPrice as formatPriceFromConfig } from '@/src/stripe-config';
 import { getCurrentUser } from '@/lib/auth';
 
 export interface CheckoutResponse {
@@ -104,6 +104,9 @@ export function getSubscriptionPlanName(priceId: string | null): string {
 export function isSubscriptionActive(status: string): boolean {
   return ['active', 'trialing'].includes(status);
 }
+
+// Re-export formatPrice function
+export const formatPrice = formatPriceFromConfig;
 
 export { stripeProducts };
 export type { StripeProduct };

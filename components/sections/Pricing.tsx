@@ -18,16 +18,16 @@ const planFeatures = {
     'Book live sessions with human coaches on an A La Carte (pay-per-session) basis',
   ],
   'price_1ReBMSEREG4CzjmmiB7ZN5hL': [
-    '1 live session with a human coach of your choice per month (e.g., Natalie or Fatten)',
     '250 AI Coaching Credits per month for support between live sessions',
     'Full access to the Coaching Pathway dashboard and progress tracking',
     'Secure document sharing with your chosen human coach',
+    'Priority customer support',
   ],
   'price_1ReBNEEREG4CzjmmnOtrbc5F': [
-    '2 live sessions with a human coach of your choice per month',
     '600 AI Coaching Credits per month',
     'All features from the Coaching Starter plan',
-    'Potential premium: Priority scheduling or access to exclusive workshops',
+    'Priority scheduling and access to exclusive workshops',
+    'Advanced analytics and progress tracking',
   ],
 };
 
