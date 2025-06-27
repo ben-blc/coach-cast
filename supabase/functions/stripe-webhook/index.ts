@@ -13,22 +13,41 @@ const stripe = new Stripe(stripeSecret, {
 
 const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-Deno.serve(async (req) => {
-  try {
-    // Handle OPTIONS request for CORS preflight
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { status: 204 });
-    }
+// CORS headers for all responses
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
+};
 
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
     if (req.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response(
+        'Method not allowed', 
+        { 
+          status: 405,
+          headers: corsHeaders
+        }
+      );
     }
 
     // get the signature from the header
     const signature = req.headers.get('stripe-signature');
 
     if (!signature) {
-      return new Response('No signature found', { status: 400 });
+      return new Response(
+        'No signature found', 
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
     }
 
     // get the raw body
@@ -41,15 +60,32 @@ Deno.serve(async (req) => {
       event = await stripe.webhooks.constructEventAsync(body, signature, stripeWebhookSecret);
     } catch (error: any) {
       console.error(`Webhook signature verification failed: ${error.message}`);
-      return new Response(`Webhook signature verification failed: ${error.message}`, { status: 400 });
+      return new Response(
+        `Webhook signature verification failed: ${error.message}`, 
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
     }
 
     EdgeRuntime.waitUntil(handleEvent(event));
 
-    return Response.json({ received: true });
+    return new Response(
+      JSON.stringify({ received: true }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   } catch (error: any) {
     console.error('Error processing webhook:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
 
