@@ -5,51 +5,37 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Loader2, Home, Play } from 'lucide-react';
-import { getUserSubscription, getSubscriptionPlanName } from '@/lib/stripe';
+import { CheckCircle, Home, Play } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { Navbar } from '@/components/sections/Navbar';
 import Link from 'next/link';
 
 export default function SuccessPage() {
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [subscriptionData, setSubscriptionData] = useState<any>(null);
-  const [error, setError] = useState<string>('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get('session_id');
+  const planName = searchParams?.get('plan') || 'Your Plan';
 
   useEffect(() => {
-    async function loadSubscriptionData() {
+    async function loadUserData() {
       try {
-        // Check if user is authenticated
-        const user = await getCurrentUser();
-        if (!user) {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+        
+        if (!currentUser) {
           router.push('/auth');
           return;
         }
-
-        // Wait a moment for webhook to process
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Fetch updated subscription data
-        const subscription = await getUserSubscription();
-        setSubscriptionData(subscription);
       } catch (error) {
-        console.error('Error loading subscription data:', error);
-        setError('Failed to load subscription information');
+        console.error('Error loading user data:', error);
       } finally {
         setLoading(false);
       }
     }
 
-    if (sessionId) {
-      loadSubscriptionData();
-    } else {
-      setError('No session ID found');
-      setLoading(false);
-    }
-  }, [sessionId, router]);
+    loadUserData();
+  }, [router]);
 
   if (loading) {
     return (
@@ -57,32 +43,13 @@ export default function SuccessPage() {
         <Navbar />
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 border-4 border-blue-600 animate-spin mx-auto mb-4" />
-            <p className="text-gray-600">Processing your subscription...</p>
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
           </div>
         </div>
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <Navbar />
-        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-          <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-            <p className="text-gray-700 mb-4">{error}</p>
-            <Button asChild>
-              <Link href="/">Go Home</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const planName = subscriptionData ? getSubscriptionPlanName(subscriptionData.price_id) : 'Your Plan';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -102,11 +69,9 @@ export default function SuccessPage() {
             Your subscription has been successfully activated.
           </p>
 
-          {subscriptionData && (
-            <Badge className="bg-green-100 text-green-800 px-4 py-2 text-lg">
-              {planName}
-            </Badge>
-          )}
+          <Badge className="bg-green-100 text-green-800 px-4 py-2 text-lg">
+            {planName}
+          </Badge>
         </div>
 
         <Card className="shadow-lg mb-8">
@@ -146,56 +111,13 @@ export default function SuccessPage() {
           </CardContent>
         </Card>
 
-        {subscriptionData && (
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Subscription Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Plan</p>
-                  <p className="font-medium">{planName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <Badge className={subscriptionData.subscription_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                    {subscriptionData.subscription_status}
-                  </Badge>
-                </div>
-                {subscriptionData.current_period_end && (
-                  <div>
-                    <p className="text-sm text-gray-600">Next Billing Date</p>
-                    <p className="font-medium">
-                      {new Date(subscriptionData.current_period_end * 1000).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-                {subscriptionData.payment_method_last4 && (
-                  <div>
-                    <p className="text-sm text-gray-600">Payment Method</p>
-                    <p className="font-medium">
-                      {subscriptionData.payment_method_brand} •••• {subscriptionData.payment_method_last4}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="text-center mt-8">
+        <div className="text-center">
           <p className="text-gray-600 mb-4">
-            Need help getting started? Check out our{' '}
-            <Link href="/help" className="text-blue-600 hover:underline">
-              help center
-            </Link>{' '}
-            or{' '}
-            <Link href="/contact" className="text-blue-600 hover:underline">
-              contact support
-            </Link>
-            .
+            This is a demo version. In production, this would integrate with real Stripe payments.
           </p>
+          <Badge variant="outline" className="text-blue-600 border-blue-300">
+            Demo Mode Active
+          </Badge>
         </div>
       </div>
     </div>
