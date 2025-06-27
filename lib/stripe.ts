@@ -1,5 +1,41 @@
-import { stripeProducts, type StripeProduct, formatPrice as formatPriceFromConfig } from '@/src/stripe-config';
 import { getCurrentUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+
+export interface StripeProduct {
+  priceId: string;
+  name: string;
+  description: string;
+  price: number; // in cents
+  credits: number;
+  liveSessions: number;
+}
+
+export const stripeProducts: StripeProduct[] = [
+  {
+    priceId: 'price_1RXeYbEREG4CzjmmBKcnXTHc',
+    name: 'CoachBridge Explorer',
+    description: 'Perfect for getting started with AI coaching',
+    price: 2500, // $25.00
+    credits: 50,
+    liveSessions: 0,
+  },
+  {
+    priceId: 'price_1ReBMSEREG4CzjmmiB7ZN5hL',
+    name: 'CoachBridge Starter',
+    description: 'Ideal for regular coaching sessions',
+    price: 6900, // $69.00
+    credits: 250,
+    liveSessions: 1,
+  },
+  {
+    priceId: 'price_1ReBNEEREG4CzjmmnOtrbc5F',
+    name: 'CoachBridge Accelerator',
+    description: 'Maximum coaching with premium features',
+    price: 12900, // $129.00
+    credits: 600,
+    liveSessions: 2,
+  },
+];
 
 export interface CheckoutResponse {
   sessionId?: string;
@@ -35,7 +71,7 @@ export async function createCheckoutSession(
       throw new Error('Invalid product');
     }
 
-    const { data: { session } } = await import('@/lib/supabase').then(m => m.supabase.auth.getSession());
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
       throw new Error('No access token available');
     }
@@ -49,7 +85,7 @@ export async function createCheckoutSession(
       priceId,
       successUrl,
       cancelUrl,
-      mode: product.mode
+      mode: 'subscription'
     });
 
     const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout`, {
@@ -62,12 +98,11 @@ export async function createCheckoutSession(
         price_id: priceId,
         success_url: successUrl,
         cancel_url: cancelUrl,
-        mode: product.mode,
+        mode: 'subscription',
       }),
     });
 
     console.log('Checkout response status:', response.status);
-    console.log('Checkout response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -103,7 +138,6 @@ export async function getUserSubscription(): Promise<SubscriptionData | null> {
       return null;
     }
 
-    const { supabase } = await import('@/lib/supabase');
     const { data, error } = await supabase
       .from('stripe_user_subscriptions')
       .select('*')
@@ -132,8 +166,29 @@ export function isSubscriptionActive(status: string): boolean {
   return ['active', 'trialing'].includes(status);
 }
 
-// Re-export formatPrice function
-export const formatPrice = formatPriceFromConfig;
+export function formatPrice(priceInCents: number): string {
+  return `$${(priceInCents / 100).toFixed(2)}`;
+}
 
-export { stripeProducts };
-export type { StripeProduct };
+export function getProductByPriceId(priceId: string): StripeProduct | undefined {
+  return stripeProducts.find(product => product.priceId === priceId);
+}
+
+// Redirect to Stripe Checkout
+export async function redirectToStripeCheckout(priceId: string): Promise<void> {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${baseUrl}/pricing`;
+
+  const result = await createCheckoutSession(priceId, successUrl, cancelUrl);
+  
+  if (result.error) {
+    throw new Error(result.error);
+  }
+  
+  if (result.url) {
+    window.location.href = result.url;
+  } else {
+    throw new Error('No checkout URL returned');
+  }
+}

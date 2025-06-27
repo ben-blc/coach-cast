@@ -7,67 +7,43 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Check, Sparkles, Crown, Rocket, User, AlertCircle } from 'lucide-react';
+import { Check, Sparkles, Crown, Rocket, User, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser } from '@/lib/auth';
-import { updateUserSubscriptionPlan } from '@/lib/database';
+import { stripeProducts, redirectToStripeCheckout, formatPrice, type StripeProduct } from '@/lib/stripe';
 import Link from 'next/link';
 
-const stripeProducts = [
-  {
-    priceId: 'prod_SSZiLnwn48C65a',
-    name: 'CoachBridge Explorer',
-    price: 25,
-    period: '/month',
-    credits: 50,
-    description: 'Perfect for getting started with AI coaching',
-    features: [
-      '50 AI Coaching Credits per month',
-      'Access to all AI coaches',
-      'Goal tracking dashboard',
-      'Email support',
-      'Session analytics'
-    ],
-    icon: Sparkles,
-    popular: false
-  },
-  {
-    priceId: 'prod_SZK0FoI758nT4w',
-    name: 'CoachBridge Starter',
-    price: 69,
-    period: '/month',
-    credits: 250,
-    description: 'Ideal for regular coaching sessions',
-    features: [
-      '250 AI Coaching Credits per month',
-      '1 live human coaching session',
-      'Priority support',
-      'Advanced analytics',
-      'Document sharing',
-      'Goal tracking & progress reports'
-    ],
-    icon: Crown,
-    popular: true
-  },
-  {
-    priceId: 'prod_SZK134Z5uQsOSk',
-    name: 'CoachBridge Accelerator',
-    price: 129,
-    period: '/month',
-    credits: 600,
-    description: 'Maximum coaching with premium features',
-    features: [
-      '600 AI Coaching Credits per month',
-      '2 live human coaching sessions',
-      'Premium features',
-      'Priority scheduling',
-      'Exclusive workshops',
-      'Personal coaching consultant'
-    ],
-    icon: Rocket,
-    popular: false
-  }
-];
+const planIcons = {
+  'price_1RXeYbEREG4CzjmmBKcnXTHc': Sparkles,
+  'price_1ReBMSEREG4CzjmmiB7ZN5hL': Crown,
+  'price_1ReBNEEREG4CzjmmnOtrbc5F': Rocket,
+};
+
+const planFeatures = {
+  'price_1RXeYbEREG4CzjmmBKcnXTHc': [
+    '50 AI Coaching Credits per month',
+    'Access to all AI coaches',
+    'Goal tracking dashboard',
+    'Email support',
+    'Session analytics'
+  ],
+  'price_1ReBMSEREG4CzjmmiB7ZN5hL': [
+    '250 AI Coaching Credits per month',
+    '1 live human coaching session',
+    'Priority support',
+    'Advanced analytics',
+    'Document sharing',
+    'Goal tracking & progress reports'
+  ],
+  'price_1ReBNEEREG4CzjmmnOtrbc5F': [
+    '600 AI Coaching Credits per month',
+    '2 live human coaching sessions',
+    'Premium features',
+    'Priority scheduling',
+    'Exclusive workshops',
+    'Personal coaching consultant'
+  ],
+};
 
 export default function PricingPage() {
   const [user, setUser] = useState<any>(null);
@@ -90,7 +66,7 @@ export default function PricingPage() {
     loadUserData();
   }, []);
 
-  const handleSubscribe = async (product: typeof stripeProducts[0]) => {
+  const handleSubscribe = async (product: StripeProduct) => {
     try {
       if (!user) {
         toast({
@@ -103,49 +79,18 @@ export default function PricingPage() {
 
       setSubscribing(product.priceId);
 
-      // Map product IDs to plan types
-      const planTypeMap: Record<string, 'ai_explorer' | 'coaching_starter' | 'coaching_accelerator'> = {
-        'prod_SSZiLnwn48C65a': 'ai_explorer',
-        'prod_SZK0FoI758nT4w': 'coaching_starter',
-        'prod_SZK134Z5uQsOSk': 'coaching_accelerator'
-      };
-
-      const planType = planTypeMap[product.priceId];
-      if (!planType) {
-        throw new Error('Invalid product selected');
-      }
-
-      // Update subscription in database (demo mode)
-      const success = await updateUserSubscriptionPlan(user.id, planType, `demo_${product.priceId}`);
-      
-      if (success) {
-        toast({
-          title: 'Success!',
-          description: `Your ${product.name} subscription has been activated (demo mode).`,
-        });
-
-        // Redirect to success page
-        setTimeout(() => {
-          window.location.href = `/success?plan=${encodeURIComponent(product.name)}`;
-        }, 1000);
-      } else {
-        throw new Error('Failed to update subscription');
-      }
+      // Redirect to Stripe Checkout
+      await redirectToStripeCheckout(product.priceId);
 
     } catch (error) {
       console.error('Error creating subscription:', error);
       toast({
         title: 'Error',
-        description: 'Failed to process subscription. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to process subscription. Please try again.',
         variant: 'destructive',
       });
-    } finally {
       setSubscribing(null);
     }
-  };
-
-  const formatPrice = (price: number) => {
-    return `$${price}`;
   };
 
   return (
@@ -179,20 +124,12 @@ export default function PricingPage() {
             </Alert>
           )}
 
-          {/* Demo Mode Alert */}
-          <Alert className="mb-8 max-w-2xl mx-auto">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Demo Mode:</strong> This is a demonstration version. 
-              Subscriptions are simulated and no actual payment processing occurs.
-            </AlertDescription>
-          </Alert>
-
           {/* Pricing Plans */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {stripeProducts.map((product) => {
-              const Icon = product.icon;
-              const isPopular = product.popular;
+            {stripeProducts.map((product, index) => {
+              const Icon = planIcons[product.priceId as keyof typeof planIcons];
+              const features = planFeatures[product.priceId as keyof typeof planFeatures] || [];
+              const isPopular = product.priceId === 'price_1ReBMSEREG4CzjmmiB7ZN5hL';
 
               return (
                 <Card
@@ -222,7 +159,7 @@ export default function PricingPage() {
                       <span className="text-4xl font-bold text-gray-900">
                         {formatPrice(product.price)}
                       </span>
-                      <span className="text-gray-600">{product.period}</span>
+                      <span className="text-gray-600">/month</span>
                     </div>
                     <p className="text-sm text-gray-600 mt-2">{product.description}</p>
                     <Badge variant="outline" className="mt-2">
@@ -232,7 +169,7 @@ export default function PricingPage() {
 
                   <CardContent className="pt-0">
                     <ul className="space-y-3 mb-8">
-                      {product.features.map((feature, featureIndex) => (
+                      {features.map((feature, featureIndex) => (
                         <li
                           key={featureIndex}
                           className="flex items-start space-x-3"
@@ -251,11 +188,11 @@ export default function PricingPage() {
                     >
                       {subscribing === product.priceId ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Processing...
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Redirecting to Stripe...
                         </>
                       ) : (
-                        'Get Started'
+                        'Subscribe Now'
                       )}
                     </Button>
                   </CardContent>
@@ -268,6 +205,9 @@ export default function PricingPage() {
           <div className="text-center mt-12">
             <p className="text-gray-600 mb-4">
               All plans include access to our full coaching platform and 24/7 support.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Secure payments powered by Stripe. Cancel anytime.
             </p>
             {!user && !loading && (
               <Button variant="outline" size="lg" asChild>

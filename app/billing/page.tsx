@@ -16,10 +16,12 @@ import {
   CheckCircle,
   ArrowLeft,
   Coins,
-  Clock
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserProfile, getUserSubscription } from '@/lib/database';
+import { getUserProfile, getUserSubscription as getDBSubscription } from '@/lib/database';
+import { getUserSubscription, getSubscriptionPlanName, isSubscriptionActive, stripeProducts } from '@/lib/stripe';
 import { Navbar } from '@/components/sections/Navbar';
 import type { Profile, Subscription } from '@/lib/database';
 import Link from 'next/link';
@@ -28,6 +30,7 @@ export default function BillingPage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [stripeSubscription, setStripeSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -42,13 +45,15 @@ export default function BillingPage() {
 
         setUser(currentUser);
         
-        const [userProfile, userSubscription] = await Promise.all([
+        const [userProfile, userSubscription, stripeData] = await Promise.all([
           getUserProfile(currentUser.id),
-          getUserSubscription(currentUser.id)
+          getDBSubscription(currentUser.id),
+          getUserSubscription()
         ]);
         
         setProfile(userProfile);
         setSubscription(userSubscription);
+        setStripeSubscription(stripeData);
       } catch (error) {
         console.error('Error loading user data:', error);
       } finally {
@@ -78,15 +83,6 @@ export default function BillingPage() {
     }
   };
 
-  const getPlanCredits = (planType: string) => {
-    switch (planType) {
-      case 'ai_explorer': return 50;
-      case 'coaching_starter': return 250;
-      case 'coaching_accelerator': return 600;
-      default: return 7;
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -97,12 +93,19 @@ export default function BillingPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (timestamp: number | string) => {
+    const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleManageSubscription = () => {
+    // In a real implementation, you would redirect to Stripe Customer Portal
+    // For now, redirect to pricing page
+    router.push('/pricing');
   };
 
   if (loading) {
@@ -138,6 +141,8 @@ export default function BillingPage() {
     );
   }
 
+  const hasActiveStripeSubscription = stripeSubscription && isSubscriptionActive(stripeSubscription.subscription_status);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <Navbar />
@@ -153,15 +158,6 @@ export default function BillingPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Billing & Subscription</h1>
           <p className="text-gray-600">Manage your subscription and billing information</p>
         </div>
-
-        {/* Demo Mode Alert */}
-        <Alert className="mb-8">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Demo Mode:</strong> This is a demonstration version. 
-            No actual billing or payment processing occurs.
-          </AlertDescription>
-        </Alert>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Current Plan */}
@@ -205,28 +201,58 @@ export default function BillingPage() {
                   </div>
                 </div>
 
-                {subscription.plan_type !== 'free' && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Live Sessions Remaining</span>
-                      <span className="font-medium">{subscription.live_sessions_remaining}</span>
+                {/* Stripe Subscription Details */}
+                {hasActiveStripeSubscription && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <CheckCircle className="w-4 h-4 text-blue-600" />
+                      <p className="text-sm font-medium text-blue-800">Active Stripe Subscription</p>
                     </div>
-                    {subscription.stripe_subscription_id && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Subscription ID</span>
-                        <span className="font-mono text-xs">{subscription.stripe_subscription_id}</span>
-                      </div>
-                    )}
+                    <div className="space-y-2 text-sm">
+                      {stripeSubscription.payment_method_brand && stripeSubscription.payment_method_last4 && (
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Payment Method:</span>
+                          <span className="text-blue-900 font-medium">
+                            {stripeSubscription.payment_method_brand.toUpperCase()} •••• {stripeSubscription.payment_method_last4}
+                          </span>
+                        </div>
+                      )}
+                      {stripeSubscription.current_period_end && (
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Next Billing:</span>
+                          <span className="text-blue-900 font-medium">
+                            {formatDate(stripeSubscription.current_period_end)}
+                          </span>
+                        </div>
+                      )}
+                      {stripeSubscription.cancel_at_period_end && (
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Status:</span>
+                          <span className="text-red-600 font-medium">Cancels at period end</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
-                <div className="pt-4 border-t">
+                <div className="pt-4 border-t space-y-3">
                   <Button asChild className="w-full">
                     <Link href="/pricing">
                       <Settings className="w-4 h-4 mr-2" />
                       Change Plan
                     </Link>
                   </Button>
+                  
+                  {hasActiveStripeSubscription && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={handleManageSubscription}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Manage Subscription
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -316,28 +342,65 @@ export default function BillingPage() {
                 <p className="text-lg font-bold text-gray-900">
                   {getPlanDisplayName(subscription.plan_type)}
                 </p>
-                <p className="text-xs text-gray-500">{getPlanCredits(subscription.plan_type)} credits/month</p>
+                <p className="text-xs text-gray-500">
+                  {hasActiveStripeSubscription ? 'Stripe Managed' : 'Local Account'}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Billing History */}
+        {/* Billing Information */}
         <Card className="shadow-lg mt-8">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <DollarSign className="w-5 h-5" />
-              <span>Billing History</span>
+              <span>Billing Information</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8 text-gray-500">
-              <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p className="font-medium">No billing history available</p>
-              <p className="text-sm mt-2">
-                This is a demo version. In production, your billing history would appear here.
-              </p>
-            </div>
+            {hasActiveStripeSubscription ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <p className="text-sm font-medium text-green-800">Billing Active</p>
+                  </div>
+                  <p className="text-sm text-green-700">
+                    Your subscription is managed by Stripe with automatic billing.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Subscription Status</p>
+                    <Badge className={getStatusColor(stripeSubscription.subscription_status)}>
+                      {stripeSubscription.subscription_status}
+                    </Badge>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-600">Plan Name</p>
+                    <p className="font-medium text-gray-900">
+                      {getSubscriptionPlanName(stripeSubscription.price_id)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium">No active billing subscription</p>
+                <p className="text-sm mt-2">
+                  You're currently on a free plan. Upgrade to access premium features.
+                </p>
+                <Button asChild className="mt-4">
+                  <Link href="/pricing">
+                    View Plans
+                  </Link>
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
