@@ -9,36 +9,31 @@ const nextConfig = {
   },
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
-  // Optimize fonts to prevent loading errors
   optimizeFonts: false,
-  // Disable font optimization to prevent fetch errors
   experimental: {
     fontLoaders: [],
   },
-  // Ensure static export works properly
   distDir: 'out',
-  // Exclude Supabase functions from build completely
+  // Completely exclude Supabase functions and Deno files from webpack
   webpack: (config, { isServer }) => {
-    // Exclude all Supabase functions from webpack compilation
+    // Ignore all Supabase function files
+    config.resolve.alias = {
+      ...config.resolve.alias,
+    };
+    
+    // Add rules to ignore Deno and Supabase function files
     config.module.rules.push({
       test: /\.(ts|js)$/,
       include: [
         /supabase\/functions/,
-        /supabase\/.*\.ts$/,
-        /supabase\/.*\.js$/
+        /deno\.json$/,
+        /deno\.lock$/,
       ],
-      use: 'ignore-loader'
-    });
-    
-    // Also exclude any Deno-specific files
-    config.module.rules.push({
-      test: /deno\.json$/,
       use: 'ignore-loader'
     });
     
     return config;
   },
-  // Exclude Supabase functions from TypeScript checking
   typescript: {
     ignoreBuildErrors: true,
   },
