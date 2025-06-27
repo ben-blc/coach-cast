@@ -28,12 +28,25 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-4">
               <img 
                 src="/logo_square.png" 
                 alt="Coach Bridge" 
                 className="w-10 h-10 rounded-xl object-cover"
               />
+              <a 
+                href="https://bolt.new" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center space-x-2"
+              >
+                <img 
+                  src="/bolt-badge.png" 
+                  alt="Bolt.new" 
+                  className="w-6 h-6"
+                />
+                <span className="text-sm text-gray-400">Built with Bolt</span>
+              </a>
             </div>
             <p className="text-gray-400 text-sm">
               Transform your life with personalized AI and human coaching.
@@ -60,12 +73,9 @@ export function Footer() {
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={() => handleSectionNavigation('pricing')}
-                  className="hover:text-white transition-colors text-left"
-                >
+                <Link href="/pricing" className="hover:text-white transition-colors">
                   Pricing
-                </button>
+                </Link>
               </li>
               <li>
                 <button 

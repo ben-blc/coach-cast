@@ -316,6 +316,10 @@ export function Navbar() {
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
                 </Link>
+                <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1">
+                  <CreditCard className="w-4 h-4" />
+                  <span>Pricing</span>
+                </Link>
               </nav>
 
               {/* Only show credits if not on landing page */}
@@ -410,12 +414,9 @@ export function Navbar() {
                 >
                   Features
                 </button>
-                <button 
-                  onClick={() => handleSectionNavigation('pricing')}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
+                <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Pricing
-                </button>
+                </Link>
                 <button 
                   onClick={() => handleSectionNavigation('coaches')}
                   className="text-gray-600 hover:text-gray-900 transition-colors"
@@ -466,15 +467,10 @@ export function Navbar() {
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
                 </Link>
-                <button 
-                  onClick={() => {
-                    handleSectionNavigation('coaches');
-                    setIsMenuOpen(false);
-                  }}
-                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
-                >
-                  For Coaches
-                </button>
+                <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4" />
+                  <span>Pricing</span>
+                </Link>
                 {/* Only show credits in mobile menu if not on landing page */}
                 {shouldShowCredits && (
                   <div className="flex items-center justify-between pt-2">
@@ -517,15 +513,9 @@ export function Navbar() {
                 >
                   Features
                 </button>
-                <button 
-                  onClick={() => {
-                    handleSectionNavigation('pricing');
-                    setIsMenuOpen(false);
-                  }}
-                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
-                >
+                <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors text-left">
                   Pricing
-                </button>
+                </Link>
                 <button 
                   onClick={() => {
                     handleSectionNavigation('coaches');
