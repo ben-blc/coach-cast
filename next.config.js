@@ -12,6 +12,7 @@ const nextConfig = {
   optimizeFonts: false,
   experimental: {
     fontLoaders: [],
+    serverActions: true, // Enable Server Actions
   },
   distDir: 'out',
   typescript: {
