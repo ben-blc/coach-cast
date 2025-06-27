@@ -40,7 +40,19 @@ export async function createCheckoutSession(
       throw new Error('No access token available');
     }
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-checkout`, {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error('Supabase URL not configured');
+    }
+
+    console.log('Creating checkout session with:', {
+      priceId,
+      successUrl,
+      cancelUrl,
+      mode: product.mode
+    });
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -54,12 +66,26 @@ export async function createCheckoutSession(
       }),
     });
 
+    console.log('Checkout response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to create checkout session');
+      const errorText = await response.text();
+      console.error('Checkout error response:', errorText);
+      
+      let errorMessage = 'Failed to create checkout session';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    console.log('Checkout session created:', data);
+    
     return data;
   } catch (error) {
     console.error('Error creating checkout session:', error);
