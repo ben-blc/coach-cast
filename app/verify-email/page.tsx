@@ -19,44 +19,46 @@ export default function VerifyEmailPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get email from URL params or localStorage
-    const emailParam = searchParams.get('email');
-    const storedEmail = localStorage.getItem('pendingVerificationEmail');
-    
-    if (emailParam) {
-      setEmail(emailParam);
-      localStorage.setItem('pendingVerificationEmail', emailParam);
-    } else if (storedEmail) {
-      setEmail(storedEmail);
+    if (typeof window !== 'undefined') {
+      // Get email from URL params or localStorage
+      const emailParam = searchParams?.get('email');
+      const storedEmail = localStorage.getItem('pendingVerificationEmail');
+      
+      if (emailParam) {
+        setEmail(emailParam);
+        localStorage.setItem('pendingVerificationEmail', emailParam);
+      } else if (storedEmail) {
+        setEmail(storedEmail);
+      }
+
+      // Check if user is already verified
+      const checkVerification = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email_confirmed_at) {
+          // User is already verified, redirect to home
+          localStorage.removeItem('pendingVerificationEmail');
+          router.push('/');
+        }
+      };
+
+      checkVerification();
+
+      // Listen for auth state changes (email verification)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
+          localStorage.removeItem('pendingVerificationEmail');
+          toast({
+            title: 'Email verified successfully!',
+            description: 'Welcome to Coach Bridge. Let\'s start your coaching journey!',
+          });
+          router.push('/');
+        }
+      });
+
+      return () => {
+        subscription?.unsubscribe();
+      };
     }
-
-    // Check if user is already verified
-    const checkVerification = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email_confirmed_at) {
-        // User is already verified, redirect to home
-        localStorage.removeItem('pendingVerificationEmail');
-        router.push('/');
-      }
-    };
-
-    checkVerification();
-
-    // Listen for auth state changes (email verification)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
-        localStorage.removeItem('pendingVerificationEmail');
-        toast({
-          title: 'Email verified successfully!',
-          description: 'Welcome to Coach Bridge. Let\'s start your coaching journey!',
-        });
-        router.push('/');
-      }
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
   }, [router, searchParams, toast]);
 
   // Cooldown timer effect

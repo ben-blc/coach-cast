@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   description: 'Transform your life with personalized AI and human coaching',
 };
 
+// Disable dynamic rendering for static export
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 export default function RootLayout({
   children,
 }: {

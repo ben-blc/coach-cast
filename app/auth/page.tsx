@@ -26,11 +26,28 @@ export default function AuthPage() {
   
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = searchParams.get('mode');
-  const redirectTo = searchParams.get('redirect');
   const { toast } = useToast();
   
-  const [activeTab, setActiveTab] = useState(mode === 'signup' ? 'signup' : 'signin');
+  // Get mode and redirect from URL params safely
+  const [mode, setMode] = useState('signin');
+  const [redirectTo, setRedirectTo] = useState('');
+  const [activeTab, setActiveTab] = useState('signin');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlMode = searchParams?.get('mode');
+      const urlRedirect = searchParams?.get('redirect');
+      
+      if (urlMode === 'signup') {
+        setMode('signup');
+        setActiveTab('signup');
+      }
+      
+      if (urlRedirect) {
+        setRedirectTo(urlRedirect);
+      }
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
