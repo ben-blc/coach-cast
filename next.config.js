@@ -17,19 +17,22 @@ const nextConfig = {
   },
   // Ensure static export works properly
   distDir: 'out',
-  // Handle dynamic routes for static export
-  generateStaticParams: async () => {
-    return [];
-  },
-  // Disable server-side features for static export
-  serverRuntimeConfig: {},
-  publicRuntimeConfig: {},
-  // Exclude Supabase functions from build
+  // Exclude Supabase functions from build completely
   webpack: (config, { isServer }) => {
-    // Exclude Supabase functions directory from compilation
+    // Exclude all Supabase functions from webpack compilation
     config.module.rules.push({
-      test: /\.ts$/,
-      include: /supabase\/functions/,
+      test: /\.(ts|js)$/,
+      include: [
+        /supabase\/functions/,
+        /supabase\/.*\.ts$/,
+        /supabase\/.*\.js$/
+      ],
+      use: 'ignore-loader'
+    });
+    
+    // Also exclude any Deno-specific files
+    config.module.rules.push({
+      test: /deno\.json$/,
       use: 'ignore-loader'
     });
     

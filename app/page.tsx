@@ -410,7 +410,7 @@ export default function Home() {
                       
                       <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                         <div>
-                          <p className="text-sm font-medium text-blue-800">Paid Sessions (&gt;15 seconds)</p>
+                          <p className="text-sm font-medium text-blue-800">Paid Sessions (>15 seconds)</p>
                           <p className="text-xs text-blue-600">
                             {sessions.filter(s => s.status === 'completed' && s.duration_seconds > 15).length} sessions
                           </p>

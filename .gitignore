@@ -39,8 +39,17 @@ next-env.d.ts
 # Supabase
 .branches
 .temp
-.env.example
+.import
+.vscode
+supabase/.temp
+supabase/.branches
+supabase/.import
 
-# Build outputs
-dist/
-build/
+# Ignore Deno cache and lock files
+deno.lock
+.deno/
+
+# Ignore Supabase functions from Next.js build
+supabase/functions/**/*.ts
+supabase/functions/**/*.js
+supabase/functions/**/deno.json

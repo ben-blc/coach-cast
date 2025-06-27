@@ -26,6 +26,9 @@
   "exclude": [
     "node_modules",
     "supabase/functions/**/*",
-    "out"
+    "supabase/**/*.ts",
+    "supabase/**/*.js",
+    "out",
+    "**/deno.json"
   ]
 }
