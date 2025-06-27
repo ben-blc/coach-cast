@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Removed output: 'export' - this prevents Server Actions from working
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -14,13 +14,12 @@ const nextConfig = {
     fontLoaders: [],
     serverActions: true, // Enable Server Actions
   },
-  distDir: 'out',
+  // Removed distDir: 'out' - not needed without static export
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Simplified webpack config - no complex ignore rules
+  // Simplified webpack config
   webpack: (config) => {
-    // Simple exclusion of problematic files
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
