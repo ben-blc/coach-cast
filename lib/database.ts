@@ -15,7 +15,7 @@ export type Profile = {
 export type Subscription = {
   id: string;
   user_id: string;
-  plan_type: 'free' | 'ai_explorer' | 'coaching_starter' | 'coaching_accelerator';
+  plan_type: 'free' | 'explorer' | 'starter' | 'accelerator';
   credits_remaining: number;
   monthly_limit: number;
   live_sessions_remaining: number;
@@ -109,6 +109,17 @@ export type SessionAnalytics = {
   progress_notes?: string;
   created_at: string;
 };
+
+// Helper function to get plan display name
+export function getPlanDisplayName(planType: string): string {
+  switch (planType) {
+    case 'free': return 'Free';
+    case 'explorer': return 'Explorer';
+    case 'starter': return 'Starter';
+    case 'accelerator': return 'Accelerator';
+    default: return 'Free';
+  }
+}
 
 // Helper function to test Supabase connection
 async function testSupabaseConnection(): Promise<boolean> {
@@ -565,7 +576,7 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
 // Update subscription with Stripe data
 export async function updateUserSubscriptionPlan(
   userId: string, 
-  planType: 'ai_explorer' | 'coaching_starter' | 'coaching_accelerator',
+  planType: 'explorer' | 'starter' | 'accelerator',
   stripeSubscriptionId?: string
 ): Promise<boolean> {
   try {
@@ -577,9 +588,9 @@ export async function updateUserSubscriptionPlan(
 
     // Define plan limits
     const planLimits = {
-      ai_explorer: { credits: 50, live_sessions: 0 },
-      coaching_starter: { credits: 250, live_sessions: 1 },
-      coaching_accelerator: { credits: 600, live_sessions: 2 }
+      explorer: { credits: 50, live_sessions: 0 },
+      starter: { credits: 250, live_sessions: 1 },
+      accelerator: { credits: 600, live_sessions: 2 }
     };
 
     const limits = planLimits[planType];

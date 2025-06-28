@@ -21,7 +21,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserProfile, getUserSubscription as getDBSubscription, getUserCreditTransactions } from '@/lib/database';
+import { getUserProfile, getUserSubscription as getDBSubscription, getUserCreditTransactions, getPlanDisplayName } from '@/lib/database';
 import { getUserSubscription, isSubscriptionActive, stripeProducts, formatPrice, cancelSubscription, reactivateSubscription } from '@/lib/stripe';
 import { Navbar } from '@/components/sections/Navbar';
 import { useToast } from '@/hooks/use-toast';
@@ -70,35 +70,6 @@ export default function BillingPage() {
 
     loadUserData();
   }, [router]);
-
-  const getPlanDisplayName = (planType: string) => {
-    switch (planType) {
-      case 'free': return 'Free Trial';
-      case 'ai_explorer': return 'CoachBridge Explorer';
-      case 'coaching_starter': return 'CoachBridge Starter';
-      case 'coaching_accelerator': return 'CoachBridge Accelerator';
-      default: return 'Free Trial';
-    }
-  };
-
-  const getPlanPrice = (planType: string) => {
-    switch (planType) {
-      case 'ai_explorer': return '$25';
-      case 'coaching_starter': return '$69';
-      case 'coaching_accelerator': return '$129';
-      default: return '$0';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'trialing': return 'bg-blue-100 text-blue-800';
-      case 'canceled': return 'bg-red-100 text-red-800';
-      case 'past_due': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const formatDate = (timestamp: number | string) => {
     const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp);
@@ -252,10 +223,19 @@ export default function BillingPage() {
                       {getPlanDisplayName(subscription.plan_type)}
                     </h3>
                     <p className="text-gray-600">
-                      {getPlanPrice(subscription.plan_type)}/month
+                      {subscription.plan_type === 'free' ? 'Free' : 
+                       subscription.plan_type === 'explorer' ? '$25/month' :
+                       subscription.plan_type === 'starter' ? '$69/month' :
+                       subscription.plan_type === 'accelerator' ? '$129/month' : 'Free'}
                     </p>
                   </div>
-                  <Badge className={getStatusColor(subscription.status)}>
+                  <Badge className={
+                    subscription.status === 'active' ? 'bg-green-100 text-green-800' :
+                    subscription.status === 'trialing' ? 'bg-blue-100 text-blue-800' :
+                    subscription.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    subscription.status === 'past_due' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }>
                     {subscription.status}
                   </Badge>
                 </div>
@@ -516,7 +496,13 @@ export default function BillingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Subscription Status</p>
-                    <Badge className={getStatusColor(stripeSubscription.subscription_status)}>
+                    <Badge className={
+                      stripeSubscription.subscription_status === 'active' ? 'bg-green-100 text-green-800' :
+                      stripeSubscription.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-800' :
+                      stripeSubscription.subscription_status === 'canceled' ? 'bg-red-100 text-red-800' :
+                      stripeSubscription.subscription_status === 'past_due' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }>
                       {stripeSubscription.subscription_status}
                     </Badge>
                   </div>

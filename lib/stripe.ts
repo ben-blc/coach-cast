@@ -8,32 +8,36 @@ export interface StripeProduct {
   price: number; // in cents
   credits: number;
   liveSessions: number;
+  planType: 'explorer' | 'starter' | 'accelerator';
 }
 
 export const stripeProducts: StripeProduct[] = [
   {
     priceId: 'price_1RXeYbEREG4CzjmmBKcnXTHc',
-    name: 'CoachBridge Explorer',
+    name: 'Explorer',
     description: 'Self starters who want a flexible AI accountability partner to help them stay on track with their development. Includes 50 x AI Coaching Credits',
     price: 2500, // $25.00
     credits: 50,
     liveSessions: 0,
+    planType: 'explorer',
   },
   {
     priceId: 'price_1ReBMSEREG4CzjmmiB7ZN5hL',
-    name: 'CoachBridge Starter', 
+    name: 'Starter', 
     description: 'Individuals seeking more AI coaching and the guidance of a human expert through webinars or group coaching. Includes 250 AI Coaching Credits.',
     price: 6900, // $69.00
     credits: 250,
     liveSessions: 1,
+    planType: 'starter',
   },
   {
     priceId: 'price_1ReBNEEREG4CzjmmnOtrbc5F',
-    name: 'CoachBridge Accelerator',
+    name: 'Accelerator',
     description: 'Individuals seeking more AI coaching with plenty of credits to use with AI Voice & Video Coaching. Includes 600 AI Coaching Credits.',
     price: 12900, // $129.00
     credits: 600,
     liveSessions: 2,
+    planType: 'accelerator',
   },
 ];
 

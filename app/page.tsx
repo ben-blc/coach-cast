@@ -34,7 +34,7 @@ import {
   Zap,
   Coins
 } from 'lucide-react';
-import { getUserProfile, getUserSubscription, getUserSessions, ensureUserProfile, ensureUserSubscription } from '@/lib/database';
+import { getUserProfile, getUserSubscription, getUserSessions, ensureUserProfile, ensureUserSubscription, getPlanDisplayName } from '@/lib/database';
 import type { Profile, Subscription, CoachingSession } from '@/lib/database';
 
 export default function Home() {
@@ -162,16 +162,6 @@ export default function Home() {
 
   // If user is authenticated, show dashboard
   if (user && profile && subscription) {
-    const getPlanDisplayName = (planType: string) => {
-      switch (planType) {
-        case 'free': return 'Free Trial';
-        case 'ai_explorer': return 'AI Explorer';
-        case 'coaching_starter': return 'Coaching Starter';
-        case 'coaching_accelerator': return 'Coaching Accelerator';
-        default: return 'Free Trial';
-      }
-    };
-
     // Calculate session statistics
     const totalSessionTime = sessions.reduce((total, session) => total + session.duration_seconds, 0);
     const totalMinutes = Math.floor(totalSessionTime / 60);

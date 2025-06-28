@@ -137,31 +137,31 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
   if (customer && priceId) {
     // Map price IDs to plan types and credits based on your product specifications
     const planMapping: Record<string, { 
-      plan_type: string; 
+      plan_type: 'explorer' | 'starter' | 'accelerator'; 
       credits: number; 
       live_sessions: number;
       plan_name: string;
     }> = {
-      // CoachBridge Explorer - $25 - 50 AI Coaching Credits
+      // Explorer - $25 - 50 AI Coaching Credits
       'price_1RXeYbEREG4CzjmmBKcnXTHc': { 
-        plan_type: 'ai_explorer', 
+        plan_type: 'explorer', 
         credits: 50, 
         live_sessions: 0,
-        plan_name: 'CoachBridge Explorer'
+        plan_name: 'Explorer'
       },
-      // CoachBridge Starter - $69 - 250 AI Coaching Credits  
+      // Starter - $69 - 250 AI Coaching Credits  
       'price_1ReBMSEREG4CzjmmiB7ZN5hL': { 
-        plan_type: 'coaching_starter', 
+        plan_type: 'starter', 
         credits: 250, 
         live_sessions: 1,
-        plan_name: 'CoachBridge Starter'
+        plan_name: 'Starter'
       },
-      // CoachBridge Accelerator - $129 - 600 AI Coaching Credits
+      // Accelerator - $129 - 600 AI Coaching Credits
       'price_1ReBNEEREG4CzjmmnOtrbc5F': { 
-        plan_type: 'coaching_accelerator', 
+        plan_type: 'accelerator', 
         credits: 600, 
         live_sessions: 2,
-        plan_name: 'CoachBridge Accelerator'
+        plan_name: 'Accelerator'
       },
     };
 
@@ -207,7 +207,7 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
             user_id: customer.user_id,
             transaction_type: 'purchase',
             credits_amount: planInfo.credits,
-            description: `Purchased ${planInfo.plan_name} - ${planInfo.credits} credits added`,
+            description: `Purchased ${planInfo.plan_name} plan - ${planInfo.credits} credits added`,
             stripe_subscription_id: subscription.id,
           });
       }
@@ -301,17 +301,17 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
           'price_1RXeYbEREG4CzjmmBKcnXTHc': { 
             credits: 50, 
             live_sessions: 0, 
-            plan_name: 'CoachBridge Explorer' 
+            plan_name: 'Explorer' 
           },
           'price_1ReBMSEREG4CzjmmiB7ZN5hL': { 
             credits: 250, 
             live_sessions: 1, 
-            plan_name: 'CoachBridge Starter' 
+            plan_name: 'Starter' 
           },
           'price_1ReBNEEREG4CzjmmnOtrbc5F': { 
             credits: 600, 
             live_sessions: 2, 
-            plan_name: 'CoachBridge Accelerator' 
+            plan_name: 'Accelerator' 
           },
         };
 
@@ -339,7 +339,7 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
               user_id: customer.user_id,
               transaction_type: 'renewal',
               credits_amount: planInfo.credits,
-              description: `${planInfo.plan_name} renewal - ${planInfo.credits} credits added`,
+              description: `${planInfo.plan_name} plan renewal - ${planInfo.credits} credits added`,
               stripe_subscription_id: subscription.id,
               stripe_invoice_id: invoice.id,
             });
