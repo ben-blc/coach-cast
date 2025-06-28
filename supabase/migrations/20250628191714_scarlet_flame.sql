@@ -1,5 +1,5 @@
 /*
-  # Complete Stripe Integration Schema
+  # Complete Stripe Integration and Credit Transactions
 
   1. New Tables
     - `stripe_customers`: Links Supabase users to Stripe customers
@@ -17,7 +17,7 @@
     - Service role policies for admin access
 */
 
--- Create transaction type enum (with proper error handling)
+-- Create enums only if they don't exist
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'credit_transaction_type') THEN
@@ -31,7 +31,6 @@ BEGIN
     END IF;
 END $$;
 
--- Create subscription status enum (with proper error handling)
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'stripe_subscription_status') THEN
@@ -49,7 +48,6 @@ BEGIN
     END IF;
 END $$;
 
--- Create order status enum (with proper error handling)
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'stripe_order_status') THEN
@@ -122,147 +120,85 @@ ALTER TABLE stripe_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stripe_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_transactions ENABLE ROW LEVEL SECURITY;
 
--- Create policies for stripe_customers (with conflict handling)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'stripe_customers' 
-        AND policyname = 'Users can view their own customer data'
-    ) THEN
-        CREATE POLICY "Users can view their own customer data"
-            ON stripe_customers
-            FOR SELECT
-            TO authenticated
-            USING (user_id = auth.uid() AND deleted_at IS NULL);
-    END IF;
-END $$;
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their own customer data" ON stripe_customers;
+DROP POLICY IF EXISTS "Service role can manage stripe_customers" ON stripe_customers;
+DROP POLICY IF EXISTS "Users can view their own subscription data" ON stripe_subscriptions;
+DROP POLICY IF EXISTS "Service role can manage stripe_subscriptions" ON stripe_subscriptions;
+DROP POLICY IF EXISTS "Users can view their own order data" ON stripe_orders;
+DROP POLICY IF EXISTS "Service role can manage stripe_orders" ON stripe_orders;
+DROP POLICY IF EXISTS "Users can read own credit transactions" ON credit_transactions;
+DROP POLICY IF EXISTS "Service role can manage all credit transactions" ON credit_transactions;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'stripe_customers' 
-        AND policyname = 'Service role can manage stripe_customers'
-    ) THEN
-        CREATE POLICY "Service role can manage stripe_customers"
-            ON stripe_customers
-            FOR ALL
-            TO service_role
-            USING (true)
-            WITH CHECK (true);
-    END IF;
-END $$;
+-- Create policies for stripe_customers
+CREATE POLICY "Users can view their own customer data"
+    ON stripe_customers
+    FOR SELECT
+    TO authenticated
+    USING (user_id = auth.uid() AND deleted_at IS NULL);
 
--- Create policies for stripe_subscriptions (with conflict handling)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'stripe_subscriptions' 
-        AND policyname = 'Users can view their own subscription data'
-    ) THEN
-        CREATE POLICY "Users can view their own subscription data"
-            ON stripe_subscriptions
-            FOR SELECT
-            TO authenticated
-            USING (
-                customer_id IN (
-                    SELECT customer_id
-                    FROM stripe_customers
-                    WHERE user_id = auth.uid() AND deleted_at IS NULL
-                )
-                AND deleted_at IS NULL
-            );
-    END IF;
-END $$;
+CREATE POLICY "Service role can manage stripe_customers"
+    ON stripe_customers
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'stripe_subscriptions' 
-        AND policyname = 'Service role can manage stripe_subscriptions'
-    ) THEN
-        CREATE POLICY "Service role can manage stripe_subscriptions"
-            ON stripe_subscriptions
-            FOR ALL
-            TO service_role
-            USING (true)
-            WITH CHECK (true);
-    END IF;
-END $$;
+-- Create policies for stripe_subscriptions
+CREATE POLICY "Users can view their own subscription data"
+    ON stripe_subscriptions
+    FOR SELECT
+    TO authenticated
+    USING (
+        customer_id IN (
+            SELECT customer_id
+            FROM stripe_customers
+            WHERE user_id = auth.uid() AND deleted_at IS NULL
+        )
+        AND deleted_at IS NULL
+    );
 
--- Create policies for stripe_orders (with conflict handling)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'stripe_orders' 
-        AND policyname = 'Users can view their own order data'
-    ) THEN
-        CREATE POLICY "Users can view their own order data"
-            ON stripe_orders
-            FOR SELECT
-            TO authenticated
-            USING (
-                customer_id IN (
-                    SELECT customer_id
-                    FROM stripe_customers
-                    WHERE user_id = auth.uid() AND deleted_at IS NULL
-                )
-                AND deleted_at IS NULL
-            );
-    END IF;
-END $$;
+CREATE POLICY "Service role can manage stripe_subscriptions"
+    ON stripe_subscriptions
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'stripe_orders' 
-        AND policyname = 'Service role can manage stripe_orders'
-    ) THEN
-        CREATE POLICY "Service role can manage stripe_orders"
-            ON stripe_orders
-            FOR ALL
-            TO service_role
-            USING (true)
-            WITH CHECK (true);
-    END IF;
-END $$;
+-- Create policies for stripe_orders
+CREATE POLICY "Users can view their own order data"
+    ON stripe_orders
+    FOR SELECT
+    TO authenticated
+    USING (
+        customer_id IN (
+            SELECT customer_id
+            FROM stripe_customers
+            WHERE user_id = auth.uid() AND deleted_at IS NULL
+        )
+        AND deleted_at IS NULL
+    );
 
--- Create policies for credit_transactions (with conflict handling)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'credit_transactions' 
-        AND policyname = 'Users can read own credit transactions'
-    ) THEN
-        CREATE POLICY "Users can read own credit transactions"
-          ON credit_transactions
-          FOR SELECT
-          TO authenticated
-          USING (auth.uid() = user_id);
-    END IF;
-END $$;
+CREATE POLICY "Service role can manage stripe_orders"
+    ON stripe_orders
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
 
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE tablename = 'credit_transactions' 
-        AND policyname = 'Service role can manage all credit transactions'
-    ) THEN
-        CREATE POLICY "Service role can manage all credit transactions"
-          ON credit_transactions
-          FOR ALL
-          TO service_role
-          USING (true)
-          WITH CHECK (true);
-    END IF;
-END $$;
+-- Create policies for credit_transactions
+CREATE POLICY "Users can read own credit transactions"
+  ON credit_transactions
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Service role can manage all credit transactions"
+  ON credit_transactions
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_stripe_customers_user_id ON stripe_customers(user_id);
@@ -321,6 +257,39 @@ AND (o.deleted_at IS NULL OR o.deleted_at IS NULL);
 -- Grant access to the view
 GRANT SELECT ON stripe_user_orders TO authenticated;
 
+-- Add function to handle subscription updates and ensure only one active subscription
+CREATE OR REPLACE FUNCTION handle_subscription_update()
+RETURNS trigger AS $$
+BEGIN
+  -- If this is a new active subscription, cancel all other active subscriptions for this user
+  IF NEW.status = 'active' AND NEW.stripe_subscription_id IS NOT NULL THEN
+    UPDATE subscriptions 
+    SET 
+      status = 'cancelled',
+      updated_at = now()
+    WHERE 
+      user_id = NEW.user_id 
+      AND id != NEW.id 
+      AND status IN ('active', 'trialing')
+      AND stripe_subscription_id IS NOT NULL;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger for subscription updates
+DROP TRIGGER IF EXISTS on_subscription_update ON subscriptions;
+CREATE TRIGGER on_subscription_update
+  AFTER UPDATE ON subscriptions
+  FOR EACH ROW 
+  WHEN (NEW.status = 'active' AND NEW.stripe_subscription_id IS NOT NULL)
+  EXECUTE FUNCTION handle_subscription_update();
+
+-- Add indexes for better performance on subscription queries
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_status ON subscriptions(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_id ON subscriptions(stripe_subscription_id);
+
 -- Add helpful comments to tables
 COMMENT ON TABLE stripe_customers IS 'Links Supabase users to Stripe customers';
 COMMENT ON TABLE stripe_subscriptions IS 'Manages Stripe subscription data with status tracking';
@@ -341,3 +310,5 @@ COMMENT ON COLUMN credit_transactions.credits_amount IS 'Amount of credits (posi
 COMMENT ON COLUMN credit_transactions.description IS 'Human-readable description of the transaction';
 COMMENT ON COLUMN credit_transactions.stripe_subscription_id IS 'Optional reference to Stripe subscription';
 COMMENT ON COLUMN credit_transactions.stripe_invoice_id IS 'Optional reference to Stripe invoice';
+COMMENT ON FUNCTION handle_subscription_update() IS 'Ensures only one active Stripe subscription per user';
+COMMENT ON TRIGGER on_subscription_update ON subscriptions IS 'Automatically cancels old subscriptions when new one becomes active';
