@@ -15,34 +15,35 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Menu, X, User, Settings, LogOut, Home, Users, CreditCard } from 'lucide-react';
 import { getCurrentUser, signOut, onAuthStateChange } from '@/lib/auth';
-import { getUserProfile, getUserSubscription } from '@/lib/database';
+import { getUserProfile } from '@/lib/database';
+import { getUserActiveSubscription } from '@/lib/subscription-service';
 import { useRouter, usePathname } from 'next/navigation';
-import type { Profile, Subscription } from '@/lib/database';
+import type { Profile } from '@/lib/database';
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   const isLandingPage = pathname === '/' && !user;
-  const shouldShowCredits = !isLandingPage && user && profile && subscription;
+  const shouldShowCredits = !isLandingPage && user && profile;
 
   const loadUserData = useCallback(async () => {
     try {
       const currentUser = await getCurrentUser();
       if (currentUser) {
         setUser(currentUser);
-        const [userProfile, userSubscription] = await Promise.all([
+        const [userProfile, activeSubscription] = await Promise.all([
           getUserProfile(currentUser.id),
-          getUserSubscription(currentUser.id)
+          getUserActiveSubscription()
         ]);
         setProfile(userProfile);
-        setSubscription(userSubscription);
+        setSubscription(activeSubscription);
       } else {
         setUser(null);
         setProfile(null);
@@ -88,7 +89,7 @@ export function Navbar() {
 
   const calculateCreditsRemaining = useCallback(() => {
     if (!subscription) return 0;
-    return Math.max(0, subscription.credits_remaining);
+    return Math.max(0, subscription.tokens_remaining);
   }, [subscription]);
 
   const handleSectionNavigation = useCallback((sectionId: string) => {
@@ -111,16 +112,6 @@ export function Navbar() {
       router.push('/');
     }
   }, [user, isLandingPage, router]);
-
-  const getPlanDisplayName = (planType: string) => {
-    switch (planType) {
-      case 'free': return 'Free Trial';
-      case 'ai_explorer': return 'Explorer';
-      case 'coaching_starter': return 'Starter';
-      case 'coaching_accelerator': return 'Accelerator';
-      default: return 'Free Trial';
-    }
-  };
 
   return (
     <header className="bg-white/95 backdrop-blur-md border-b border-brand-primary/10 sticky top-0 z-50 shadow-sm">
@@ -168,9 +159,10 @@ export function Navbar() {
 
               {shouldShowCredits && (
                 <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
-                  <span>Credits:</span>
+                  <span>Tokens:</span>
                   <Badge variant="secondary" className="bg-brand-light text-brand-primary">
-                    {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
+                    {subscription ? calculateCreditsRemaining() : 0}
+                    {subscription ? `/${subscription.tokens_allocated}` : '/0'}
                   </Badge>
                 </div>
               )}
@@ -195,10 +187,10 @@ export function Navbar() {
                       {subscription && (
                         <div className="flex items-center justify-between mt-2">
                           <Badge variant="outline" className="text-xs w-fit border-brand-primary text-brand-primary">
-                            {getPlanDisplayName(subscription.plan_type)}
+                            {subscription.plan_name}
                           </Badge>
                           <div className="text-xs text-muted-foreground">
-                            {calculateCreditsRemaining()}/{subscription.monthly_limit} credits
+                            {calculateCreditsRemaining()}/{subscription.tokens_allocated} tokens
                           </div>
                         </div>
                       )}
@@ -310,9 +302,10 @@ export function Navbar() {
                 {shouldShowCredits && (
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <span>Credits:</span>
+                      <span>Tokens:</span>
                       <Badge variant="secondary" className="bg-brand-light text-brand-primary">
-                        {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
+                        {subscription ? calculateCreditsRemaining() : 0}
+                        {subscription ? `/${subscription.tokens_allocated}` : '/0'}
                       </Badge>
                     </div>
                   </div>

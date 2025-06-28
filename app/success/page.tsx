@@ -7,15 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Home, Play, Loader2 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserSubscription } from '@/lib/stripe';
-import { getUserSubscription as getLocalSubscription } from '@/lib/database';
+import { getUserActiveSubscription } from '@/lib/subscription-service';
 import { Navbar } from '@/components/sections/Navbar';
 import Link from 'next/link';
 
 export default function SuccessPage() {
   const [user, setUser] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
-  const [localSubscription, setLocalSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,13 +37,8 @@ export default function SuccessPage() {
         }
 
         // Load subscription data
-        const [stripeData, localData] = await Promise.all([
-          getUserSubscription(),
-          getLocalSubscription(currentUser.id)
-        ]);
-        
-        setSubscription(stripeData);
-        setLocalSubscription(localData);
+        const activeSubscription = await getUserActiveSubscription();
+        setSubscription(activeSubscription);
 
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -56,16 +49,6 @@ export default function SuccessPage() {
 
     loadUserData();
   }, [router, sessionId]);
-
-  const getPlanDisplayName = (planType: string) => {
-    switch (planType) {
-      case 'free': return 'Free Trial';
-      case 'ai_explorer': return 'Explorer';
-      case 'coaching_starter': return 'Starter';
-      case 'coaching_accelerator': return 'Accelerator';
-      default: return 'Free Trial';
-    }
-  };
 
   if (loading) {
     return (
@@ -102,15 +85,15 @@ export default function SuccessPage() {
             }
           </p>
 
-          {localSubscription && (
+          {subscription && (
             <Badge className="bg-green-100 text-green-800 px-4 py-2 text-lg">
-              {getPlanDisplayName(localSubscription.plan_type)} Plan Active
+              {subscription.plan_name} Plan Active
             </Badge>
           )}
         </div>
 
         {/* Subscription Details */}
-        {localSubscription && (
+        {subscription && (
           <Card className="shadow-lg mb-8">
             <CardHeader>
               <CardTitle className="text-center">Your Subscription Details</CardTitle>
@@ -120,45 +103,35 @@ export default function SuccessPage() {
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-gray-900 mb-2">Plan Type</h3>
                   <p className="text-lg font-medium text-blue-800">
-                    {getPlanDisplayName(localSubscription.plan_type)}
+                    {subscription.plan_name}
                   </p>
                 </div>
                 
                 <div className="bg-green-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-2">Credits Available</h3>
+                  <h3 className="font-semibold text-gray-900 mb-2">Tokens Available</h3>
                   <p className="text-lg font-medium text-green-800">
-                    {localSubscription.credits_remaining} / {localSubscription.monthly_limit}
+                    {subscription.tokens_remaining} / {subscription.tokens_allocated}
                   </p>
                 </div>
                 
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-gray-900 mb-2">Status</h3>
-                  <Badge className={localSubscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
-                    {localSubscription.status}
+                  <Badge className={subscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                    {subscription.status}
                   </Badge>
                 </div>
               </div>
 
-              {subscription && subscription.subscription_status === 'active' && (
+              {subscription.current_period_end && (
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-semibold text-gray-900 mb-2">Billing Information</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    {subscription.payment_method_brand && subscription.payment_method_last4 && (
-                      <div>
-                        <span className="text-gray-600">Payment Method:</span>
-                        <span className="ml-2 font-medium">
-                          {subscription.payment_method_brand.toUpperCase()} •••• {subscription.payment_method_last4}
-                        </span>
-                      </div>
-                    )}
-                    {subscription.current_period_end && (
-                      <div>
-                        <span className="text-gray-600">Next Billing:</span>
-                        <span className="ml-2 font-medium">
-                          {new Date(subscription.current_period_end * 1000).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
+                    <div>
+                      <span className="text-gray-600">Next Billing:</span>
+                      <span className="ml-2 font-medium">
+                        {new Date(subscription.current_period_end).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -205,7 +178,9 @@ export default function SuccessPage() {
 
         <div className="text-center">
           <p className="text-gray-600 mb-4">
-            Your subscription is now active and ready to use. Start exploring our coaching platform!
+            {subscription 
+              ? `Your ${subscription.plan_name} subscription is now active with ${subscription.tokens_remaining} tokens available.`
+              : 'Your account is ready to use. Start exploring our coaching platform!'}
           </p>
           <Badge variant="outline" className="text-green-600 border-green-300">
             Powered by Stripe
