@@ -17,13 +17,15 @@ import {
   ArrowLeft,
   Coins,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserProfile, getUserSubscription as getDBSubscription } from '@/lib/database';
-import { getUserSubscription, getSubscriptionPlanName, isSubscriptionActive, stripeProducts } from '@/lib/stripe';
+import { getUserProfile, getUserSubscription as getDBSubscription, getUserCreditTransactions } from '@/lib/database';
+import { getUserSubscription, isSubscriptionActive, stripeProducts, formatPrice, cancelSubscription, reactivateSubscription } from '@/lib/stripe';
 import { Navbar } from '@/components/sections/Navbar';
-import type { Profile, Subscription } from '@/lib/database';
+import { useToast } from '@/hooks/use-toast';
+import type { Profile, Subscription, CreditTransaction } from '@/lib/database';
 import Link from 'next/link';
 
 export default function BillingPage() {
@@ -31,8 +33,11 @@ export default function BillingPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [stripeSubscription, setStripeSubscription] = useState<any>(null);
+  const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     async function loadUserData() {
@@ -45,15 +50,17 @@ export default function BillingPage() {
 
         setUser(currentUser);
         
-        const [userProfile, userSubscription, stripeData] = await Promise.all([
+        const [userProfile, userSubscription, stripeData, transactions] = await Promise.all([
           getUserProfile(currentUser.id),
           getDBSubscription(currentUser.id),
-          getUserSubscription()
+          getUserSubscription(),
+          getUserCreditTransactions(currentUser.id)
         ]);
         
         setProfile(userProfile);
         setSubscription(userSubscription);
         setStripeSubscription(stripeData);
+        setCreditTransactions(transactions);
       } catch (error) {
         console.error('Error loading user data:', error);
       } finally {
@@ -102,10 +109,79 @@ export default function BillingPage() {
     });
   };
 
-  const handleManageSubscription = () => {
-    // In a real implementation, you would redirect to Stripe Customer Portal
-    // For now, redirect to pricing page
-    router.push('/pricing');
+  const handleCancelSubscription = async () => {
+    if (!confirm('Are you sure you want to cancel your subscription? It will remain active until the end of your current billing period.')) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const result = await cancelSubscription();
+      if (result.success) {
+        toast({
+          title: 'Subscription Cancelled',
+          description: result.message,
+        });
+        // Refresh subscription data
+        const stripeData = await getUserSubscription();
+        setStripeSubscription(stripeData);
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to cancel subscription',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to cancel subscription',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    setActionLoading(true);
+    try {
+      const result = await reactivateSubscription();
+      if (result.success) {
+        toast({
+          title: 'Subscription Reactivated',
+          description: result.message,
+        });
+        // Refresh subscription data
+        const stripeData = await getUserSubscription();
+        setStripeSubscription(stripeData);
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to reactivate subscription',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to reactivate subscription',
+        variant: 'destructive',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const getTransactionTypeColor = (type: string) => {
+    switch (type) {
+      case 'purchase': return 'bg-green-100 text-green-800';
+      case 'renewal': return 'bg-blue-100 text-blue-800';
+      case 'usage': return 'bg-red-100 text-red-800';
+      case 'refund': return 'bg-yellow-100 text-yellow-800';
+      case 'bonus': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   if (loading) {
@@ -244,14 +320,37 @@ export default function BillingPage() {
                   </Button>
                   
                   {hasActiveStripeSubscription && (
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={handleManageSubscription}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Manage Subscription
-                    </Button>
+                    <div className="space-y-2">
+                      {stripeSubscription.cancel_at_period_end ? (
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={handleReactivateSubscription}
+                          disabled={actionLoading}
+                        >
+                          {actionLoading ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                          )}
+                          Reactivate Subscription
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          className="w-full text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={handleCancelSubscription}
+                          disabled={actionLoading}
+                        >
+                          {actionLoading ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                          )}
+                          Cancel Subscription
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -350,6 +449,49 @@ export default function BillingPage() {
           </CardContent>
         </Card>
 
+        {/* Credit Transaction History */}
+        {creditTransactions.length > 0 && (
+          <Card className="shadow-lg mt-8">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <DollarSign className="w-5 h-5" />
+                <span>Credit Transaction History</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {creditTransactions.slice(0, 10).map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Badge className={getTransactionTypeColor(transaction.transaction_type)}>
+                        {transaction.transaction_type}
+                      </Badge>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {transaction.description}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatDate(transaction.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`text-sm font-medium ${
+                      transaction.credits_amount > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {transaction.credits_amount > 0 ? '+' : ''}{transaction.credits_amount} credits
+                    </div>
+                  </div>
+                ))}
+                {creditTransactions.length > 10 && (
+                  <p className="text-sm text-gray-500 text-center">
+                    Showing 10 most recent transactions
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Billing Information */}
         <Card className="shadow-lg mt-8">
           <CardHeader>
@@ -382,7 +524,7 @@ export default function BillingPage() {
                   <div>
                     <p className="text-sm text-gray-600">Plan Name</p>
                     <p className="font-medium text-gray-900">
-                      {getSubscriptionPlanName(stripeSubscription.price_id)}
+                      {getPlanDisplayName(subscription.plan_type)}
                     </p>
                   </div>
                 </div>
