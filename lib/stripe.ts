@@ -1,5 +1,4 @@
 import { getCurrentUser } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
 
 export interface StripeProduct {
   priceId: string;
@@ -55,75 +54,29 @@ export interface SubscriptionData {
   payment_method_last4: string | null;
 }
 
-export async function createCheckoutSession(
-  priceId: string,
-  successUrl: string,
-  cancelUrl: string
-): Promise<CheckoutResponse> {
+export async function createCheckoutSession(priceId: string): Promise<CheckoutResponse> {
   try {
     const user = await getCurrentUser();
     if (!user) {
       throw new Error('User not authenticated');
     }
 
-    const product = stripeProducts.find(p => p.priceId === priceId);
-    if (!product) {
-      throw new Error('Invalid product');
-    }
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      throw new Error('No access token available');
-    }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) {
-      throw new Error('Supabase URL not configured');
-    }
-
-    console.log('Creating checkout session with:', {
-      priceId,
-      successUrl,
-      cancelUrl,
-      mode: 'subscription'
-    });
-
-    const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout`, {
+    const response = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
       },
-      body: JSON.stringify({
-        price_id: priceId,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        mode: 'subscription',
-      }),
+      body: JSON.stringify({ priceId }),
     });
 
-    console.log('Checkout response status:', response.status);
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Checkout error response:', errorText);
-      
-      let errorMessage = 'Failed to create checkout session';
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
-      }
-      
-      throw new Error(errorMessage);
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to create checkout session');
     }
 
     const data = await response.json();
-    console.log('Checkout session created:', data);
-    
     return data;
+
   } catch (error) {
     console.error('Error creating checkout session:', error);
     return {
@@ -139,17 +92,21 @@ export async function getUserSubscription(): Promise<SubscriptionData | null> {
       return null;
     }
 
-    const { data, error } = await supabase
-      .from('stripe_user_subscriptions')
-      .select('*')
-      .maybeSingle();
+    const response = await fetch('/api/stripe/subscription', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-    if (error) {
-      console.error('Error fetching subscription:', error);
+    if (!response.ok) {
+      console.error('Failed to fetch subscription');
       return null;
     }
 
+    const data = await response.json();
     return data;
+
   } catch (error) {
     console.error('Error getting user subscription:', error);
     return null;
@@ -177,11 +134,7 @@ export function getProductByPriceId(priceId: string): StripeProduct | undefined 
 
 // Redirect to Stripe Checkout
 export async function redirectToStripeCheckout(priceId: string): Promise<void> {
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${baseUrl}/pricing`;
-
-  const result = await createCheckoutSession(priceId, successUrl, cancelUrl);
+  const result = await createCheckoutSession(priceId);
   
   if (result.error) {
     throw new Error(result.error);
