@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { getCurrentUser } from '@/lib/auth';
+import { getUserFromAuthHeader } from '@/lib/auth-server';
 import { supabase } from '@/lib/supabase';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -18,8 +18,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the current user
-    const user = await getCurrentUser();
+    // Get user from Authorization header
+    const authHeader = request.headers.get('authorization');
+    const user = await getUserFromAuthHeader(authHeader);
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not authenticated' },

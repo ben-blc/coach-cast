@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 export interface StripeProduct {
   priceId: string;
@@ -54,6 +55,19 @@ export interface SubscriptionData {
   payment_method_last4: string | null;
 }
 
+// Helper function to get auth headers
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error('No authentication token available');
+  }
+  
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${session.access_token}`,
+  };
+}
+
 export async function createCheckoutSession(priceId: string): Promise<CheckoutResponse> {
   try {
     const user = await getCurrentUser();
@@ -61,11 +75,11 @@ export async function createCheckoutSession(priceId: string): Promise<CheckoutRe
       throw new Error('User not authenticated');
     }
 
+    const headers = await getAuthHeaders();
+
     const response = await fetch('/api/stripe/checkout', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ priceId }),
     });
 
@@ -92,11 +106,11 @@ export async function getUserSubscription(): Promise<SubscriptionData | null> {
       return null;
     }
 
+    const headers = await getAuthHeaders();
+
     const response = await fetch('/api/stripe/subscription', {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {

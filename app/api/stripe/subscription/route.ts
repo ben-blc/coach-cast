@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getUserFromAuthHeader } from '@/lib/auth-server';
 import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    // Get user from Authorization header
+    const authHeader = request.headers.get('authorization');
+    const user = await getUserFromAuthHeader(authHeader);
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not authenticated' },
