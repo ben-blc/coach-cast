@@ -2,10 +2,6 @@
 
 A comprehensive AI and human coaching platform built with Next.js and Supabase.
 
-## 🚀 Live Demo
-
-Experience the future of coaching with our AI-powered platform that bridges technology and human connection.
-
 ## Setup Instructions
 
 ### 1. Supabase Setup
@@ -41,7 +37,7 @@ npm install
 npm run dev
 ```
 
-## ✨ Features
+## Features
 
 - **AI Specialist Coaches**: Voice-powered AI coaching with ElevenLabs integration
 - **Digital Chemistry**: Personalized video previews with Tavus AI
@@ -50,17 +46,17 @@ npm run dev
 - **Progress Tracking**: Comprehensive analytics and goal tracking
 - **Subscription Management**: Multiple pricing tiers with Stripe integration
 
-## 🏗️ Database Schema
+## Database Schema
 
 The application uses the following main tables:
 - `profiles` - User profiles and coach information
 - `subscriptions` - User subscription plans and credits
 - `coaching_sessions` - All coaching session records
-- `coaches` - Unified table for AI and human coaches
-- `coaching_sessions_goals` - Individual session goals and tracking
+- `ai_coaches` - Available AI coach configurations
+- `human_coaches` - Human coach profiles
 - `session_analytics` - Session analytics and insights
 
-## 🔧 Environment Variables
+## Environment Variables
 
 Required environment variables:
 - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
@@ -68,11 +64,3 @@ Required environment variables:
 - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key (for admin operations)
 - `ELEVENLABS_API_KEY` - Your ElevenLabs API key (server-side only)
 - `OPENAI_API_KEY` - Your OpenAI API key (server-side only)
-
-## 🎯 Core Philosophy
-
-**Powered by AI, Guided by Humanity** - Our platform combines cutting-edge AI technology with human wisdom and empathy to create transformative coaching experiences.
-
----
-
-Built with ❤️ using Next.js, Supabase, ElevenLabs, and modern web technologies.

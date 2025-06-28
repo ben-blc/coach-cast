@@ -151,9 +151,9 @@ export default function Home() {
   // Show loading state while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-light via-content-background to-brand-accent flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -179,7 +179,7 @@ export default function Home() {
     const creditsRemaining = calculateCreditsRemaining(subscription, sessions);
 
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-content-page">
         <DashboardHeader 
           user={{
             name: profile.full_name,
@@ -196,7 +196,7 @@ export default function Home() {
             <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  <h1 className="text-3xl font-bold text-content-dark mb-2">
                     Welcome back, {profile.full_name.split(' ')[0]}!
                   </h1>
                   <p className="text-gray-600 text-lg">
@@ -212,13 +212,13 @@ export default function Home() {
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <Button asChild>
+                  <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
                     <a href="/coaching-studio">
                       <Play className="w-4 h-4 mr-2" />
                       Start Session
                     </a>
                   </Button>
-                  <Button variant="outline" asChild>
+                  <Button variant="outline" asChild className="border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white">
                     <a href="/pricing">
                       <TrendingUp className="w-4 h-4 mr-2" />
                       Upgrade
@@ -230,17 +230,17 @@ export default function Home() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 lg:w-1/2">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="sessions">My Sessions</TabsTrigger>
-              <TabsTrigger value="goals">Goals</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 lg:w-1/2 bg-white border border-gray-200">
+              <TabsTrigger value="overview" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Overview</TabsTrigger>
+              <TabsTrigger value="sessions" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">My Sessions</TabsTrigger>
+              <TabsTrigger value="goals" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Goals</TabsTrigger>
+              <TabsTrigger value="settings" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Settings</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card>
+                <Card className="bg-white shadow-sm border border-gray-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
                     <Mic className="h-4 w-4 text-muted-foreground" />
@@ -253,7 +253,7 @@ export default function Home() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="bg-white shadow-sm border border-gray-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Credits Used</CardTitle>
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -266,7 +266,7 @@ export default function Home() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="bg-white shadow-sm border border-gray-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Credits Remaining</CardTitle>
                     <CreditCard className="h-4 w-4 text-muted-foreground" />
@@ -279,7 +279,7 @@ export default function Home() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="bg-white shadow-sm border border-gray-200">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Current Plan</CardTitle>
                     <Award className="h-4 w-4 text-muted-foreground" />
@@ -296,7 +296,7 @@ export default function Home() {
               {/* Main Content Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Quick Actions */}
-                <Card>
+                <Card className="bg-white shadow-sm border border-gray-200">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <Zap className="w-5 h-5" />
@@ -307,25 +307,25 @@ export default function Home() {
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Button className="w-full justify-start" asChild>
+                    <Button className="w-full justify-start bg-brand-primary hover:bg-brand-primary/90" asChild>
                       <a href="/coaching-studio">
                         <Play className="h-4 w-4 mr-2" />
                         Browse Coaching Studio
                       </a>
                     </Button>
-                    <Button variant="outline" className="w-full justify-start" asChild>
+                    <Button variant="outline" className="w-full justify-start border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white" asChild>
                       <a href="/coaching-studio">
                         <Video className="h-4 w-4 mr-2" />
                         Watch Coach Previews
                       </a>
                     </Button>
-                    <Button variant="outline" className="w-full justify-start" asChild>
+                    <Button variant="outline" className="w-full justify-start border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white" asChild>
                       <a href="/coaching-studio">
                         <Calendar className="h-4 w-4 mr-2" />
                         Schedule Live Session
                       </a>
                     </Button>
-                    <Button variant="outline" className="w-full justify-start" asChild>
+                    <Button variant="outline" className="w-full justify-start border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white" asChild>
                       <a href="/coaching-studio">
                         <Users className="h-4 w-4 mr-2" />
                         Browse All Coaches
@@ -335,7 +335,7 @@ export default function Home() {
                 </Card>
 
                 {/* Recent Sessions */}
-                <Card>
+                <Card className="bg-white shadow-sm border border-gray-200">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <Clock className="w-5 h-5" />
@@ -347,7 +347,7 @@ export default function Home() {
                       <div className="space-y-4">
                         {sessions.slice(0, 3).map((session) => (
                           <div key={session.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <div className="w-2 h-2 bg-brand-primary rounded-full"></div>
                             <div className="flex-1">
                               <p className="text-sm font-medium">
                                 {session.session_type === 'ai_specialist' ? 'AI Specialist' : 
@@ -372,7 +372,7 @@ export default function Home() {
                         <Mic className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-600 font-medium">No sessions yet</p>
                         <p className="text-sm text-gray-500 mb-4">Start your first coaching session to see it here</p>
-                        <Button asChild>
+                        <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
                           <a href="/coaching-studio">
                             <Play className="h-4 w-4 mr-2" />
                             Start First Session
@@ -386,7 +386,7 @@ export default function Home() {
 
               {/* Credit Usage Breakdown */}
               {sessions.length > 0 && (
-                <Card>
+                <Card className="bg-white shadow-sm border border-gray-200">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <Target className="w-5 h-5" />
@@ -433,9 +433,9 @@ export default function Home() {
 
             <TabsContent value="sessions" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">My Sessions</h2>
+                <h2 className="text-2xl font-bold text-content-dark">My Sessions</h2>
                 <div className="flex items-center space-x-3">
-                  <Button asChild>
+                  <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
                     <a href="/coaching-studio">
                       <Play className="h-4 w-4 mr-2" />
                       New Session
@@ -465,11 +465,11 @@ export default function Home() {
               ) : (
                 <div className="text-center py-12">
                   <Mic className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No sessions yet</h3>
+                  <h3 className="text-lg font-medium text-content-dark mb-2">No sessions yet</h3>
                   <p className="text-gray-600 mb-6">
                     Start your first coaching session to begin your journey.
                   </p>
-                  <Button asChild>
+                  <Button asChild className="bg-brand-primary hover:bg-brand-primary/90">
                     <a href="/coaching-studio">
                       <Play className="h-4 w-4 mr-2" />
                       Start First Session
@@ -486,7 +486,7 @@ export default function Home() {
             <TabsContent value="settings">
               <div className="text-center py-12">
                 <Settings className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Settings</h3>
+                <h3 className="text-lg font-medium text-content-dark mb-2">Settings</h3>
                 <p className="text-gray-600">
                   Account settings will be available soon.
                 </p>
@@ -500,7 +500,7 @@ export default function Home() {
 
   // Only render the landing page for unauthenticated users
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-brand-light via-content-background to-brand-accent">
       <Navbar />
       <main>
         <Hero />

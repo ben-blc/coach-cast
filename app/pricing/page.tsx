@@ -25,11 +25,14 @@ const planFeatures = {
     'Access to all AI coaches',
     'Goal tracking dashboard',
     'Email support',
-    'Session analytics'
+    'Session analytics',
+    'Perfect for self-starters'
   ],
   'price_1ReBMSEREG4CzjmmiB7ZN5hL': [
     '250 AI Coaching Credits per month',
-    '1 live human coaching session',
+    'Access to all AI coaches',
+    'Human expert guidance',
+    'Webinars and group coaching',
     'Priority support',
     'Advanced analytics',
     'Document sharing',
@@ -37,11 +40,13 @@ const planFeatures = {
   ],
   'price_1ReBNEEREG4CzjmmnOtrbc5F': [
     '600 AI Coaching Credits per month',
-    '2 live human coaching sessions',
+    'AI Voice & Video Coaching',
+    'All AI coaches available',
     'Premium features',
     'Priority scheduling',
     'Exclusive workshops',
-    'Personal coaching consultant'
+    'Personal coaching consultant',
+    'Advanced analytics & insights'
   ],
 };
 
@@ -161,7 +166,7 @@ export default function PricingPage() {
                       </span>
                       <span className="text-gray-600">/month</span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-2">{product.description}</p>
+                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">{product.description}</p>
                     <Badge variant="outline" className="mt-2">
                       {product.credits} Credits/Month
                     </Badge>

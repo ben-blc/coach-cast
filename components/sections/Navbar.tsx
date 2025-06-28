@@ -113,15 +113,15 @@ export function Navbar() {
   }, [user, isLandingPage, router]);
 
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+    <header className="bg-white/95 backdrop-blur-md border-b border-brand-primary/10 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center">
               <img 
-                src="/logo_square.png" 
-                alt="Coach Bridge" 
-                className="w-10 h-10 rounded-xl object-cover"
+                src="/logo_long.png" 
+                alt="CoachBridge" 
+                className="h-8 w-auto object-contain"
               />
             </Link>
             
@@ -129,7 +129,7 @@ export function Navbar() {
               href="https://bolt.new" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center space-x-2 bg-black text-white px-3 py-1.5 rounded-full text-xs font-medium hover:bg-gray-800 transition-colors"
+              className="flex items-center space-x-2 bg-content-dark text-white px-3 py-1.5 rounded-full text-xs font-medium hover:bg-content-dark/90 transition-colors"
             >
               <img 
                 src="/bolt-badge.png" 
@@ -145,12 +145,12 @@ export function Navbar() {
               <nav className="hidden md:flex items-center space-x-6">
                 <button 
                   onClick={handleHomeNavigation}
-                  className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1"
+                  className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-1 font-medium"
                 >
                   <Home className="w-4 h-4" />
                   <span>Home</span>
                 </button>
-                <Link href="/coaching-studio" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-1">
+                <Link href="/coaching-studio" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-1 font-medium">
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
                 </Link>
@@ -159,7 +159,7 @@ export function Navbar() {
               {shouldShowCredits && (
                 <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
                   <span>Credits:</span>
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="bg-brand-light text-brand-primary">
                     {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
                   </Badge>
                 </div>
@@ -169,7 +169,7 @@ export function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-gray-900 text-white">
+                      <AvatarFallback className="bg-brand-primary text-white">
                         {profile.full_name.split(' ').map(n => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
@@ -184,7 +184,7 @@ export function Navbar() {
                       </p>
                       {subscription && (
                         <div className="flex items-center justify-between mt-2">
-                          <Badge variant="outline" className="text-xs w-fit">
+                          <Badge variant="outline" className="text-xs w-fit border-brand-primary text-brand-primary">
                             Free Trial
                           </Badge>
                           <div className="text-xs text-muted-foreground">
@@ -225,26 +225,32 @@ export function Navbar() {
               <nav className="hidden md:flex items-center space-x-8">
                 <button 
                   onClick={handleHomeNavigation}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                  className="text-gray-600 hover:text-brand-primary transition-colors font-medium"
                 >
                   Home
                 </button>
                 <button 
                   onClick={() => handleSectionNavigation('features')}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                  className="text-gray-600 hover:text-brand-primary transition-colors font-medium"
                 >
                   Features
                 </button>
-                <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors">
+                <Link href="/pricing" className="text-gray-600 hover:text-brand-primary transition-colors font-medium">
                   Pricing
                 </Link>
+                <button 
+                  onClick={() => handleSectionNavigation('coaches')}
+                  className="text-gray-600 hover:text-brand-primary transition-colors font-medium"
+                >
+                  For Coaches
+                </button>
               </nav>
 
               <div className="hidden md:flex items-center space-x-4">
-                <Button variant="ghost" asChild>
+                <Button variant="ghost" asChild className="text-brand-primary hover:text-brand-primary/80">
                   <Link href="/auth">Sign In</Link>
                 </Button>
-                <Button asChild>
+                <Button asChild className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-xl">
                   <Link href="/auth?mode=signup">Get Started</Link>
                 </Button>
               </div>
@@ -272,12 +278,12 @@ export function Navbar() {
                     handleHomeNavigation();
                     setIsMenuOpen(false);
                   }}
-                  className="text-gray-600 hover:text-gray-900 transition-colors text-left flex items-center space-x-2"
+                  className="text-gray-600 hover:text-brand-primary transition-colors text-left flex items-center space-x-2"
                 >
                   <Home className="w-4 h-4" />
                   <span>Home</span>
                 </button>
-                <Link href="/coaching-studio" className="text-gray-600 hover:text-gray-900 transition-colors flex items-center space-x-2">
+                <Link href="/coaching-studio" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2">
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
                 </Link>
@@ -285,7 +291,7 @@ export function Navbar() {
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <span>Credits:</span>
-                      <Badge variant="secondary">
+                      <Badge variant="secondary" className="bg-brand-light text-brand-primary">
                         {calculateCreditsRemaining()}/{subscription?.monthly_limit || 0}
                       </Badge>
                     </div>
@@ -295,7 +301,7 @@ export function Navbar() {
                   <Button 
                     variant="outline" 
                     onClick={handleSignOut} 
-                    className="w-full"
+                    className="w-full border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white"
                     disabled={signingOut}
                   >
                     {signingOut ? 'Signing out...' : 'Sign Out'}
@@ -309,7 +315,7 @@ export function Navbar() {
                     handleHomeNavigation();
                     setIsMenuOpen(false);
                   }}
-                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                  className="text-gray-600 hover:text-brand-primary transition-colors text-left"
                 >
                   Home
                 </button>
@@ -318,18 +324,27 @@ export function Navbar() {
                     handleSectionNavigation('features');
                     setIsMenuOpen(false);
                   }}
-                  className="text-gray-600 hover:text-gray-900 transition-colors text-left"
+                  className="text-gray-600 hover:text-brand-primary transition-colors text-left"
                 >
                   Features
                 </button>
-                <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors text-left">
+                <Link href="/pricing" className="text-gray-600 hover:text-brand-primary transition-colors text-left">
                   Pricing
                 </Link>
+                <button 
+                  onClick={() => {
+                    handleSectionNavigation('coaches');
+                    setIsMenuOpen(false);
+                  }}
+                  className="text-gray-600 hover:text-brand-primary transition-colors text-left"
+                >
+                  For Coaches
+                </button>
                 <div className="flex flex-col space-y-2 pt-4">
-                  <Button variant="ghost" asChild>
+                  <Button variant="ghost" asChild className="text-brand-primary">
                     <Link href="/auth">Sign In</Link>
                   </Button>
-                  <Button asChild>
+                  <Button asChild className="bg-brand-primary hover:bg-brand-primary/90 text-white">
                     <Link href="/auth?mode=signup">Get Started</Link>
                   </Button>
                 </div>
