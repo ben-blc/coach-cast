@@ -293,11 +293,19 @@ export function Navbar() {
                   <Home className="w-4 h-4" />
                   <span>Home</span>
                 </button>
-                <Link href="/coaching-studio" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2">
+                <Link 
+                  href="/coaching-studio" 
+                  className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
                 </Link>
-                <Link href="/billing" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2">
+                <Link 
+                  href="/billing" 
+                  className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2"
+                  onClick={() => setIsMenuOpen(false)}
+                >
                   <CreditCard className="w-4 h-4" />
                   <span>Billing</span>
                 </Link>
