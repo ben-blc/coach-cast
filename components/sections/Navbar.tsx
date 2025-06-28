@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, X, User, Settings, LogOut, Home, Users } from 'lucide-react';
+import { Menu, X, User, Settings, LogOut, Home, Users, CreditCard } from 'lucide-react';
 import { getCurrentUser, signOut, onAuthStateChange } from '@/lib/auth';
 import { getUserProfile, getUserSubscription } from '@/lib/database';
 import { useRouter, usePathname } from 'next/navigation';
@@ -201,6 +201,12 @@ export function Navbar() {
                       <span>Dashboard</span>
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/billing">
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      <span>Billing</span>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
@@ -286,6 +292,10 @@ export function Navbar() {
                 <Link href="/coaching-studio" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2">
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
+                </Link>
+                <Link href="/billing" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4" />
+                  <span>Billing</span>
                 </Link>
                 {shouldShowCredits && (
                   <div className="flex items-center justify-between pt-2">

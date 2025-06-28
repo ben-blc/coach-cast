@@ -127,6 +127,68 @@ export async function getUserSubscription(): Promise<SubscriptionData | null> {
   }
 }
 
+export async function cancelSubscription(): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const headers = await getAuthHeaders();
+
+    const response = await fetch('/api/stripe/cancel-subscription', {
+      method: 'POST',
+      headers,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to cancel subscription');
+    }
+
+    return { success: true, message: data.message };
+
+  } catch (error) {
+    console.error('Error canceling subscription:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+export async function reactivateSubscription(): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const headers = await getAuthHeaders();
+
+    const response = await fetch('/api/stripe/reactivate-subscription', {
+      method: 'POST',
+      headers,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to reactivate subscription');
+    }
+
+    return { success: true, message: data.message };
+
+  } catch (error) {
+    console.error('Error reactivating subscription:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
 export function getSubscriptionPlanName(priceId: string | null): string {
   if (!priceId) return 'Free';
   
