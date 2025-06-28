@@ -8,7 +8,7 @@ export interface StripeProduct {
   price: number; // in cents
   credits: number;
   liveSessions: number;
-  planType: 'ai_explorer' | 'coaching_starter' | 'coaching_accelerator';
+  planType: 'explorer' | 'starter' | 'accelerator';
 }
 
 export const stripeProducts: StripeProduct[] = [
@@ -19,7 +19,7 @@ export const stripeProducts: StripeProduct[] = [
     price: 2500, // $25.00
     credits: 50,
     liveSessions: 0,
-    planType: 'ai_explorer',
+    planType: 'explorer',
   },
   {
     priceId: 'price_1ReBMSEREG4CzjmmiB7ZN5hL',
@@ -28,7 +28,7 @@ export const stripeProducts: StripeProduct[] = [
     price: 6900, // $69.00
     credits: 250,
     liveSessions: 1,
-    planType: 'coaching_starter',
+    planType: 'starter',
   },
   {
     priceId: 'price_1ReBNEEREG4CzjmmnOtrbc5F',
@@ -37,7 +37,7 @@ export const stripeProducts: StripeProduct[] = [
     price: 12900, // $129.00
     credits: 600,
     liveSessions: 2,
-    planType: 'coaching_accelerator',
+    planType: 'accelerator',
   },
 ];
 
@@ -98,18 +98,15 @@ export async function createCheckoutSession(
       mode: 'subscription'
     });
 
-    const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout`, {
+    // Use the API route instead of Supabase Edge Function
+    const response = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
-        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
       },
       body: JSON.stringify({
-        price_id: priceId,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        mode: 'subscription',
+        priceId,
       }),
     });
 
@@ -149,16 +146,24 @@ export async function getUserSubscription(): Promise<SubscriptionData | null> {
       return null;
     }
 
-    const { data, error } = await supabase
-      .from('stripe_user_subscriptions')
-      .select('*')
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching subscription:', error);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
       return null;
     }
 
+    // Use the API route instead of direct database query
+    const response = await fetch('/api/stripe/subscription', {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Error fetching subscription:', response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
     return data;
   } catch (error) {
     console.error('Error getting user subscription:', error);
@@ -244,32 +249,90 @@ export async function updateUserSubscriptionAfterPayment(
   }
 }
 
-// Cancel current subscription and revert to free plan
-export async function cancelCurrentSubscription(userId: string): Promise<boolean> {
+// Cancel current subscription
+export async function cancelSubscription(): Promise<{success: boolean, message?: string, error?: string}> {
   try {
-    // Update the subscription to free plan
-    const { error } = await supabase
-      .from('subscriptions')
-      .update({
-        plan_type: 'free',
-        credits_remaining: 7,
-        monthly_limit: 7,
-        live_sessions_remaining: 0,
-        stripe_subscription_id: null,
-        status: 'cancelled',
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId);
-
-    if (error) {
-      console.error('Error cancelling subscription:', error);
-      return false;
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
     }
 
-    console.log(`Successfully cancelled subscription for user ${userId}`);
-    return true;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return { success: false, error: 'No access token available' };
+    }
+
+    // Call the API route to cancel subscription
+    const response = await fetch('/api/stripe/cancel-subscription', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { 
+        success: false, 
+        error: errorData.error || 'Failed to cancel subscription' 
+      };
+    }
+
+    const result = await response.json();
+    return { 
+      success: true, 
+      message: result.message || 'Subscription cancelled successfully' 
+    };
   } catch (error) {
     console.error('Error cancelling subscription:', error);
-    return false;
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    };
+  }
+}
+
+// Reactivate cancelled subscription
+export async function reactivateSubscription(): Promise<{success: boolean, message?: string, error?: string}> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return { success: false, error: 'No access token available' };
+    }
+
+    // Call the API route to reactivate subscription
+    const response = await fetch('/api/stripe/reactivate-subscription', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { 
+        success: false, 
+        error: errorData.error || 'Failed to reactivate subscription' 
+      };
+    }
+
+    const result = await response.json();
+    return { 
+      success: true, 
+      message: result.message || 'Subscription reactivated successfully' 
+    };
+  } catch (error) {
+    console.error('Error reactivating subscription:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    };
   }
 }
