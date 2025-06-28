@@ -6,27 +6,23 @@ const nextConfig = {
   images: { 
     unoptimized: true 
   },
-  trailingSlash: true,
-  skipTrailingSlashRedirect: true,
-  optimizeFonts: false,
   experimental: {
-    fontLoaders: [],
-    serverActions: true,
+    serverActions: {
+      allowedOrigins: ['localhost:3000', '127.0.0.1:3000'],
+    },
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Generate static pages for better deployment compatibility
-  generateStaticParams: async () => {
-    return [];
-  },
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      net: false,
-      tls: false,
-    };
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
     
     return config;
   },
