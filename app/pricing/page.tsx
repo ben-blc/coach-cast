@@ -10,7 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Check, Sparkles, Crown, Rocket, User, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser } from '@/lib/auth';
-import { stripeProducts, redirectToStripeCheckout, formatPrice, type StripeProduct } from '@/lib/stripe';
+import { stripeProducts, redirectToStripeCheckout, formatPrice, getUserSubscription, isSubscriptionActive, type StripeProduct } from '@/lib/stripe';
+import { getUserSubscription as getLocalSubscription } from '@/lib/database';
 import Link from 'next/link';
 
 const planIcons = {
@@ -54,6 +55,8 @@ export default function PricingPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState<string | null>(null);
+  const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+  const [localSubscription, setLocalSubscription] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,6 +64,16 @@ export default function PricingPage() {
       try {
         const currentUser = await getCurrentUser();
         setUser(currentUser);
+        
+        if (currentUser) {
+          const [stripeData, localData] = await Promise.all([
+            getUserSubscription(),
+            getLocalSubscription(currentUser.id)
+          ]);
+          
+          setCurrentSubscription(stripeData);
+          setLocalSubscription(localData);
+        }
       } catch (error) {
         console.error('Error loading user data:', error);
       } finally {
@@ -82,6 +95,16 @@ export default function PricingPage() {
         return;
       }
 
+      // Check if user already has an active subscription
+      if (currentSubscription && isSubscriptionActive(currentSubscription.subscription_status)) {
+        toast({
+          title: 'Active subscription found',
+          description: 'You already have an active subscription. Please cancel your current subscription before subscribing to a new plan.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       setSubscribing(product.priceId);
 
       // Redirect to Stripe Checkout
@@ -95,6 +118,26 @@ export default function PricingPage() {
         variant: 'destructive',
       });
       setSubscribing(null);
+    }
+  };
+
+  const getCurrentPlan = () => {
+    if (!localSubscription) return 'free';
+    return localSubscription.plan_type;
+  };
+
+  const isCurrentPlan = (product: StripeProduct) => {
+    const currentPlan = getCurrentPlan();
+    return currentPlan === product.planType;
+  };
+
+  const getPlanDisplayName = (planType: string) => {
+    switch (planType) {
+      case 'free': return 'Free Trial';
+      case 'ai_explorer': return 'Explorer';
+      case 'coaching_starter': return 'Starter';
+      case 'coaching_accelerator': return 'Accelerator';
+      default: return 'Free Trial';
     }
   };
 
@@ -116,6 +159,40 @@ export default function PricingPage() {
             </p>
           </div>
 
+          {/* Current Plan Display */}
+          {user && localSubscription && (
+            <div className="mb-12">
+              <Card className="max-w-2xl mx-auto">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <User className="w-5 h-5" />
+                    <span>Current Plan</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {getPlanDisplayName(localSubscription.plan_type)}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {localSubscription.credits_remaining} credits remaining of {localSubscription.monthly_limit}
+                      </p>
+                      <Badge className={localSubscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                        {localSubscription.status}
+                      </Badge>
+                    </div>
+                    {currentSubscription && isSubscriptionActive(currentSubscription.subscription_status) && (
+                      <Badge className="bg-blue-100 text-blue-800">
+                        Stripe Active
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Authentication Alert */}
           {!user && !loading && (
             <Alert className="mb-8 max-w-2xl mx-auto">
@@ -129,24 +206,44 @@ export default function PricingPage() {
             </Alert>
           )}
 
+          {/* Active Subscription Warning */}
+          {user && currentSubscription && isSubscriptionActive(currentSubscription.subscription_status) && (
+            <Alert className="mb-8 max-w-2xl mx-auto">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You have an active subscription. To change plans, please cancel your current subscription first.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Pricing Plans */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {stripeProducts.map((product, index) => {
               const Icon = planIcons[product.priceId as keyof typeof planIcons];
               const features = planFeatures[product.priceId as keyof typeof planFeatures] || [];
               const isPopular = product.priceId === 'price_1ReBMSEREG4CzjmmiB7ZN5hL';
+              const isCurrent = isCurrentPlan(product);
+              const hasActiveSubscription = currentSubscription && isSubscriptionActive(currentSubscription.subscription_status);
 
               return (
                 <Card
                   key={product.priceId}
                   className={`relative border-2 hover:shadow-lg transition-all duration-300 ${
                     isPopular ? 'border-green-200 ring-2 ring-green-200' : 'border-gray-200'
-                  }`}
+                  } ${isCurrent ? 'ring-2 ring-blue-500' : ''}`}
                 >
                   {isPopular && (
                     <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                       <Badge className="bg-green-600 text-white px-4 py-1">
                         Most Popular
+                      </Badge>
+                    </div>
+                  )}
+
+                  {isCurrent && (
+                    <div className="absolute -top-4 right-4">
+                      <Badge className="bg-blue-600 text-white px-3 py-1">
+                        Current Plan
                       </Badge>
                     </div>
                   )}
@@ -186,16 +283,26 @@ export default function PricingPage() {
                     </ul>
 
                     <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      className={`w-full ${
+                        isCurrent 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : hasActiveSubscription
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700'
+                      } text-white`}
                       size="lg"
                       onClick={() => handleSubscribe(product)}
-                      disabled={!user || subscribing === product.priceId}
+                      disabled={isCurrent || subscribing === product.priceId || !user || hasActiveSubscription}
                     >
                       {subscribing === product.priceId ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Redirecting to Stripe...
                         </>
+                      ) : isCurrent ? (
+                        'Current Plan'
+                      ) : hasActiveSubscription ? (
+                        'Cancel Current First'
                       ) : (
                         'Subscribe Now'
                       )}

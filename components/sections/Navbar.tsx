@@ -112,6 +112,16 @@ export function Navbar() {
     }
   }, [user, isLandingPage, router]);
 
+  const getPlanDisplayName = (planType: string) => {
+    switch (planType) {
+      case 'free': return 'Free Trial';
+      case 'ai_explorer': return 'Explorer';
+      case 'coaching_starter': return 'Starter';
+      case 'coaching_accelerator': return 'Accelerator';
+      default: return 'Free Trial';
+    }
+  };
+
   return (
     <header className="bg-white/95 backdrop-blur-md border-b border-brand-primary/10 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -185,7 +195,7 @@ export function Navbar() {
                       {subscription && (
                         <div className="flex items-center justify-between mt-2">
                           <Badge variant="outline" className="text-xs w-fit border-brand-primary text-brand-primary">
-                            Free Trial
+                            {getPlanDisplayName(subscription.plan_type)}
                           </Badge>
                           <div className="text-xs text-muted-foreground">
                             {calculateCreditsRemaining()}/{subscription.monthly_limit} credits
@@ -289,13 +299,13 @@ export function Navbar() {
                   <Home className="w-4 h-4" />
                   <span>Home</span>
                 </button>
-                <Link 
-                  href="/coaching-studio" 
-                  className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2"
-                  onClick={() => setIsMenuOpen(false)}
-                >
+                <Link href="/coaching-studio" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2">
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
+                </Link>
+                <Link href="/billing" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4" />
+                  <span>Billing</span>
                 </Link>
                 {shouldShowCredits && (
                   <div className="flex items-center justify-between pt-2">

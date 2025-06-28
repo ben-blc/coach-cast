@@ -8,12 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Home, Play, Loader2 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/stripe';
+import { getUserSubscription as getLocalSubscription } from '@/lib/database';
 import { Navbar } from '@/components/sections/Navbar';
 import Link from 'next/link';
 
 export default function SuccessPage() {
   const [user, setUser] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
+  const [localSubscription, setLocalSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,13 +34,18 @@ export default function SuccessPage() {
 
         // If we have a session ID, wait a moment for webhook to process
         if (sessionId) {
-          // Wait 3 seconds for webhook processing
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Wait 5 seconds for webhook processing
+          await new Promise(resolve => setTimeout(resolve, 5000));
         }
 
         // Load subscription data
-        const subscriptionData = await getUserSubscription();
-        setSubscription(subscriptionData);
+        const [stripeData, localData] = await Promise.all([
+          getUserSubscription(),
+          getLocalSubscription(currentUser.id)
+        ]);
+        
+        setSubscription(stripeData);
+        setLocalSubscription(localData);
 
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -49,6 +56,16 @@ export default function SuccessPage() {
 
     loadUserData();
   }, [router, sessionId]);
+
+  const getPlanDisplayName = (planType: string) => {
+    switch (planType) {
+      case 'free': return 'Free Trial';
+      case 'ai_explorer': return 'Explorer';
+      case 'coaching_starter': return 'Starter';
+      case 'coaching_accelerator': return 'Accelerator';
+      default: return 'Free Trial';
+    }
+  };
 
   if (loading) {
     return (
@@ -63,10 +80,6 @@ export default function SuccessPage() {
       </div>
     );
   }
-
-  const planName = subscription?.subscription_status === 'active' 
-    ? 'Your Premium Plan' 
-    : 'Coach Bridge Subscription';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -89,15 +102,15 @@ export default function SuccessPage() {
             }
           </p>
 
-          {subscription && (
+          {localSubscription && (
             <Badge className="bg-green-100 text-green-800 px-4 py-2 text-lg">
-              {subscription.subscription_status === 'active' ? 'Active Subscription' : planName}
+              {getPlanDisplayName(localSubscription.plan_type)} Plan Active
             </Badge>
           )}
         </div>
 
         {/* Subscription Details */}
-        {subscription && subscription.subscription_status === 'active' && (
+        {localSubscription && (
           <Card className="shadow-lg mb-8">
             <CardHeader>
               <CardTitle className="text-center">Your Subscription Details</CardTitle>
@@ -105,32 +118,50 @@ export default function SuccessPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-2">Plan Status</h3>
-                  <Badge className="bg-green-100 text-green-800">
-                    {subscription.subscription_status}
-                  </Badge>
+                  <h3 className="font-semibold text-gray-900 mb-2">Plan Type</h3>
+                  <p className="text-lg font-medium text-blue-800">
+                    {getPlanDisplayName(localSubscription.plan_type)}
+                  </p>
                 </div>
                 
                 <div className="bg-green-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-2">Payment Method</h3>
-                  <p className="text-gray-600">
-                    {subscription.payment_method_brand && subscription.payment_method_last4
-                      ? `${subscription.payment_method_brand.toUpperCase()} •••• ${subscription.payment_method_last4}`
-                      : 'Card on file'
-                    }
+                  <h3 className="font-semibold text-gray-900 mb-2">Credits Available</h3>
+                  <p className="text-lg font-medium text-green-800">
+                    {localSubscription.credits_remaining} / {localSubscription.monthly_limit}
                   </p>
                 </div>
                 
                 <div className="bg-purple-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-2">Next Billing</h3>
-                  <p className="text-gray-600">
-                    {subscription.current_period_end
-                      ? new Date(subscription.current_period_end * 1000).toLocaleDateString()
-                      : 'N/A'
-                    }
-                  </p>
+                  <h3 className="font-semibold text-gray-900 mb-2">Status</h3>
+                  <Badge className={localSubscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                    {localSubscription.status}
+                  </Badge>
                 </div>
               </div>
+
+              {subscription && subscription.subscription_status === 'active' && (
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold text-gray-900 mb-2">Billing Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    {subscription.payment_method_brand && subscription.payment_method_last4 && (
+                      <div>
+                        <span className="text-gray-600">Payment Method:</span>
+                        <span className="ml-2 font-medium">
+                          {subscription.payment_method_brand.toUpperCase()} •••• {subscription.payment_method_last4}
+                        </span>
+                      </div>
+                    )}
+                    {subscription.current_period_end && (
+                      <div>
+                        <span className="text-gray-600">Next Billing:</span>
+                        <span className="ml-2 font-medium">
+                          {new Date(subscription.current_period_end * 1000).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

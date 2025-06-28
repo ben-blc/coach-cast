@@ -8,36 +8,36 @@ export interface StripeProduct {
   price: number; // in cents
   credits: number;
   liveSessions: number;
-  planType: 'explorer' | 'starter' | 'accelerator';
+  planType: 'ai_explorer' | 'coaching_starter' | 'coaching_accelerator';
 }
 
 export const stripeProducts: StripeProduct[] = [
   {
     priceId: 'price_1RXeYbEREG4CzjmmBKcnXTHc',
-    name: 'Explorer',
+    name: 'CoachBridge Explorer',
     description: 'Self starters who want a flexible AI accountability partner to help them stay on track with their development. Includes 50 x AI Coaching Credits',
     price: 2500, // $25.00
     credits: 50,
     liveSessions: 0,
-    planType: 'explorer',
+    planType: 'ai_explorer',
   },
   {
     priceId: 'price_1ReBMSEREG4CzjmmiB7ZN5hL',
-    name: 'Starter', 
+    name: 'CoachBridge Starter',
     description: 'Individuals seeking more AI coaching and the guidance of a human expert through webinars or group coaching. Includes 250 AI Coaching Credits.',
     price: 6900, // $69.00
     credits: 250,
     liveSessions: 1,
-    planType: 'starter',
+    planType: 'coaching_starter',
   },
   {
     priceId: 'price_1ReBNEEREG4CzjmmnOtrbc5F',
-    name: 'Accelerator',
+    name: 'CoachBridge Accelerator',
     description: 'Individuals seeking more AI coaching with plenty of credits to use with AI Voice & Video Coaching. Includes 600 AI Coaching Credits.',
     price: 12900, // $129.00
     credits: 600,
     liveSessions: 2,
-    planType: 'accelerator',
+    planType: 'coaching_accelerator',
   },
 ];
 
@@ -59,42 +59,81 @@ export interface SubscriptionData {
   payment_method_last4: string | null;
 }
 
-// Helper function to get auth headers
-async function getAuthHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    throw new Error('No authentication token available');
-  }
-  
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${session.access_token}`,
-  };
-}
-
-export async function createCheckoutSession(priceId: string): Promise<CheckoutResponse> {
+export async function createCheckoutSession(
+  priceId: string,
+  successUrl: string,
+  cancelUrl: string
+): Promise<CheckoutResponse> {
   try {
     const user = await getCurrentUser();
     if (!user) {
       throw new Error('User not authenticated');
     }
 
-    const headers = await getAuthHeaders();
+    const product = stripeProducts.find(p => p.priceId === priceId);
+    if (!product) {
+      throw new Error('Invalid product');
+    }
 
-    const response = await fetch('/api/stripe/checkout', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ priceId }),
+    // Check if user already has an active subscription
+    const existingSubscription = await getUserSubscription();
+    if (existingSubscription && isSubscriptionActive(existingSubscription.subscription_status)) {
+      throw new Error('You already have an active subscription. Please cancel your current subscription before subscribing to a new plan.');
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('No access token available');
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error('Supabase URL not configured');
+    }
+
+    console.log('Creating checkout session with:', {
+      priceId,
+      successUrl,
+      cancelUrl,
+      mode: 'subscription'
     });
 
+    const response = await fetch(`${supabaseUrl}/functions/v1/stripe-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      },
+      body: JSON.stringify({
+        price_id: priceId,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        mode: 'subscription',
+      }),
+    });
+
+    console.log('Checkout response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to create checkout session');
+      const errorText = await response.text();
+      console.error('Checkout error response:', errorText);
+      
+      let errorMessage = 'Failed to create checkout session';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
+    console.log('Checkout session created:', data);
+    
     return data;
-
   } catch (error) {
     console.error('Error creating checkout session:', error);
     return {
@@ -110,86 +149,20 @@ export async function getUserSubscription(): Promise<SubscriptionData | null> {
       return null;
     }
 
-    const headers = await getAuthHeaders();
+    const { data, error } = await supabase
+      .from('stripe_user_subscriptions')
+      .select('*')
+      .maybeSingle();
 
-    const response = await fetch('/api/stripe/subscription', {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch subscription');
+    if (error) {
+      console.error('Error fetching subscription:', error);
       return null;
     }
 
-    const data = await response.json();
     return data;
-
   } catch (error) {
     console.error('Error getting user subscription:', error);
     return null;
-  }
-}
-
-export async function cancelSubscription(): Promise<{ success: boolean; error?: string; message?: string }> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    const headers = await getAuthHeaders();
-
-    const response = await fetch('/api/stripe/cancel-subscription', {
-      method: 'POST',
-      headers,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to cancel subscription');
-    }
-
-    return { success: true, message: data.message };
-
-  } catch (error) {
-    console.error('Error canceling subscription:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-}
-
-export async function reactivateSubscription(): Promise<{ success: boolean; error?: string; message?: string }> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    const headers = await getAuthHeaders();
-
-    const response = await fetch('/api/stripe/reactivate-subscription', {
-      method: 'POST',
-      headers,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to reactivate subscription');
-    }
-
-    return { success: true, message: data.message };
-
-  } catch (error) {
-    console.error('Error reactivating subscription:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
   }
 }
 
@@ -214,7 +187,11 @@ export function getProductByPriceId(priceId: string): StripeProduct | undefined 
 
 // Redirect to Stripe Checkout
 export async function redirectToStripeCheckout(priceId: string): Promise<void> {
-  const result = await createCheckoutSession(priceId);
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${baseUrl}/pricing`;
+
+  const result = await createCheckoutSession(priceId, successUrl, cancelUrl);
   
   if (result.error) {
     throw new Error(result.error);
@@ -224,5 +201,75 @@ export async function redirectToStripeCheckout(priceId: string): Promise<void> {
     window.location.href = result.url;
   } else {
     throw new Error('No checkout URL returned');
+  }
+}
+
+// Update user subscription in local database after successful Stripe payment
+export async function updateUserSubscriptionAfterPayment(
+  userId: string,
+  priceId: string,
+  stripeSubscriptionId: string
+): Promise<boolean> {
+  try {
+    const product = getProductByPriceId(priceId);
+    if (!product) {
+      console.error('Product not found for price ID:', priceId);
+      return false;
+    }
+
+    // Update the subscription in our local database
+    const { error: subscriptionError } = await supabase
+      .from('subscriptions')
+      .update({
+        plan_type: product.planType,
+        credits_remaining: product.credits,
+        monthly_limit: product.credits,
+        live_sessions_remaining: product.liveSessions,
+        stripe_subscription_id: stripeSubscriptionId,
+        status: 'active',
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (subscriptionError) {
+      console.error('Error updating subscription:', subscriptionError);
+      return false;
+    }
+
+    console.log(`Successfully updated subscription for user ${userId} to ${product.planType} with ${product.credits} credits`);
+    return true;
+  } catch (error) {
+    console.error('Error updating user subscription after payment:', error);
+    return false;
+  }
+}
+
+// Cancel current subscription and revert to free plan
+export async function cancelCurrentSubscription(userId: string): Promise<boolean> {
+  try {
+    // Update the subscription to free plan
+    const { error } = await supabase
+      .from('subscriptions')
+      .update({
+        plan_type: 'free',
+        credits_remaining: 7,
+        monthly_limit: 7,
+        live_sessions_remaining: 0,
+        stripe_subscription_id: null,
+        status: 'cancelled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error cancelling subscription:', error);
+      return false;
+    }
+
+    console.log(`Successfully cancelled subscription for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Error cancelling subscription:', error);
+    return false;
   }
 }
