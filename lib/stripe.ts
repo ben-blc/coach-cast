@@ -21,7 +21,7 @@ export const stripeProducts: StripeProduct[] = [
   },
   {
     priceId: 'price_1ReBMSEREG4CzjmmiB7ZN5hL',
-    name: 'CoachBridge Starter',
+    name: 'CoachBridge Starter', 
     description: 'Individuals seeking more AI coaching and the guidance of a human expert through webinars or group coaching. Includes 250 AI Coaching Credits.',
     price: 6900, // $69.00
     credits: 250,

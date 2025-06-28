@@ -135,16 +135,42 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
     .single();
 
   if (customer && priceId) {
-    // Map price IDs to plan types and credits
-    const planMapping: Record<string, { plan_type: string; credits: number; live_sessions: number }> = {
-      'price_1RXeYbEREG4CzjmmBKcnXTHc': { plan_type: 'ai_explorer', credits: 50, live_sessions: 0 },
-      'price_1ReBMSEREG4CzjmmiB7ZN5hL': { plan_type: 'coaching_starter', credits: 250, live_sessions: 1 },
-      'price_1ReBNEEREG4CzjmmnOtrbc5F': { plan_type: 'coaching_accelerator', credits: 600, live_sessions: 2 },
+    // Map price IDs to plan types and credits based on your product specifications
+    const planMapping: Record<string, { 
+      plan_type: string; 
+      credits: number; 
+      live_sessions: number;
+      plan_name: string;
+    }> = {
+      // CoachBridge Explorer - $25 - 50 AI Coaching Credits
+      'price_1RXeYbEREG4CzjmmBKcnXTHc': { 
+        plan_type: 'ai_explorer', 
+        credits: 50, 
+        live_sessions: 0,
+        plan_name: 'CoachBridge Explorer'
+      },
+      // CoachBridge Starter - $69 - 250 AI Coaching Credits  
+      'price_1ReBMSEREG4CzjmmiB7ZN5hL': { 
+        plan_type: 'coaching_starter', 
+        credits: 250, 
+        live_sessions: 1,
+        plan_name: 'CoachBridge Starter'
+      },
+      // CoachBridge Accelerator - $129 - 600 AI Coaching Credits
+      'price_1ReBNEEREG4CzjmmnOtrbc5F': { 
+        plan_type: 'coaching_accelerator', 
+        credits: 600, 
+        live_sessions: 2,
+        plan_name: 'CoachBridge Accelerator'
+      },
     };
 
     const planInfo = planMapping[priceId];
     if (planInfo) {
-      await supabase
+      console.log(`Updating user ${customer.user_id} to ${planInfo.plan_name} with ${planInfo.credits} credits`);
+      
+      // Update the user's subscription with the new plan and credits
+      const { error: updateError } = await supabase
         .from('subscriptions')
         .update({
           plan_type: planInfo.plan_type,
@@ -153,10 +179,21 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
           live_sessions_remaining: planInfo.live_sessions,
           stripe_subscription_id: subscription.id,
           status: subscription.status === 'active' ? 'active' : subscription.status,
+          trial_ends_at: null, // Clear trial end date since they're now paying
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', customer.user_id);
+
+      if (updateError) {
+        console.error('Error updating user subscription:', updateError);
+      } else {
+        console.log(`Successfully updated user ${customer.user_id} subscription to ${planInfo.plan_name}`);
+      }
+    } else {
+      console.error(`Unknown price ID: ${priceId}`);
     }
+  } else {
+    console.error('Customer or price ID not found:', { customer, priceId });
   }
 }
 
@@ -182,6 +219,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     .single();
 
   if (customer) {
+    console.log(`Reverting user ${customer.user_id} to free plan due to subscription cancellation`);
+    
     await supabase
       .from('subscriptions')
       .update({
@@ -189,6 +228,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         credits_remaining: 7,
         monthly_limit: 7,
         live_sessions_remaining: 0,
+        stripe_subscription_id: null,
         status: 'cancelled',
         updated_at: new Date().toISOString(),
       })
@@ -198,10 +238,78 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('Payment succeeded for invoice:', invoice.id);
-  // Handle successful payment - could refresh credits, send confirmation email, etc.
+  
+  // For recurring payments, refresh the user's credits
+  if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
+    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+    const priceId = subscription.items.data[0]?.price.id;
+    
+    if (priceId) {
+      const customerId = subscription.customer as string;
+      const { data: customer } = await supabase
+        .from('stripe_customers')
+        .select('user_id')
+        .eq('customer_id', customerId)
+        .single();
+
+      if (customer) {
+        // Refresh credits for the new billing period
+        const planMapping: Record<string, { credits: number; live_sessions: number }> = {
+          'price_1RXeYbEREG4CzjmmBKcnXTHc': { credits: 50, live_sessions: 0 },
+          'price_1ReBMSEREG4CzjmmiB7ZN5hL': { credits: 250, live_sessions: 1 },
+          'price_1ReBNEEREG4CzjmmnOtrbc5F': { credits: 600, live_sessions: 2 },
+        };
+
+        const planInfo = planMapping[priceId];
+        if (planInfo) {
+          console.log(`Refreshing credits for user ${customer.user_id}: ${planInfo.credits} credits`);
+          
+          await supabase
+            .from('subscriptions')
+            .update({
+              credits_remaining: planInfo.credits,
+              live_sessions_remaining: planInfo.live_sessions,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', customer.user_id);
+        }
+      }
+    }
+  }
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
   console.log('Payment failed for invoice:', invoice.id);
+  
   // Handle failed payment - could send notification, update subscription status, etc.
+  if (invoice.subscription) {
+    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+    const customerId = subscription.customer as string;
+    
+    // Update subscription status to past_due
+    await supabase
+      .from('stripe_subscriptions')
+      .update({
+        status: 'past_due',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('customer_id', customerId);
+
+    // Update user subscription status
+    const { data: customer } = await supabase
+      .from('stripe_customers')
+      .select('user_id')
+      .eq('customer_id', customerId)
+      .single();
+
+    if (customer) {
+      await supabase
+        .from('subscriptions')
+        .update({
+          status: 'past_due',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', customer.user_id);
+    }
+  }
 }
