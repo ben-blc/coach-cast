@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { supabase } from '@/lib/supabase';
-import { SUBSCRIPTION_PLANS, getPlanByProductId } from '@/lib/subscription-config';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -137,36 +136,48 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
     .single();
 
   if (customer && priceId) {
-    // Find the plan based on product ID
-    const plan = getPlanByProductId(productId);
-    
-    if (plan) {
-      console.log(`Updating user ${customer.user_id} to ${plan.name} with ${plan.tokensPerMonth} tokens`);
+    // Map price IDs to plan types and credits based on your product specifications
+    const planMapping: Record<string, { 
+      plan_type: 'explorer' | 'starter' | 'accelerator'; 
+      credits: number; 
+      live_sessions: number;
+      plan_name: string;
+    }> = {
+      // Explorer - $25 - 50 AI Coaching Credits
+      'price_1RXeYbEREG4CzjmmBKcnXTHc': { 
+        plan_type: 'explorer', 
+        credits: 50, 
+        live_sessions: 0,
+        plan_name: 'Explorer'
+      },
+      // Starter - $69 - 250 AI Coaching Credits  
+      'price_1ReBMSEREG4CzjmmiB7ZN5hL': { 
+        plan_type: 'starter', 
+        credits: 250, 
+        live_sessions: 1,
+        plan_name: 'Starter'
+      },
+      // Accelerator - $129 - 600 AI Coaching Credits
+      'price_1ReBNEEREG4CzjmmnOtrbc5F': { 
+        plan_type: 'accelerator', 
+        credits: 600, 
+        live_sessions: 2,
+        plan_name: 'Accelerator'
+      },
+    };
+
+    const planInfo = planMapping[priceId];
+    if (planInfo) {
+      console.log(`Updating user ${customer.user_id} to ${planInfo.plan_name} with ${planInfo.credits} credits`);
       
-      // Get current subscription to check existing credits
-      const { data: currentSubscription } = await supabase
-        .from('subscriptions')
-        .select('credits_remaining')
-        .eq('user_id', customer.user_id)
-        .single();
-
-      // Map plan names to subscription plan types
-      let planType: string;
-      switch (plan.name) {
-        case 'Starter': planType = 'explorer'; break;
-        case 'Explorer': planType = 'starter'; break;
-        case 'Accelerator': planType = 'accelerator'; break;
-        default: planType = 'free';
-      }
-
-      // Update the user's subscription with the new plan and ADD credits to existing ones
+      // Update the user's subscription with the new plan and set credits to the full amount
       const { error: updateError } = await supabase
         .from('subscriptions')
         .update({
-          plan_type: planType,
-          credits_remaining: plan.tokensPerMonth, // Set to full amount of the plan
-          monthly_limit: plan.tokensPerMonth,
-          live_sessions_remaining: planType === 'starter' ? 1 : (planType === 'accelerator' ? 2 : 0),
+          plan_type: planInfo.plan_type,
+          credits_remaining: planInfo.credits, // Set to full amount of the plan
+          monthly_limit: planInfo.credits,
+          live_sessions_remaining: planInfo.live_sessions,
           stripe_subscription_id: subscription.id,
           status: subscription.status === 'active' ? 'active' : subscription.status,
           trial_ends_at: null, // Clear trial end date since they're now paying
@@ -177,8 +188,8 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
       if (updateError) {
         console.error('Error updating user subscription:', updateError);
       } else {
-        console.log(`Successfully updated user ${customer.user_id} subscription to ${plan.name}`);
-        console.log(`Credits: ${plan.tokensPerMonth}`);
+        console.log(`Successfully updated user ${customer.user_id} subscription to ${planInfo.plan_name}`);
+        console.log(`Credits: ${planInfo.credits}`);
 
         // Record the credit transaction
         await supabase
@@ -186,52 +197,13 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
           .insert({
             user_id: customer.user_id,
             transaction_type: 'purchase',
-            credits_amount: plan.tokensPerMonth,
-            description: `Purchased ${plan.name} plan - ${plan.tokensPerMonth} credits added`,
+            credits_amount: planInfo.credits,
+            description: `Purchased ${planInfo.plan_name} plan - ${planInfo.credits} credits added`,
             stripe_subscription_id: subscription.id,
           });
-      }
-      
-      // Also update the user_subscriptions table for our enhanced subscription system
-      const { data: existingUserSub } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('user_id', customer.user_id)
-        .eq('stripe_subscription_id', subscription.id)
-        .single();
-        
-      if (!existingUserSub) {
-        await supabase
-          .from('user_subscriptions')
-          .insert({
-            user_id: customer.user_id,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscription.id,
-            stripe_product_id: productId,
-            plan_name: plan.name,
-            status: subscription.status as any,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            tokens_allocated: plan.tokensPerMonth,
-            tokens_remaining: plan.tokensPerMonth
-          });
-      } else {
-        await supabase
-          .from('user_subscriptions')
-          .update({
-            status: subscription.status as any,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            tokens_allocated: plan.tokensPerMonth,
-            tokens_remaining: plan.tokensPerMonth,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingUserSub.id);
       }
     } else {
-      console.error(`Unknown product ID: ${productId}`);
+      console.error(`Unknown price ID: ${priceId}`);
     }
   } else {
     console.error('Customer or price ID not found:', { customer, priceId });
@@ -285,16 +257,6 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         description: 'Subscription cancelled - reverted to free plan',
         stripe_subscription_id: subscription.id,
       });
-      
-    // Update user_subscriptions table
-    await supabase
-      .from('user_subscriptions')
-      .update({
-        status: 'canceled' as any,
-        cancel_at_period_end: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('stripe_subscription_id', subscription.id);
   }
 }
 
@@ -304,9 +266,9 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   // For recurring payments, ADD credits to existing balance (renewal)
   if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
     const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
-    const productId = subscription.items.data[0]?.price.product as string;
+    const priceId = subscription.items.data[0]?.price.id;
     
-    if (productId) {
+    if (priceId) {
       const customerId = subscription.customer as string;
       const { data: customer } = await supabase
         .from('stripe_customers')
@@ -322,18 +284,41 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
           .eq('user_id', customer.user_id)
           .single();
 
-        const plan = getPlanByProductId(productId);
-        if (plan && currentSubscription) {
-          const existingCredits = currentSubscription.credits_remaining || 0;
-          const newTotalCredits = existingCredits + plan.tokensPerMonth;
+        const planMapping: Record<string, { 
+          credits: number; 
+          live_sessions: number; 
+          plan_name: string;
+        }> = {
+          'price_1RXeYbEREG4CzjmmBKcnXTHc': { 
+            credits: 50, 
+            live_sessions: 0, 
+            plan_name: 'Explorer' 
+          },
+          'price_1ReBMSEREG4CzjmmiB7ZN5hL': { 
+            credits: 250, 
+            live_sessions: 1, 
+            plan_name: 'Starter' 
+          },
+          'price_1ReBNEEREG4CzjmmnOtrbc5F': { 
+            credits: 600, 
+            live_sessions: 2, 
+            plan_name: 'Accelerator' 
+          },
+        };
 
-          console.log(`Renewal: Adding ${plan.tokensPerMonth} tokens to user ${customer.user_id}`);
-          console.log(`Tokens: ${existingCredits} + ${plan.tokensPerMonth} = ${newTotalCredits}`);
+        const planInfo = planMapping[priceId];
+        if (planInfo && currentSubscription) {
+          const existingCredits = currentSubscription.credits_remaining || 0;
+          const newTotalCredits = existingCredits + planInfo.credits;
+
+          console.log(`Renewal: Adding ${planInfo.credits} credits to user ${customer.user_id}`);
+          console.log(`Credits: ${existingCredits} + ${planInfo.credits} = ${newTotalCredits}`);
           
           await supabase
             .from('subscriptions')
             .update({
               credits_remaining: newTotalCredits, // Add renewal credits to existing balance
+              live_sessions_remaining: planInfo.live_sessions,
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', customer.user_id);
@@ -344,30 +329,11 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
             .insert({
               user_id: customer.user_id,
               transaction_type: 'renewal',
-              credits_amount: plan.tokensPerMonth,
-              description: `${plan.name} plan renewal - ${plan.tokensPerMonth} credits added`,
+              credits_amount: planInfo.credits,
+              description: `${planInfo.plan_name} plan renewal - ${planInfo.credits} credits added`,
               stripe_subscription_id: subscription.id,
               stripe_invoice_id: invoice.id,
             });
-            
-          // Update user_subscriptions table
-          const { data: userSub } = await supabase
-            .from('user_subscriptions')
-            .select('*')
-            .eq('stripe_subscription_id', subscription.id)
-            .single();
-            
-          if (userSub) {
-            await supabase
-              .from('user_subscriptions')
-              .update({
-                tokens_remaining: userSub.tokens_remaining + plan.tokensPerMonth,
-                current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', userSub.id);
-          }
         }
       }
     }
@@ -406,15 +372,6 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', customer.user_id);
-        
-      // Update user_subscriptions table
-      await supabase
-        .from('user_subscriptions')
-        .update({
-          status: 'past_due' as any,
-          updated_at: new Date().toISOString()
-        })
-        .eq('stripe_subscription_id', subscription.id);
     }
   }
 }
