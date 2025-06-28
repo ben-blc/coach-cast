@@ -10,18 +10,24 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Check, Sparkles, Crown, Rocket, User, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentUser } from '@/lib/auth';
-import { stripeProducts, redirectToStripeCheckout, formatPrice, getUserSubscription, isSubscriptionActive, type StripeProduct } from '@/lib/stripe';
-import { getUserSubscription as getLocalSubscription } from '@/lib/database';
+import { 
+  SUBSCRIPTION_PLANS, 
+  formatPrice, 
+  redirectToSubscriptionCheckout,
+  getSubscriptionStatus,
+  isSubscriptionActive,
+  type SubscriptionPlan 
+} from '@/lib/stripe-enhanced';
 import Link from 'next/link';
 
 const planIcons = {
-  'price_1RXeYbEREG4CzjmmBKcnXTHc': Sparkles,
-  'price_1ReBMSEREG4CzjmmiB7ZN5hL': Crown,
-  'price_1ReBNEEREG4CzjmmnOtrbc5F': Rocket,
+  'Starter': Sparkles,
+  'Explorer': Crown,
+  'Accelerator': Rocket,
 };
 
 const planFeatures = {
-  'price_1RXeYbEREG4CzjmmBKcnXTHc': [
+  'Starter': [
     '50 AI Coaching Credits per month',
     'Access to all AI coaches',
     'Goal tracking dashboard',
@@ -29,7 +35,7 @@ const planFeatures = {
     'Session analytics',
     'Perfect for self-starters'
   ],
-  'price_1ReBMSEREG4CzjmmiB7ZN5hL': [
+  'Explorer': [
     '250 AI Coaching Credits per month',
     'Access to all AI coaches',
     'Human expert guidance',
@@ -39,7 +45,7 @@ const planFeatures = {
     'Document sharing',
     'Goal tracking & progress reports'
   ],
-  'price_1ReBNEEREG4CzjmmnOtrbc5F': [
+  'Accelerator': [
     '600 AI Coaching Credits per month',
     'AI Voice & Video Coaching',
     'All AI coaches available',
@@ -56,7 +62,6 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<any>(null);
-  const [localSubscription, setLocalSubscription] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -66,13 +71,8 @@ export default function PricingPage() {
         setUser(currentUser);
         
         if (currentUser) {
-          const [stripeData, localData] = await Promise.all([
-            getUserSubscription(),
-            getLocalSubscription(currentUser.id)
-          ]);
-          
-          setCurrentSubscription(stripeData);
-          setLocalSubscription(localData);
+          const subscriptionData = await getSubscriptionStatus();
+          setCurrentSubscription(subscriptionData?.subscription);
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -84,7 +84,7 @@ export default function PricingPage() {
     loadUserData();
   }, []);
 
-  const handleSubscribe = async (product: StripeProduct) => {
+  const handleSubscribe = async (plan: SubscriptionPlan) => {
     try {
       if (!user) {
         toast({
@@ -96,7 +96,7 @@ export default function PricingPage() {
       }
 
       // Check if user already has an active subscription
-      if (currentSubscription && isSubscriptionActive(currentSubscription.subscription_status)) {
+      if (currentSubscription && isSubscriptionActive(currentSubscription.status)) {
         toast({
           title: 'Active subscription found',
           description: 'You already have an active subscription. Please cancel your current subscription before subscribing to a new plan.',
@@ -105,10 +105,10 @@ export default function PricingPage() {
         return;
       }
 
-      setSubscribing(product.priceId);
+      setSubscribing(plan.stripePriceId);
 
       // Redirect to Stripe Checkout
-      await redirectToStripeCheckout(product.priceId);
+      await redirectToSubscriptionCheckout(plan.stripePriceId);
 
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -121,25 +121,18 @@ export default function PricingPage() {
     }
   };
 
-  const getCurrentPlan = () => {
-    if (!localSubscription) return 'free';
-    return localSubscription.plan_type;
+  const isCurrentPlan = (plan: SubscriptionPlan) => {
+    return currentSubscription?.plan_name === plan.name;
   };
 
-  const isCurrentPlan = (product: StripeProduct) => {
-    const currentPlan = getCurrentPlan();
-    return currentPlan === product.planType;
-  };
-
-  const getPlanDisplayName = (planType: string) => {
-    switch (planType) {
-      case 'free': return 'Free Trial';
-      case 'ai_explorer': return 'Explorer';
-      case 'coaching_starter': return 'Starter';
-      case 'coaching_accelerator': return 'Accelerator';
-      default: return 'Free Trial';
+  const getButtonText = (plan: SubscriptionPlan) => {
+    if (isCurrentPlan(plan)) {
+      return 'Current Plan';
     }
+    return 'Subscribe Now';
   };
+
+  const plans = Object.values(SUBSCRIPTION_PLANS);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -159,32 +152,32 @@ export default function PricingPage() {
             </p>
           </div>
 
-          {/* Current Plan Display */}
-          {user && localSubscription && (
+          {/* Current Subscription Display */}
+          {user && currentSubscription && (
             <div className="mb-12">
               <Card className="max-w-2xl mx-auto">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <User className="w-5 h-5" />
-                    <span>Current Plan</span>
+                    <span>Current Subscription</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-lg font-semibold text-gray-900">
-                        {getPlanDisplayName(localSubscription.plan_type)}
+                        {currentSubscription.plan_name}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {localSubscription.credits_remaining} credits remaining of {localSubscription.monthly_limit}
+                        {currentSubscription.tokens_remaining} tokens remaining of {currentSubscription.tokens_allocated}
                       </p>
-                      <Badge className={localSubscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
-                        {localSubscription.status}
+                      <Badge className={currentSubscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                        {currentSubscription.status}
                       </Badge>
                     </div>
-                    {currentSubscription && isSubscriptionActive(currentSubscription.subscription_status) && (
-                      <Badge className="bg-blue-100 text-blue-800">
-                        Stripe Active
+                    {currentSubscription.cancel_at_period_end && (
+                      <Badge className="bg-yellow-100 text-yellow-800">
+                        Cancels at period end
                       </Badge>
                     )}
                   </div>
@@ -207,7 +200,7 @@ export default function PricingPage() {
           )}
 
           {/* Active Subscription Warning */}
-          {user && currentSubscription && isSubscriptionActive(currentSubscription.subscription_status) && (
+          {user && currentSubscription && isSubscriptionActive(currentSubscription.status) && (
             <Alert className="mb-8 max-w-2xl mx-auto">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -218,16 +211,16 @@ export default function PricingPage() {
 
           {/* Pricing Plans */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {stripeProducts.map((product, index) => {
-              const Icon = planIcons[product.priceId as keyof typeof planIcons];
-              const features = planFeatures[product.priceId as keyof typeof planFeatures] || [];
-              const isPopular = product.priceId === 'price_1ReBMSEREG4CzjmmiB7ZN5hL';
-              const isCurrent = isCurrentPlan(product);
-              const hasActiveSubscription = currentSubscription && isSubscriptionActive(currentSubscription.subscription_status);
+            {plans.map((plan, index) => {
+              const Icon = planIcons[plan.name as keyof typeof planIcons];
+              const features = planFeatures[plan.name as keyof typeof planFeatures] || [];
+              const isPopular = plan.name === 'Explorer';
+              const isCurrent = isCurrentPlan(plan);
+              const hasActiveSubscription = currentSubscription && isSubscriptionActive(currentSubscription.status);
 
               return (
                 <Card
-                  key={product.priceId}
+                  key={plan.stripePriceId}
                   className={`relative border-2 hover:shadow-lg transition-all duration-300 ${
                     isPopular ? 'border-green-200 ring-2 ring-green-200' : 'border-gray-200'
                   } ${isCurrent ? 'ring-2 ring-blue-500' : ''}`}
@@ -255,17 +248,17 @@ export default function PricingPage() {
                       </div>
                     </div>
                     <CardTitle className="text-xl font-bold text-gray-900">
-                      {product.name}
+                      {plan.name}
                     </CardTitle>
                     <div className="flex items-baseline justify-center space-x-2">
                       <span className="text-4xl font-bold text-gray-900">
-                        {formatPrice(product.price)}
+                        {formatPrice(plan.priceCents)}
                       </span>
                       <span className="text-gray-600">/month</span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">{product.description}</p>
+                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">{plan.description}</p>
                     <Badge variant="outline" className="mt-2">
-                      {product.credits} Credits/Month
+                      {plan.tokensPerMonth} Tokens/Month
                     </Badge>
                   </CardHeader>
 
@@ -291,20 +284,16 @@ export default function PricingPage() {
                           : 'bg-blue-600 hover:bg-blue-700'
                       } text-white`}
                       size="lg"
-                      onClick={() => handleSubscribe(product)}
-                      disabled={isCurrent || subscribing === product.priceId || !user || hasActiveSubscription}
+                      onClick={() => handleSubscribe(plan)}
+                      disabled={isCurrent || subscribing === plan.stripePriceId || !user || hasActiveSubscription}
                     >
-                      {subscribing === product.priceId ? (
+                      {subscribing === plan.stripePriceId ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Redirecting to Stripe...
                         </>
-                      ) : isCurrent ? (
-                        'Current Plan'
-                      ) : hasActiveSubscription ? (
-                        'Cancel Current First'
                       ) : (
-                        'Subscribe Now'
+                        getButtonText(plan)
                       )}
                     </Button>
                   </CardContent>

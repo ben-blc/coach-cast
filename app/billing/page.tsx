@@ -21,19 +21,25 @@ import {
   Loader2
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserProfile, getUserSubscription as getDBSubscription, getUserCreditTransactions, getPlanDisplayName } from '@/lib/database';
-import { getUserSubscription, isSubscriptionActive, stripeProducts, formatPrice, cancelSubscription, reactivateSubscription } from '@/lib/stripe';
+import { getUserProfile } from '@/lib/database';
+import { 
+  getSubscriptionStatus, 
+  isSubscriptionActive, 
+  formatPrice, 
+  cancelSubscription, 
+  reactivateSubscription 
+} from '@/lib/stripe-enhanced';
+import { getUserActiveSubscription, getUserTransactionHistory } from '@/lib/subscription-service';
 import { Navbar } from '@/components/sections/Navbar';
 import { useToast } from '@/hooks/use-toast';
-import type { Profile, Subscription, CreditTransaction } from '@/lib/database';
+import type { Profile } from '@/lib/database';
 import Link from 'next/link';
 
 export default function BillingPage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [stripeSubscription, setStripeSubscription] = useState<any>(null);
-  const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const router = useRouter();
@@ -50,17 +56,15 @@ export default function BillingPage() {
 
         setUser(currentUser);
         
-        const [userProfile, userSubscription, stripeData, transactions] = await Promise.all([
+        const [userProfile, activeSubscription, transactionHistory] = await Promise.all([
           getUserProfile(currentUser.id),
-          getDBSubscription(currentUser.id),
-          getUserSubscription(),
-          getUserCreditTransactions(currentUser.id)
+          getUserActiveSubscription(),
+          getUserTransactionHistory()
         ]);
         
         setProfile(userProfile);
-        setSubscription(userSubscription);
-        setStripeSubscription(stripeData);
-        setCreditTransactions(transactions);
+        setSubscription(activeSubscription);
+        setTransactions(transactionHistory);
       } catch (error) {
         console.error('Error loading user data:', error);
       } finally {
@@ -71,9 +75,8 @@ export default function BillingPage() {
     loadUserData();
   }, [router]);
 
-  const formatDate = (timestamp: number | string) => {
-    const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -94,8 +97,8 @@ export default function BillingPage() {
           description: result.message,
         });
         // Refresh subscription data
-        const stripeData = await getUserSubscription();
-        setStripeSubscription(stripeData);
+        const activeSubscription = await getUserActiveSubscription();
+        setSubscription(activeSubscription);
       } else {
         toast({
           title: 'Error',
@@ -124,8 +127,8 @@ export default function BillingPage() {
           description: result.message,
         });
         // Refresh subscription data
-        const stripeData = await getUserSubscription();
-        setStripeSubscription(stripeData);
+        const activeSubscription = await getUserActiveSubscription();
+        setSubscription(activeSubscription);
       } else {
         toast({
           title: 'Error',
@@ -146,11 +149,10 @@ export default function BillingPage() {
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
-      case 'purchase': return 'bg-green-100 text-green-800';
-      case 'renewal': return 'bg-blue-100 text-blue-800';
-      case 'usage': return 'bg-red-100 text-red-800';
-      case 'refund': return 'bg-yellow-100 text-yellow-800';
-      case 'bonus': return 'bg-purple-100 text-purple-800';
+      case 'subscription_created': return 'bg-green-100 text-green-800';
+      case 'subscription_renewed': return 'bg-blue-100 text-blue-800';
+      case 'payment_failed': return 'bg-red-100 text-red-800';
+      case 'subscription_canceled': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -169,7 +171,7 @@ export default function BillingPage() {
     );
   }
 
-  if (!user || !profile || !subscription) {
+  if (!user || !profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <Navbar />
@@ -187,8 +189,6 @@ export default function BillingPage() {
       </div>
     );
   }
-
-  const hasActiveStripeSubscription = stripeSubscription && isSubscriptionActive(stripeSubscription.subscription_status);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -217,122 +217,117 @@ export default function BillingPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">
-                      {getPlanDisplayName(subscription.plan_type)}
-                    </h3>
-                    <p className="text-gray-600">
-                      {subscription.plan_type === 'free' ? 'Free' : 
-                       subscription.plan_type === 'explorer' ? '$25/month' :
-                       subscription.plan_type === 'starter' ? '$69/month' :
-                       subscription.plan_type === 'accelerator' ? '$129/month' : 'Free'}
+                {subscription ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">
+                          {subscription.plan_name}
+                        </h3>
+                        <p className="text-gray-600">
+                          {subscription.tokens_remaining} tokens remaining
+                        </p>
+                      </div>
+                      <Badge className={subscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                        {subscription.status}
+                      </Badge>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600">Tokens Remaining</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {subscription.tokens_remaining}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Monthly Allocation</p>
+                          <p className="text-lg font-semibold text-gray-900">
+                            {subscription.tokens_allocated}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {subscription.current_period_end && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-blue-600" />
+                          <p className="text-sm font-medium text-blue-800">Active Subscription</p>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-blue-700">Next Billing:</span>
+                            <span className="text-blue-900 font-medium">
+                              {formatDate(subscription.current_period_end)}
+                            </span>
+                          </div>
+                          {subscription.cancel_at_period_end && (
+                            <div className="flex justify-between">
+                              <span className="text-blue-700">Status:</span>
+                              <span className="text-red-600 font-medium">Cancels at period end</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-4 border-t space-y-3">
+                      <Button asChild className="w-full">
+                        <Link href="/pricing">
+                          <Settings className="w-4 h-4 mr-2" />
+                          Change Plan
+                        </Link>
+                      </Button>
+                      
+                      <div className="space-y-2">
+                        {subscription.cancel_at_period_end ? (
+                          <Button 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={handleReactivateSubscription}
+                            disabled={actionLoading}
+                          >
+                            {actionLoading ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                            )}
+                            Reactivate Subscription
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            className="w-full text-red-600 border-red-300 hover:bg-red-50"
+                            onClick={handleCancelSubscription}
+                            disabled={actionLoading}
+                          >
+                            {actionLoading ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                            )}
+                            Cancel Subscription
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No active subscription</p>
+                    <p className="text-sm mt-2">
+                      You're currently on a free plan. Upgrade to access premium features.
                     </p>
-                  </div>
-                  <Badge className={
-                    subscription.status === 'active' ? 'bg-green-100 text-green-800' :
-                    subscription.status === 'trialing' ? 'bg-blue-100 text-blue-800' :
-                    subscription.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                    subscription.status === 'past_due' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }>
-                    {subscription.status}
-                  </Badge>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Credits Remaining</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {subscription.credits_remaining}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Monthly Limit</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {subscription.monthly_limit}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stripe Subscription Details */}
-                {hasActiveStripeSubscription && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <CheckCircle className="w-4 h-4 text-blue-600" />
-                      <p className="text-sm font-medium text-blue-800">Active Stripe Subscription</p>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      {stripeSubscription.payment_method_brand && stripeSubscription.payment_method_last4 && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Payment Method:</span>
-                          <span className="text-blue-900 font-medium">
-                            {stripeSubscription.payment_method_brand.toUpperCase()} •••• {stripeSubscription.payment_method_last4}
-                          </span>
-                        </div>
-                      )}
-                      {stripeSubscription.current_period_end && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Next Billing:</span>
-                          <span className="text-blue-900 font-medium">
-                            {formatDate(stripeSubscription.current_period_end)}
-                          </span>
-                        </div>
-                      )}
-                      {stripeSubscription.cancel_at_period_end && (
-                        <div className="flex justify-between">
-                          <span className="text-blue-700">Status:</span>
-                          <span className="text-red-600 font-medium">Cancels at period end</span>
-                        </div>
-                      )}
-                    </div>
+                    <Button asChild className="mt-4">
+                      <Link href="/pricing">
+                        View Plans
+                      </Link>
+                    </Button>
                   </div>
                 )}
-
-                <div className="pt-4 border-t space-y-3">
-                  <Button asChild className="w-full">
-                    <Link href="/pricing">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Change Plan
-                    </Link>
-                  </Button>
-                  
-                  {hasActiveStripeSubscription && (
-                    <div className="space-y-2">
-                      {stripeSubscription.cancel_at_period_end ? (
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
-                          onClick={handleReactivateSubscription}
-                          disabled={actionLoading}
-                        >
-                          {actionLoading ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                          )}
-                          Reactivate Subscription
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                          onClick={handleCancelSubscription}
-                          disabled={actionLoading}
-                        >
-                          {actionLoading ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                          )}
-                          Cancel Subscription
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -370,81 +365,27 @@ export default function BillingPage() {
                     {formatDate(profile.created_at)}
                   </p>
                 </div>
-
-                {subscription.trial_ends_at && subscription.status === 'trialing' && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-blue-600" />
-                      <p className="text-sm font-medium text-blue-800">Trial Period</p>
-                    </div>
-                    <p className="text-sm text-blue-700 mt-1">
-                      Your trial ends on {formatDate(subscription.trial_ends_at)}
-                    </p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Usage Statistics */}
-        <Card className="shadow-lg mt-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Coins className="w-5 h-5" />
-              <span>Usage Statistics</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <Coins className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Credits Used</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {subscription.monthly_limit - subscription.credits_remaining}
-                </p>
-                <p className="text-xs text-gray-500">This month</p>
-              </div>
-              
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Credits Remaining</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {subscription.credits_remaining}
-                </p>
-                <p className="text-xs text-gray-500">Available now</p>
-              </div>
-              
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <Calendar className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-600">Plan Type</p>
-                <p className="text-lg font-bold text-gray-900">
-                  {getPlanDisplayName(subscription.plan_type)}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {hasActiveStripeSubscription ? 'Stripe Managed' : 'Local Account'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Credit Transaction History */}
-        {creditTransactions.length > 0 && (
+        {/* Transaction History */}
+        {transactions.length > 0 && (
           <Card className="shadow-lg mt-8">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <DollarSign className="w-5 h-5" />
-                <span>Credit Transaction History</span>
+                <span>Transaction History</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {creditTransactions.slice(0, 10).map((transaction) => (
+                {transactions.slice(0, 10).map((transaction) => (
                   <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <Badge className={getTransactionTypeColor(transaction.transaction_type)}>
-                        {transaction.transaction_type}
+                      <Badge className={getTransactionTypeColor(transaction.event_type)}>
+                        {transaction.event_type.replace('_', ' ')}
                       </Badge>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
@@ -455,14 +396,17 @@ export default function BillingPage() {
                         </p>
                       </div>
                     </div>
-                    <div className={`text-sm font-medium ${
-                      transaction.credits_amount > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {transaction.credits_amount > 0 ? '+' : ''}{transaction.credits_amount} credits
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatPrice(transaction.amount_paid)}
+                      </div>
+                      <div className="text-xs text-green-600">
+                        +{transaction.tokens_granted} tokens
+                      </div>
                     </div>
                   </div>
                 ))}
-                {creditTransactions.length > 10 && (
+                {transactions.length > 10 && (
                   <p className="text-sm text-gray-500 text-center">
                     Showing 10 most recent transactions
                   </p>
@@ -471,66 +415,6 @@ export default function BillingPage() {
             </CardContent>
           </Card>
         )}
-
-        {/* Billing Information */}
-        <Card className="shadow-lg mt-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <DollarSign className="w-5 h-5" />
-              <span>Billing Information</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {hasActiveStripeSubscription ? (
-              <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <p className="text-sm font-medium text-green-800">Billing Active</p>
-                  </div>
-                  <p className="text-sm text-green-700">
-                    Your subscription is managed by Stripe with automatic billing.
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Subscription Status</p>
-                    <Badge className={
-                      stripeSubscription.subscription_status === 'active' ? 'bg-green-100 text-green-800' :
-                      stripeSubscription.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-800' :
-                      stripeSubscription.subscription_status === 'canceled' ? 'bg-red-100 text-red-800' :
-                      stripeSubscription.subscription_status === 'past_due' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }>
-                      {stripeSubscription.subscription_status}
-                    </Badge>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm text-gray-600">Plan Name</p>
-                    <p className="font-medium text-gray-900">
-                      {getPlanDisplayName(subscription.plan_type)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p className="font-medium">No active billing subscription</p>
-                <p className="text-sm mt-2">
-                  You're currently on a free plan. Upgrade to access premium features.
-                </p>
-                <Button asChild className="mt-4">
-                  <Link href="/pricing">
-                    View Plans
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

@@ -20,29 +20,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's Stripe customer ID
-    const { data: customer, error: customerError } = await supabase
-      .from('stripe_customers')
-      .select('customer_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (customerError || !customer) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      );
-    }
-
     // Get user's active subscription
     const { data: subscription, error: subscriptionError } = await supabase
-      .from('stripe_subscriptions')
-      .select('subscription_id')
-      .eq('customer_id', customer.customer_id)
+      .from('user_subscriptions')
+      .select('stripe_subscription_id')
+      .eq('user_id', user.id)
       .eq('status', 'active')
       .single();
 
-    if (subscriptionError || !subscription || !subscription.subscription_id) {
+    if (subscriptionError || !subscription) {
       return NextResponse.json(
         { error: 'No active subscription found' },
         { status: 404 }
@@ -51,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     // Cancel the subscription at period end
     const canceledSubscription = await stripe.subscriptions.update(
-      subscription.subscription_id,
+      subscription.stripe_subscription_id,
       {
         cancel_at_period_end: true,
       }
@@ -59,12 +45,12 @@ export async function POST(request: NextRequest) {
 
     // Update our database
     await supabase
-      .from('stripe_subscriptions')
+      .from('user_subscriptions')
       .update({
         cancel_at_period_end: true,
         updated_at: new Date().toISOString(),
       })
-      .eq('subscription_id', subscription.subscription_id);
+      .eq('stripe_subscription_id', subscription.stripe_subscription_id);
 
     return NextResponse.json({
       success: true,
