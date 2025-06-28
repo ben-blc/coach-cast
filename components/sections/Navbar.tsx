@@ -154,6 +154,10 @@ export function Navbar() {
                   <Users className="w-4 h-4" />
                   <span>Coach Studio</span>
                 </Link>
+                <Link href="/billing" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-1 font-medium">
+                  <CreditCard className="w-4 h-4" />
+                  <span>Billing</span>
+                </Link>
               </nav>
 
               {shouldShowCredits && (

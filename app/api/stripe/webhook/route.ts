@@ -169,12 +169,22 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
     if (planInfo) {
       console.log(`Updating user ${customer.user_id} to ${planInfo.plan_name} with ${planInfo.credits} credits`);
       
-      // Update the user's subscription with the new plan and credits
+      // Get current subscription to check existing credits
+      const { data: currentSubscription } = await supabase
+        .from('subscriptions')
+        .select('credits_remaining')
+        .eq('user_id', customer.user_id)
+        .single();
+
+      const existingCredits = currentSubscription?.credits_remaining || 0;
+      const newTotalCredits = existingCredits + planInfo.credits;
+
+      // Update the user's subscription with the new plan and ADD credits to existing ones
       const { error: updateError } = await supabase
         .from('subscriptions')
         .update({
           plan_type: planInfo.plan_type,
-          credits_remaining: planInfo.credits,
+          credits_remaining: newTotalCredits, // Add new credits to existing ones
           monthly_limit: planInfo.credits,
           live_sessions_remaining: planInfo.live_sessions,
           stripe_subscription_id: subscription.id,
@@ -188,6 +198,18 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
         console.error('Error updating user subscription:', updateError);
       } else {
         console.log(`Successfully updated user ${customer.user_id} subscription to ${planInfo.plan_name}`);
+        console.log(`Credits: ${existingCredits} + ${planInfo.credits} = ${newTotalCredits}`);
+
+        // Record the credit transaction
+        await supabase
+          .from('credit_transactions')
+          .insert({
+            user_id: customer.user_id,
+            transaction_type: 'purchase',
+            credits_amount: planInfo.credits,
+            description: `Purchased ${planInfo.plan_name} - ${planInfo.credits} credits added`,
+            stripe_subscription_id: subscription.id,
+          });
       }
     } else {
       console.error(`Unknown price ID: ${priceId}`);
@@ -233,13 +255,24 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', customer.user_id);
+
+    // Record the cancellation transaction
+    await supabase
+      .from('credit_transactions')
+      .insert({
+        user_id: customer.user_id,
+        transaction_type: 'refund',
+        credits_amount: 0,
+        description: 'Subscription cancelled - reverted to free plan',
+        stripe_subscription_id: subscription.id,
+      });
   }
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('Payment succeeded for invoice:', invoice.id);
   
-  // For recurring payments, refresh the user's credits
+  // For recurring payments, ADD credits to existing balance (renewal)
   if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
     const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
     const priceId = subscription.items.data[0]?.price.id;
@@ -253,25 +286,63 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
         .single();
 
       if (customer) {
-        // Refresh credits for the new billing period
-        const planMapping: Record<string, { credits: number; live_sessions: number }> = {
-          'price_1RXeYbEREG4CzjmmBKcnXTHc': { credits: 50, live_sessions: 0 },
-          'price_1ReBMSEREG4CzjmmiB7ZN5hL': { credits: 250, live_sessions: 1 },
-          'price_1ReBNEEREG4CzjmmnOtrbc5F': { credits: 600, live_sessions: 2 },
+        // Get current subscription to add credits to existing balance
+        const { data: currentSubscription } = await supabase
+          .from('subscriptions')
+          .select('credits_remaining')
+          .eq('user_id', customer.user_id)
+          .single();
+
+        const planMapping: Record<string, { 
+          credits: number; 
+          live_sessions: number; 
+          plan_name: string;
+        }> = {
+          'price_1RXeYbEREG4CzjmmBKcnXTHc': { 
+            credits: 50, 
+            live_sessions: 0, 
+            plan_name: 'CoachBridge Explorer' 
+          },
+          'price_1ReBMSEREG4CzjmmiB7ZN5hL': { 
+            credits: 250, 
+            live_sessions: 1, 
+            plan_name: 'CoachBridge Starter' 
+          },
+          'price_1ReBNEEREG4CzjmmnOtrbc5F': { 
+            credits: 600, 
+            live_sessions: 2, 
+            plan_name: 'CoachBridge Accelerator' 
+          },
         };
 
         const planInfo = planMapping[priceId];
-        if (planInfo) {
-          console.log(`Refreshing credits for user ${customer.user_id}: ${planInfo.credits} credits`);
+        if (planInfo && currentSubscription) {
+          const existingCredits = currentSubscription.credits_remaining || 0;
+          const newTotalCredits = existingCredits + planInfo.credits;
+
+          console.log(`Renewal: Adding ${planInfo.credits} credits to user ${customer.user_id}`);
+          console.log(`Credits: ${existingCredits} + ${planInfo.credits} = ${newTotalCredits}`);
           
           await supabase
             .from('subscriptions')
             .update({
-              credits_remaining: planInfo.credits,
+              credits_remaining: newTotalCredits, // Add renewal credits to existing balance
               live_sessions_remaining: planInfo.live_sessions,
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', customer.user_id);
+
+          // Record the renewal transaction
+          await supabase
+            .from('credit_transactions')
+            .insert({
+              user_id: customer.user_id,
+              transaction_type: 'renewal',
+              credits_amount: planInfo.credits,
+              description: `${planInfo.plan_name} renewal - ${planInfo.credits} credits added`,
+              stripe_subscription_id: subscription.id,
+              stripe_invoice_id: invoice.id,
+            });
         }
       }
     }

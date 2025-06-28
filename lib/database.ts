@@ -89,6 +89,17 @@ export type CoachingSessionGoal = {
   updated_at: string;
 };
 
+export type CreditTransaction = {
+  id: string;
+  user_id: string;
+  transaction_type: 'purchase' | 'renewal' | 'usage' | 'refund' | 'bonus';
+  credits_amount: number;
+  description: string;
+  stripe_subscription_id?: string;
+  stripe_invoice_id?: string;
+  created_at: string;
+};
+
 export type SessionAnalytics = {
   id: string;
   session_id: string;
@@ -533,6 +544,16 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
       return false;
     }
 
+    // Record the credit usage transaction
+    await supabase
+      .from('credit_transactions')
+      .insert({
+        user_id: userId,
+        transaction_type: 'usage',
+        credits_amount: -creditsUsed, // Negative for usage
+        description: `Used ${creditsUsed} credits for coaching session`,
+      });
+
     console.log(`Updated credits for user ${userId}: ${currentSubscription.credits_remaining} -> ${newCreditsRemaining} (used ${creditsUsed})`);
     return true;
   } catch (error) {
@@ -586,6 +607,40 @@ export async function updateUserSubscriptionPlan(
   } catch (error) {
     console.error('Unexpected error in updateUserSubscriptionPlan:', error);
     return false;
+  }
+}
+
+// Credit transaction functions
+export async function getUserCreditTransactions(userId: string): Promise<CreditTransaction[]> {
+  try {
+    const isConnected = await testSupabaseConnection();
+    if (!isConnected) {
+      console.error('Supabase connection failed in getUserCreditTransactions');
+      return [];
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.error('No active session found');
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('credit_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching credit transactions:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Unexpected error in getUserCreditTransactions:', error);
+    return [];
   }
 }
 
