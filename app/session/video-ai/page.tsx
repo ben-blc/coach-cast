@@ -358,14 +358,17 @@ export default function VideoAISessionPage() {
       script.onload = () => {
         // Once the script is loaded, create the iframe
         if (window.Daily && videoContainerRef.current) {
-          const callFrame = window.Daily.createFrame(videoContainerRef.current, {
+          const callFrame = window.Daily.createFrame({
             iframeStyle: {
+              position: 'relative',
               width: '100%',
               height: '100%',
               border: '0',
               borderRadius: '8px',
-              backgroundColor: '#ffffff' // Set background color to white instead of black
-            }
+              backgroundColor: '#ffffff' // White background
+            },
+            showLeaveButton: true,
+            showFullscreenButton: true
           });
           
           callFrame.join({ url });
@@ -373,9 +376,9 @@ export default function VideoAISessionPage() {
           
           // Add a message to help users understand what to do
           const messageDiv = document.createElement('div');
-          messageDiv.className = 'absolute bottom-4 left-0 right-0 text-center';
+          messageDiv.className = 'absolute bottom-4 left-0 right-0 text-center z-10';
           messageDiv.innerHTML = `
-            <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full">
+            <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
               Click "Join Call" to interact with your coach
             </p>
           `;
@@ -396,6 +399,11 @@ export default function VideoAISessionPage() {
             allow="camera; microphone; fullscreen; display-capture; autoplay" 
             style="width: 100%; height: 100%; border: 0; border-radius: 8px; background-color: #ffffff;"
           ></iframe>
+          <div class="absolute bottom-4 left-0 right-0 text-center z-10">
+            <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
+              Click "Join Call" to interact with your coach
+            </p>
+          </div>
         `;
         setVideoEmbedded(true);
       }
