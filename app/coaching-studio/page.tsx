@@ -22,6 +22,7 @@ import {
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getUserSubscription } from '@/lib/database';
 import { Navbar } from '@/components/sections/Navbar';
+import { useUserSubscription } from '@/hooks/use-subscription';
 import type { AICoach, Subscription } from '@/lib/database';
 
 // Extended coach type to include all coach data
@@ -44,6 +45,7 @@ export default function CoachingStudioPage() {
   const [coachFilter, setCoachFilter] = useState<CoachFilter>('all');
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
   const router = useRouter();
+  const { activeSubscription } = useUserSubscription();
 
   useEffect(() => {
     async function loadData() {

@@ -24,6 +24,7 @@ import {
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getUserSubscription, createCoachingSession } from '@/lib/database';
 import { Navbar } from '@/components/sections/Navbar';
+import { useUserSubscription } from '@/hooks/use-subscription';
 import type { AICoach, Subscription } from '@/lib/database';
 
 interface Coach extends AICoach {
@@ -42,6 +43,7 @@ export default function CoachDetailClient() {
   const router = useRouter();
   const params = useParams();
   const coachId = params.id as string;
+  const { activeSubscription } = useUserSubscription();
 
   useEffect(() => {
     async function loadCoach() {
@@ -132,6 +134,9 @@ export default function CoachDetailClient() {
   };
 
   const canStartSession = () => {
+    if (activeSubscription) {
+      return activeSubscription.tokens_remaining > 0;
+    }
     return subscription && subscription.credits_remaining > 0;
   };
 
@@ -143,18 +148,9 @@ export default function CoachDetailClient() {
       if (!user) return;
 
       if (sessionType === 'audio_ai') {
-        const session = await createCoachingSession({
-          user_id: user.id,
-          session_type: 'ai_specialist',
-          ai_coach_id: coach.id,
-          status: 'active'
-        });
-        
-        if (session) {
-          router.push(`/session/ai-specialist?coach=${coach.id}`);
-        }
+        router.push(`/session/audio-ai?coach=${coach.id}`);
       } else if (sessionType === 'video_ai') {
-        router.push(`/session/digital-chemistry?coach=${coach.id}`);
+        router.push(`/session/video-ai?coach=${coach.id}`);
       } else if (sessionType === 'human_coaching') {
         router.push(`/session/human-coaching?coach=${coach.id}`);
       }
@@ -449,14 +445,23 @@ export default function CoachDetailClient() {
                               <ExternalLink className="w-4 h-4 mr-2" />
                               Book Session with {coach.name}
                             </Button>
-                          ) : (
+                          ) : sessionType === 'audio_ai' ? (
                             <Button
                               onClick={() => startSession(sessionType)}
                               disabled={!canStartSession()}
                               className="w-full"
                             >
                               <Play className="w-4 h-4 mr-2" />
-                              Start {getSessionTypeLabel(sessionType)}
+                              Start Audio AI Session
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => startSession(sessionType)}
+                              disabled={!canStartSession()}
+                              className="w-full"
+                            >
+                              <Video className="w-4 h-4 mr-2" />
+                              Start Video AI Session
                             </Button>
                           )}
                         </div>
@@ -508,20 +513,21 @@ export default function CoachDetailClient() {
               </CardContent>
             </Card>
 
-            {subscription && !canStartSession() && (
+            {((activeSubscription && activeSubscription.tokens_remaining <= 0) ||
+              (subscription && subscription.credits_remaining <= 0)) && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {subscription.plan_type === 'free' ? (
+                  {(activeSubscription?.plan_name === 'Starter' || subscription?.plan_type === 'free') ? (
                     <>
-                      You have no credits remaining. 
+                      You have no tokens remaining. 
                       <a href="/pricing" className="text-blue-600 hover:underline ml-1">
                         Upgrade your plan
                       </a> to continue coaching sessions.
                     </>
                   ) : (
                     <>
-                      You have no credits remaining in your current plan. 
+                      You have no tokens remaining in your current plan. 
                       <a href="/pricing" className="text-blue-600 hover:underline ml-1">
                         Upgrade your plan
                       </a> to book more sessions.

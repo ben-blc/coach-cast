@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getUserSubscription } from '@/lib/database';
+import { Navbar } from '@/components/sections/Navbar';
+import { useUserSubscription } from '@/hooks/use-subscription';
 import type { AICoach, Subscription } from '@/lib/database';
 
 // Extended coach type to include all coach data
@@ -35,11 +37,11 @@ export default function HumanCoachingPage() {
   const [coach, setCoach] = useState<Coach | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [bookingStep, setBookingStep] = useState<'info' | 'calendar' | 'payment' | 'confirmation'>('info');
   
   const router = useRouter();
   const searchParams = useSearchParams();
   const coachId = searchParams.get('coach');
+  const { activeSubscription } = useUserSubscription();
 
   useEffect(() => {
     async function loadCoach() {
@@ -74,11 +76,14 @@ export default function HumanCoachingPage() {
     loadCoach();
   }, [router, coachId]);
 
-  const formatPrice = (priceInCents: number) => {
-    return `$${(priceInCents / 100).toLocaleString()}`;
+  const formatPrice = (priceInDollars: number) => {
+    return `$${priceInDollars.toLocaleString()}`;
   };
 
   const canBookSession = () => {
+    if (activeSubscription) {
+      return activeSubscription.tokens_remaining >= 10; // Require at least 10 tokens
+    }
     return subscription && subscription.plan_type !== 'free' && subscription.live_sessions_remaining > 0;
   };
 
@@ -121,6 +126,8 @@ export default function HumanCoachingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      <Navbar />
+      
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
@@ -237,16 +244,16 @@ export default function HumanCoachingPage() {
               <Alert className="mb-6">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {subscription?.plan_type === 'free' ? (
+                  {activeSubscription?.plan_name === 'Starter' || subscription?.plan_type === 'free' ? (
                     <>
-                      Human coaching sessions require a paid plan. 
+                      Human coaching sessions require a paid plan with sufficient tokens. 
                       <a href="/pricing" className="text-blue-600 hover:underline ml-1">
                         Upgrade your plan
                       </a> to book sessions with {coach.name}.
                     </>
                   ) : (
                     <>
-                      You have no live sessions remaining in your current plan. 
+                      You don't have enough tokens remaining. 
                       <a href="/pricing" className="text-blue-600 hover:underline ml-1">
                         Upgrade your plan
                       </a> to book more sessions.
