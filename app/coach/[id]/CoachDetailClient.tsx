@@ -112,7 +112,7 @@ export default function CoachDetailClient() {
   const getSessionTypeDescription = (sessionType: string, coachName: string) => {
     switch (sessionType) {
       case 'audio_ai': return `Have a voice conversation with ${coachName} AI using advanced voice technology`;
-      case 'video_ai': return `Get a personalized video preview from ${coachName} tailored to your needs`;
+      case 'video_ai': return `Get a personalized video from ${coachName} tailored to your needs`;
       case 'human_coaching': return `Book a live 1-on-1 session with ${coachName} for personalized guidance`;
       default: return 'Coaching session';
     }

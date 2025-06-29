@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,36 +15,44 @@ import {
   AlertCircle, 
   Coins, 
   Loader2,
-  CheckCircle
+  CheckCircle,
+  User
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits, getUserSubscription } from '@/lib/database';
+import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
 import { Navbar } from '@/components/sections/Navbar';
 import { useUserSubscription } from '@/hooks/use-subscription';
-import type { AICoach, Subscription } from '@/lib/database';
+import { createTavusConversation, pollForTavusVideo } from '@/lib/tavus';
+import type { AICoach } from '@/lib/database';
 
 export default function VideoAISessionPage() {
   const [selectedCoach, setSelectedCoach] = useState<AICoach | null>(null);
   const [sessionTime, setSessionTime] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sessionActive, setSessionActive] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
-  const [timeExceeded, setTimeExceeded] = useState(false);
   const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
+  
+  // Tavus video states
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoGenerated, setVideoGenerated] = useState(false);
+  const [tavusConversationId, setTavusConversationId] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  
+  // Polling reference
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const router = useRouter();
   const searchParams = useSearchParams();
   const coachId = searchParams.get('coach');
   const { toast } = useToast();
-  const { activeSubscription } = useUserSubscription();
+  const { activeSubscription, refreshSubscription } = useUserSubscription();
 
   // Helper function to render coach avatar
   const renderCoachAvatar = (size: 'sm' | 'md' | 'lg' = 'md') => {
@@ -97,10 +105,7 @@ export default function VideoAISessionPage() {
           return;
         }
 
-        const [coaches, userSubscription] = await Promise.all([
-          getAICoaches(),
-          getUserSubscription(user.id)
-        ]);
+        const coaches = await getAICoaches();
         
         // Find the specific coach
         const coach = coaches.find(c => c.id === coachId);
@@ -110,10 +115,9 @@ export default function VideoAISessionPage() {
         }
         
         setSelectedCoach(coach);
-        setSubscription(userSubscription);
 
-        // Check if user has credits
-        if (userSubscription && userSubscription.credits_remaining <= 0) {
+        // Check if user has enough tokens
+        if (activeSubscription && activeSubscription.tokens_remaining < 2) {
           setNoCreditsAvailable(true);
         }
       } catch (error) {
@@ -124,13 +128,12 @@ export default function VideoAISessionPage() {
     }
 
     loadCoach();
-  }, [router, coachId]);
+  }, [router, coachId, activeSubscription]);
 
   // Timer effect
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timerStarted && sessionActive && !timeExceeded && !endingSession) {
-      interval = setInterval(() => {
+    if (timerStarted && sessionActive && !endingSession) {
+      timerIntervalRef.current = setInterval(() => {
         setSessionTime(prev => {
           const newTime = prev + 1;
           // Calculate tokens based on session time (2 tokens per minute)
@@ -140,10 +143,14 @@ export default function VideoAISessionPage() {
         });
       }, 1000);
     }
+    
     return () => {
-      if (interval) clearInterval(interval);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
     };
-  }, [timerStarted, sessionActive, timeExceeded, endingSession]);
+  }, [timerStarted, sessionActive, endingSession]);
 
   // Calculate tokens based on session time (2 tokens per minute)
   const calculateTokens = (seconds: number): number => {
@@ -181,7 +188,7 @@ export default function VideoAISessionPage() {
     if (activeSubscription) {
       return activeSubscription.tokens_remaining >= 2; // Minimum 2 tokens needed
     }
-    return subscription && subscription.credits_remaining >= 2;
+    return false;
   };
 
   const startSession = async () => {
@@ -209,13 +216,19 @@ export default function VideoAISessionPage() {
         setSessionTime(0);
         setTokensUsed(0);
         setEndingSession(false);
-        setTimeExceeded(false);
         setNoCreditsAvailable(false);
         setVideoUrl(null);
         setVideoGenerated(false);
+        setTavusConversationId(null);
+        setGenerationError(null);
       }
     } catch (error) {
       console.error('Error starting session:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to start session. Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -224,46 +237,98 @@ export default function VideoAISessionPage() {
     
     setIsGeneratingVideo(true);
     setTimerStarted(true);
+    setGenerationError(null);
     
     try {
-      // Call Tavus API to generate video
-      const response = await fetch('https://tavusapi.com/v2/conversations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': 'e3b388e8a7c74f33b06f7d4f446dbc64'
-        },
-        body: JSON.stringify({
-          replica_id: 'r7f46a350d08',
-          persona_id: 'pb9cbf4b27a6'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Tavus API error: ${response.status}`);
+      // Get current user for personalization
+      const user = await getCurrentUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      const data = await response.json();
-      console.log('Tavus API response:', data);
+      // Check if coach has Tavus replica ID
+      if (!selectedCoach.tavus_replica_id) {
+        throw new Error('This coach does not have a Tavus replica ID configured');
+      }
+
+      // Call Tavus API to generate video
+      const result = await createTavusConversation({
+        replica_id: selectedCoach.tavus_replica_id,
+        persona_id: 'pb9cbf4b27a6', // Default persona ID
+        recipient_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        recipient_email: user.email,
+        custom_fields: {
+          user_id: user.id,
+          coach_name: selectedCoach.name,
+          coach_specialty: selectedCoach.specialty
+        }
+      });
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (!result.id) {
+        throw new Error('No conversation ID returned from Tavus API');
+      }
+
+      setTavusConversationId(result.id);
       
-      // In a real implementation, we would wait for the video to be generated
-      // For now, we'll simulate a delay and then show a sample video
-      setTimeout(() => {
-        // Sample video URL - in production this would come from the Tavus API
-        setVideoUrl('https://storage.googleapis.com/tavus-public-demo-videos/tavus-demo-video.mp4');
+      // If video URL is already available, use it
+      if (result.video_url) {
+        setVideoUrl(result.video_url);
         setVideoGenerated(true);
         setIsGeneratingVideo(false);
-      }, 5000);
+        return;
+      }
+
+      // Otherwise, start polling for video completion
+      startPollingForVideo(result.id);
       
     } catch (error) {
       console.error('Error generating video:', error);
+      setGenerationError(error instanceof Error ? error.message : 'Unknown error occurred');
       toast({
         title: 'Video Generation Failed',
-        description: 'There was an error generating your personalized video. Please try again.',
+        description: error instanceof Error ? error.message : 'There was an error generating your personalized video.',
         variant: 'destructive'
       });
       setIsGeneratingVideo(false);
+      setTimerStarted(false);
     }
+  };
+
+  const startPollingForVideo = (conversationId: string) => {
+    // Clear any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Start polling for video completion
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const videoUrl = await pollForTavusVideo(conversationId, 1, 1000);
+        
+        if (videoUrl) {
+          setVideoUrl(videoUrl);
+          setVideoGenerated(true);
+          setIsGeneratingVideo(false);
+          
+          // Clear polling interval
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          
+          toast({
+            title: 'Video Generated',
+            description: 'Your personalized video is ready to view!',
+          });
+        }
+      } catch (error) {
+        console.error('Error polling for video:', error);
+      }
+    }, 3000);
   };
 
   const endSession = async () => {
@@ -271,7 +336,7 @@ export default function VideoAISessionPage() {
 
     try {
       setEndingSession(true);
-      console.log('Ending session...', { sessionId, sessionTime });
+      console.log('Ending session...', { sessionId, sessionTime, tavusConversationId });
 
       const user = await getCurrentUser();
       if (!user) {
@@ -312,18 +377,21 @@ export default function VideoAISessionPage() {
         console.log('Deducting tokens:', finalTokens);
         const creditsUpdated = await updateUserCredits(user.id, finalTokens);
         console.log('Credits updated:', creditsUpdated);
+        
+        // Refresh subscription data
+        await refreshSubscription();
       }
 
-      // Reset all states
-      setSessionActive(false);
-      setTimerStarted(false);
-      setSessionTime(0);
-      setTokensUsed(0);
-      setEndingSession(false);
-      setTimeExceeded(false);
-      setNoCreditsAvailable(false);
-      setVideoUrl(null);
-      setVideoGenerated(false);
+      // Clear intervals
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
 
       // Navigate to dashboard with refresh parameter
       console.log('Redirecting to dashboard...');
@@ -337,6 +405,18 @@ export default function VideoAISessionPage() {
       router.push('/?tab=sessions&refresh=true');
     }
   };
+
+  // Clean up intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -372,7 +452,7 @@ export default function VideoAISessionPage() {
   }
 
   // Show no credits message if user has no credits
-  if (noCreditsAvailable || timeExceeded || (activeSubscription && activeSubscription.tokens_remaining < 2)) {
+  if (noCreditsAvailable || (activeSubscription && activeSubscription.tokens_remaining < 2)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <Navbar />
@@ -380,13 +460,10 @@ export default function VideoAISessionPage() {
           <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              {timeExceeded ? 'Session Ended - Tokens Exhausted' : 'Insufficient Tokens'}
+              Insufficient Tokens
             </h1>
             <p className="text-gray-700 mb-6">
-              {timeExceeded
-                ? 'Your session was ended because you ran out of available tokens. Upgrade your plan to continue coaching sessions.'
-                : 'You need at least 2 tokens to start a video AI session. Upgrade your plan to continue coaching sessions.'
-              }
+              You need at least 2 tokens to start a video AI session. Upgrade your plan to continue coaching sessions.
             </p>
             <div className="space-y-3">
               <Button asChild className="w-full">
@@ -476,7 +553,7 @@ export default function VideoAISessionPage() {
                           Generating Your Personalized Video
                         </h3>
                         <p className="text-gray-600 max-w-md mx-auto">
-                          {selectedCoach.name} is creating a personalized video message just for you. This usually takes about 30 seconds.
+                          {selectedCoach.name} is creating a personalized video message just for you. This usually takes about 30-60 seconds.
                         </p>
                       </div>
                     ) : (
@@ -515,6 +592,7 @@ export default function VideoAISessionPage() {
                         controls 
                         className="w-full h-full"
                         poster="/video-poster.jpg"
+                        autoPlay
                       >
                         Your browser does not support the video tag.
                       </video>
@@ -664,8 +742,6 @@ export default function VideoAISessionPage() {
               <p className="text-sm text-gray-500">
                 {activeSubscription 
                   ? `You have ${activeSubscription.tokens_remaining} tokens remaining`
-                  : subscription
-                  ? `You have ${subscription.credits_remaining} tokens remaining`
                   : 'Loading token information...'}
               </p>
             </CardContent>
