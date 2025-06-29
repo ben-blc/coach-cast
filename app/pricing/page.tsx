@@ -14,10 +14,9 @@ import {
   SUBSCRIPTION_PLANS, 
   formatPrice, 
   redirectToSubscriptionCheckout,
-  getSubscriptionStatus,
-  isSubscriptionActive,
   type SubscriptionPlan 
 } from '@/lib/stripe-enhanced';
+import { useUserTokens } from '@/hooks/use-tokens';
 import Link from 'next/link';
 
 const planIcons = {
@@ -61,7 +60,7 @@ export default function PricingPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState<string | null>(null);
-  const [currentSubscription, setCurrentSubscription] = useState<any>(null);
+  const { tokens, refreshTokens } = useUserTokens();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,8 +70,7 @@ export default function PricingPage() {
         setUser(currentUser);
         
         if (currentUser) {
-          const subscriptionData = await getSubscriptionStatus();
-          setCurrentSubscription(subscriptionData?.subscription);
+          await refreshTokens();
         }
       } catch (error) {
         console.error('Error loading user data:', error);
@@ -82,7 +80,7 @@ export default function PricingPage() {
     }
 
     loadUserData();
-  }, []);
+  }, [refreshTokens]);
 
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     try {
@@ -96,7 +94,7 @@ export default function PricingPage() {
       }
 
       // Check if user already has an active subscription
-      if (currentSubscription && isSubscriptionActive(currentSubscription.status)) {
+      if (tokens && tokens.subscription_status === 'active') {
         toast({
           title: 'Active subscription found',
           description: 'You already have an active subscription. Please cancel your current subscription before subscribing to a new plan.',
@@ -122,7 +120,7 @@ export default function PricingPage() {
   };
 
   const isCurrentPlan = (plan: SubscriptionPlan) => {
-    return currentSubscription?.plan_name === plan.name;
+    return tokens?.plan_name === plan.name;
   };
 
   const getButtonText = (plan: SubscriptionPlan) => {
@@ -153,7 +151,7 @@ export default function PricingPage() {
           </div>
 
           {/* Current Subscription Display */}
-          {user && currentSubscription && (
+          {user && tokens && (
             <div className="mb-12">
               <Card className="max-w-2xl mx-auto">
                 <CardHeader>
@@ -166,20 +164,15 @@ export default function PricingPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-lg font-semibold text-gray-900">
-                        {currentSubscription.plan_name}
+                        {tokens.plan_name}
                       </p>
                       <p className="text-sm text-gray-600">
-                        {currentSubscription.tokens_remaining} tokens remaining of {currentSubscription.tokens_allocated}
+                        {tokens.tokens_remaining} tokens remaining of {tokens.total_tokens}
                       </p>
-                      <Badge className={currentSubscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
-                        {currentSubscription.status}
+                      <Badge className={tokens.subscription_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                        {tokens.subscription_status}
                       </Badge>
                     </div>
-                    {currentSubscription.cancel_at_period_end && (
-                      <Badge className="bg-yellow-100 text-yellow-800">
-                        Cancels at period end
-                      </Badge>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -200,7 +193,7 @@ export default function PricingPage() {
           )}
 
           {/* Active Subscription Warning */}
-          {user && currentSubscription && isSubscriptionActive(currentSubscription.status) && (
+          {user && tokens && tokens.subscription_status === 'active' && (
             <Alert className="mb-8 max-w-2xl mx-auto">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -216,7 +209,7 @@ export default function PricingPage() {
               const features = planFeatures[plan.name as keyof typeof planFeatures] || [];
               const isPopular = plan.name === 'Explorer';
               const isCurrent = isCurrentPlan(plan);
-              const hasActiveSubscription = currentSubscription && isSubscriptionActive(currentSubscription.status);
+              const hasActiveSubscription = tokens?.subscription_status === 'active';
 
               return (
                 <Card
@@ -256,7 +249,7 @@ export default function PricingPage() {
                       </span>
                       <span className="text-gray-600">/month</span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">{plan.description}</p>
+                    <p className="text-sm text-gray-600 mt-2">{plan.description}</p>
                     <Badge variant="outline" className="mt-2">
                       {plan.tokensPerMonth} Tokens/Month
                     </Badge>

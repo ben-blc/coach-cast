@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 import { SUBSCRIPTION_PLANS, formatPrice, type SubscriptionPlan } from './subscription-config';
-import { getUserActiveSubscription } from './subscription-service';
+import { syncUserTokens } from './tokens';
 
 export { SUBSCRIPTION_PLANS, formatPrice, type SubscriptionPlan };
 
@@ -106,6 +106,10 @@ export async function cancelSubscription(): Promise<{success: boolean, message?:
     }
 
     const result = await response.json();
+    
+    // Sync tokens after cancellation
+    await syncUserTokens();
+    
     return { 
       success: true, 
       message: result.message || 'Subscription cancelled successfully' 
@@ -148,6 +152,10 @@ export async function reactivateSubscription(): Promise<{success: boolean, messa
     }
 
     const result = await response.json();
+    
+    // Sync tokens after reactivation
+    await syncUserTokens();
+    
     return { 
       success: true, 
       message: result.message || 'Subscription reactivated successfully' 

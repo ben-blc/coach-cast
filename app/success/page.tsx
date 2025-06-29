@@ -5,19 +5,21 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Home, Play, Loader2 } from 'lucide-react';
+import { CheckCircle, Home, Play, Loader2, Coins } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getUserActiveSubscription } from '@/lib/subscription-service';
+import { useUserTokens } from '@/hooks/use-tokens';
 import { Navbar } from '@/components/sections/Navbar';
 import Link from 'next/link';
 
 export default function SuccessPage() {
   const [user, setUser] = useState<any>(null);
-  const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [processingPayment, setProcessingPayment] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams?.get('session_id');
+  const { tokens, refreshTokens } = useUserTokens();
 
   useEffect(() => {
     async function loadUserData() {
@@ -30,25 +32,56 @@ export default function SuccessPage() {
           return;
         }
 
-        // If we have a session ID, wait a moment for webhook to process
+        // If we have a session ID, process the payment success
         if (sessionId) {
-          // Wait 5 seconds for webhook processing
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          await processPaymentSuccess(sessionId, currentUser);
+        } else {
+          setProcessingPayment(false);
         }
 
-        // Load subscription data
-        const activeSubscription = await getUserActiveSubscription();
-        setSubscription(activeSubscription);
-
+        // Refresh tokens to get the latest balance
+        await refreshTokens();
       } catch (error) {
         console.error('Error loading user data:', error);
+        setError('Failed to load user data. Please try again.');
+        setProcessingPayment(false);
       } finally {
         setLoading(false);
       }
     }
 
     loadUserData();
-  }, [router, sessionId]);
+  }, [router, sessionId, refreshTokens]);
+
+  const processPaymentSuccess = async (sessionId: string, user: any) => {
+    try {
+      // Get the session from auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No access token available');
+      }
+
+      // Call the success API endpoint
+      const response = await fetch(`/api/stripe/success?session_id=${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process payment');
+      }
+
+      // Refresh tokens to get the updated balance
+      await refreshTokens();
+    } catch (error) {
+      console.error('Error processing payment success:', error);
+      setError(error instanceof Error ? error.message : 'Failed to process payment');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -79,21 +112,41 @@ export default function SuccessPage() {
           </h1>
           
           <p className="text-xl text-gray-600 mb-6">
-            {sessionId 
-              ? 'Your subscription has been successfully activated.'
-              : 'Thank you for joining Coach Bridge!'
+            {processingPayment 
+              ? 'Processing your subscription...'
+              : sessionId 
+                ? 'Your subscription has been successfully activated.'
+                : 'Thank you for joining Coach Bridge!'
             }
           </p>
 
-          {subscription && (
+          {tokens && (
             <Badge className="bg-green-100 text-green-800 px-4 py-2 text-lg">
-              {subscription.plan_name} Plan Active
+              {tokens.plan_name} Plan Active
             </Badge>
           )}
         </div>
 
+        {error && (
+          <Card className="shadow-lg mb-8 border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-center text-red-700">Error Processing Payment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-red-600 text-center">{error}</p>
+              <div className="flex justify-center mt-4">
+                <Button variant="outline" asChild>
+                  <Link href="/pricing">
+                    Return to Pricing
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Subscription Details */}
-        {subscription && (
+        {tokens && !error && (
           <Card className="shadow-lg mb-8">
             <CardHeader>
               <CardTitle className="text-center">Your Subscription Details</CardTitle>
@@ -103,38 +156,27 @@ export default function SuccessPage() {
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-gray-900 mb-2">Plan Type</h3>
                   <p className="text-lg font-medium text-blue-800">
-                    {subscription.plan_name}
+                    {tokens.plan_name}
                   </p>
                 </div>
                 
                 <div className="bg-green-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-gray-900 mb-2">Tokens Available</h3>
-                  <p className="text-lg font-medium text-green-800">
-                    {subscription.tokens_remaining} / {subscription.tokens_allocated}
-                  </p>
+                  <div className="flex items-center justify-center space-x-2">
+                    <Coins className="h-5 w-5 text-green-600" />
+                    <p className="text-lg font-medium text-green-800">
+                      {tokens.tokens_remaining} / {tokens.total_tokens}
+                    </p>
+                  </div>
                 </div>
                 
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-gray-900 mb-2">Status</h3>
-                  <Badge className={subscription.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
-                    {subscription.status}
+                  <Badge className={tokens.subscription_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
+                    {tokens.subscription_status}
                   </Badge>
                 </div>
               </div>
-
-              {subscription.current_period_end && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold text-gray-900 mb-2">Billing Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Next Billing:</span>
-                      <span className="ml-2 font-medium">
-                        {new Date(subscription.current_period_end).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
@@ -178,8 +220,8 @@ export default function SuccessPage() {
 
         <div className="text-center">
           <p className="text-gray-600 mb-4">
-            {subscription 
-              ? `Your ${subscription.plan_name} subscription is now active with ${subscription.tokens_remaining} tokens available.`
+            {tokens 
+              ? `Your ${tokens.plan_name} subscription is now active with ${tokens.tokens_remaining} tokens available.`
               : 'Your account is ready to use. Start exploring our coaching platform!'}
           </p>
           <Badge variant="outline" className="text-green-600 border-green-300">
