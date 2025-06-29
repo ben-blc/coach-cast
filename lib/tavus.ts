@@ -40,8 +40,8 @@ export async function createTavusConversation(params: TavusConversationParams): 
     const requestBody = {
       replica_id: params.replica_id,
       persona_id: params.persona_id,
-      conversation_name: `Session with ${customFields.user_name || 'User'}`,
-      conversational_context: `This is a coaching session with ${customFields.user_name || 'a user'}.`
+      conversation_name: customFields.conversation_name || `Session with ${customFields.user_name || 'User'}`,
+      conversational_context: customFields.conversational_context || `This is a coaching session with ${customFields.user_name || 'a user'}.`
     };
 
     console.log('Creating Tavus conversation with:', requestBody);
@@ -161,4 +161,31 @@ export async function pollForTavusVideo(
   
   console.warn('Tavus video polling timed out after', maxAttempts, 'attempts');
   return null;
+}
+
+/**
+ * End a Tavus conversation
+ */
+export async function endTavusConversation(conversationId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${TAVUS_API_BASE}/conversations/${conversationId}/end`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': TAVUS_API_KEY
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Tavus API error ending conversation:', errorData);
+      return false;
+    }
+
+    console.log('Tavus conversation ended successfully:', conversationId);
+    return true;
+  } catch (error) {
+    console.error('Error ending Tavus conversation:', error);
+    return false;
+  }
 }

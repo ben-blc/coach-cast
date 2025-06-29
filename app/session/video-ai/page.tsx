@@ -42,10 +42,12 @@ export default function VideoAISessionPage() {
   const [videoGenerated, setVideoGenerated] = useState(false);
   const [tavusConversationId, setTavusConversationId] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [videoEmbedded, setVideoEmbedded] = useState(false);
   
   // Polling reference
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -220,6 +222,7 @@ export default function VideoAISessionPage() {
         setVideoGenerated(false);
         setTavusConversationId(null);
         setGenerationError(null);
+        setVideoEmbedded(false);
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -284,6 +287,7 @@ export default function VideoAISessionPage() {
         setVideoUrl(result.video_url);
         setVideoGenerated(true);
         setIsGeneratingVideo(false);
+        embedTavusVideo(result.video_url);
         return;
       }
 
@@ -319,6 +323,9 @@ export default function VideoAISessionPage() {
           setVideoGenerated(true);
           setIsGeneratingVideo(false);
           
+          // Embed the video
+          embedTavusVideo(videoUrl);
+          
           // Clear polling interval
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -334,6 +341,53 @@ export default function VideoAISessionPage() {
         console.error('Error polling for video:', error);
       }
     }, 3000);
+  };
+
+  const embedTavusVideo = (url: string) => {
+    if (!videoContainerRef.current || videoEmbedded) return;
+    
+    try {
+      // Clear any existing content
+      videoContainerRef.current.innerHTML = '';
+      
+      // Create script element for Daily.co
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@daily-co/daily-js';
+      script.crossOrigin = 'anonymous';
+      script.onload = () => {
+        // Once the script is loaded, create the iframe
+        if (window.Daily && videoContainerRef.current) {
+          const callFrame = window.Daily.createFrame(videoContainerRef.current, {
+            iframeStyle: {
+              width: '100%',
+              height: '100%',
+              border: '0',
+              borderRadius: '8px',
+            }
+          });
+          
+          callFrame.join({ url });
+          setVideoEmbedded(true);
+        }
+      };
+      
+      // Add the script to the container
+      videoContainerRef.current.appendChild(script);
+    } catch (error) {
+      console.error('Error embedding Tavus video:', error);
+      
+      // Fallback to simple iframe if embedding fails
+      if (videoContainerRef.current) {
+        videoContainerRef.current.innerHTML = `
+          <iframe 
+            src="${url}" 
+            allow="camera; microphone; fullscreen; display-capture; autoplay" 
+            style="width: 100%; height: 100%; border: 0; border-radius: 8px;"
+          ></iframe>
+        `;
+        setVideoEmbedded(true);
+      }
+    }
   };
 
   const endSession = async () => {
@@ -584,16 +638,17 @@ export default function VideoAISessionPage() {
                       <p className="text-green-800">Your personalized video is ready!</p>
                     </div>
                     
-                    <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                      <video 
-                        src={videoUrl} 
-                        controls 
-                        className="w-full h-full"
-                        poster="/video-poster.jpg"
-                        autoPlay
-                      >
-                        Your browser does not support the video tag.
-                      </video>
+                    <div 
+                      ref={videoContainerRef}
+                      className="aspect-video bg-black rounded-lg overflow-hidden"
+                      style={{ height: '400px' }}
+                    >
+                      {/* Video will be embedded here by the embedTavusVideo function */}
+                      {!videoEmbedded && (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
                     </div>
                     
                     <div className="bg-gray-50 p-4 rounded-lg">
