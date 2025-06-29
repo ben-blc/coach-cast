@@ -25,7 +25,7 @@ const plans = [
   },
   {
     name: 'Coaching Starter',
-    price: '$99',
+    price: '$69',
     period: '/month',
     description: 'Ideal for regular coaching sessions',
     icon: Crown,
@@ -42,7 +42,7 @@ const plans = [
   },
   {
     name: 'Coaching Accelerator',
-    price: '$189',
+    price: '$129',
     period: '/month',
     description: 'Maximum coaching with premium features',
     icon: Rocket,
