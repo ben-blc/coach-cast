@@ -392,7 +392,8 @@ export default function CoachDetailClient() {
                           <div className="text-right">
                             <Badge 
                               variant={sessionType === 'human_coaching' ? 'outline' : 'secondary'}
-                              className="mb-2"
+                              className="mb-2 text-xs leading-tight px-2 py-0.5 min-w-[120px] text-center whitespace-nowrap"
+                              style={{ width: 'fit-content' }}
                             >
                               {getTrialInfo(sessionType, coach.coach_type)}
                             </Badge>
