@@ -250,17 +250,20 @@ export default function VideoAISessionPage() {
         throw new Error('This coach does not have a Tavus replica ID configured');
       }
 
+      // Prepare custom fields with user information
+      const customFields: Record<string, string> = {
+        user_id: user.id,
+        user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        user_email: user.email || '',
+        coach_name: selectedCoach.name,
+        coach_specialty: selectedCoach.specialty
+      };
+
       // Call Tavus API to generate video
       const result = await createTavusConversation({
         replica_id: selectedCoach.tavus_replica_id,
         persona_id: 'pb9cbf4b27a6', // Default persona ID
-        recipient_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        recipient_email: user.email,
-        custom_fields: {
-          user_id: user.id,
-          coach_name: selectedCoach.name,
-          coach_specialty: selectedCoach.specialty
-        }
+        custom_fields: customFields
       });
 
       if (result.error) {
@@ -563,7 +566,7 @@ export default function VideoAISessionPage() {
                           size="lg"
                         >
                           <Play className="w-5 h-5 mr-2" />
-                          Generate Personalized Video
+                          Start Session
                         </Button>
                         <p className="text-sm text-gray-500 mt-2">
                           This will use 2 tokens from your account
@@ -617,7 +620,7 @@ export default function VideoAISessionPage() {
                         disabled={endingSession || isGeneratingVideo}
                       >
                         <Play className="w-4 h-4 mr-2" />
-                        Generate Video
+                        Start Session
                       </Button>
                     ) : (
                       <Button

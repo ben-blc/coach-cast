@@ -35,10 +35,10 @@ export async function POST(request: NextRequest) {
     const result = await createTavusConversation({
       replica_id: replicaId,
       persona_id: personaId,
-      recipient_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-      recipient_email: user.email,
       custom_fields: customFields || {
-        user_id: user.id
+        user_id: user.id,
+        user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        user_email: user.email || ''
       }
     });
 

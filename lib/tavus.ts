@@ -14,8 +14,6 @@ export interface TavusConversationResponse {
 export interface TavusConversationParams {
   replica_id: string;
   persona_id: string;
-  recipient_name?: string;
-  recipient_email?: string;
   custom_fields?: Record<string, string>;
 }
 
@@ -38,9 +36,14 @@ export async function createTavusConversation(params: TavusConversationParams): 
       customFields.user_email = user.email;
     }
 
-    // Set recipient information if not provided
-    const recipientName = params.recipient_name || user.user_metadata?.full_name || 'User';
-    const recipientEmail = params.recipient_email || user.email || '';
+    // Prepare request body according to Tavus API docs
+    const requestBody = {
+      replica_id: params.replica_id,
+      persona_id: params.persona_id,
+      custom_fields: customFields
+    };
+
+    console.log('Creating Tavus conversation with:', requestBody);
 
     const response = await fetch(`${TAVUS_API_BASE}/conversations`, {
       method: 'POST',
@@ -48,19 +51,13 @@ export async function createTavusConversation(params: TavusConversationParams): 
         'Content-Type': 'application/json',
         'x-api-key': TAVUS_API_KEY
       },
-      body: JSON.stringify({
-        replica_id: params.replica_id,
-        persona_id: params.persona_id,
-        recipient_name: recipientName,
-        recipient_email: recipientEmail,
-        custom_fields: customFields
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Tavus API error:', errorData);
-      throw new Error(`Tavus API error: ${response.status} - ${errorData.message || 'Unknown error'}`);
+      throw new Error(`Tavus API error: ${response.status} - ${errorData.message || JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
