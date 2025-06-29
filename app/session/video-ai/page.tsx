@@ -22,8 +22,9 @@ import { getAICoaches, createCoachingSession, updateCoachingSession } from '@/li
 import { useToast } from '@/hooks/use-toast';
 import { Navbar } from '@/components/sections/Navbar';
 import { useUserTokens } from '@/hooks/use-tokens';
-import { createTavusConversation, pollForTavusVideo, endTavusConversation } from '@/lib/tavus';
+import { createTavusConversation, endTavusConversation } from '@/lib/tavus';
 import type { AICoach } from '@/lib/database';
+import DailyIframe from '@daily-co/daily-js';
 
 export default function VideoAISessionPage() {
   const [selectedCoach, setSelectedCoach] = useState<AICoach | null>(null);
@@ -37,12 +38,14 @@ export default function VideoAISessionPage() {
   const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
   
   // Tavus video states
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [conversationUrl, setConversationUrl] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoGenerated, setVideoGenerated] = useState(false);
   const [tavusConversationId, setTavusConversationId] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [videoEmbedded, setVideoEmbedded] = useState(false);
+  
+  // Daily.co call object
+  const [callObject, setCallObject] = useState<any>(null);
   
   // Polling reference
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -218,11 +221,10 @@ export default function VideoAISessionPage() {
         setTokensUsed(0);
         setEndingSession(false);
         setNoCreditsAvailable(false);
-        setVideoUrl(null);
+        setConversationUrl(null);
         setVideoGenerated(false);
         setTavusConversationId(null);
         setGenerationError(null);
-        setVideoEmbedded(false);
       }
     } catch (error) {
       console.error('Error starting session:', error);
@@ -234,7 +236,7 @@ export default function VideoAISessionPage() {
     }
   };
 
-  const generateVideo = async () => {
+  const startVideoSession = async () => {
     if (!sessionActive || !selectedCoach) return;
     
     setIsGeneratingVideo(true);
@@ -284,16 +286,15 @@ export default function VideoAISessionPage() {
       
       // If video URL is already available, use it
       if (result.video_url) {
-        setVideoUrl(result.video_url);
+        setConversationUrl(result.video_url);
         setVideoGenerated(true);
         setIsGeneratingVideo(false);
         embedTavusVideo(result.video_url);
         return;
       }
 
-      // Otherwise, start polling for video completion
-      startPollingForVideo(result.id);
-      
+      // Show error if no URL is available
+      throw new Error('No conversation URL returned from Tavus API');
     } catch (error) {
       console.error('Error generating video:', error);
       setGenerationError(error instanceof Error ? error.message : 'Unknown error occurred');
@@ -307,87 +308,53 @@ export default function VideoAISessionPage() {
     }
   };
 
-  const startPollingForVideo = (conversationId: string) => {
-    // Clear any existing polling
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    // Start polling for video completion
-    pollingIntervalRef.current = setInterval(async () => {
-      try {
-        const videoUrl = await pollForTavusVideo(conversationId, 1, 1000);
-        
-        if (videoUrl) {
-          setVideoUrl(videoUrl);
-          setVideoGenerated(true);
-          setIsGeneratingVideo(false);
-          
-          // Embed the video
-          embedTavusVideo(videoUrl);
-          
-          // Clear polling interval
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          
-          toast({
-            title: 'Video Generated',
-            description: 'Your personalized video is ready to view!',
-          });
-        }
-      } catch (error) {
-        console.error('Error polling for video:', error);
-      }
-    }, 3000);
-  };
-
   const embedTavusVideo = (url: string) => {
-    if (!videoContainerRef.current || videoEmbedded) return;
+    if (!videoContainerRef.current) return;
     
     try {
       // Clear any existing content
       videoContainerRef.current.innerHTML = '';
       
-      // Create a script element for Daily.co
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@daily-co/daily-js';
-      script.crossOrigin = 'anonymous';
+      // Create the call object if it doesn't exist
+      if (!callObject) {
+        const newCallObject = DailyIframe.createCallObject({
+          dailyConfig: {
+            experimentalChromeVideoMuteLightOff: true,
+          }
+        });
+        setCallObject(newCallObject);
+        
+        // Join the call
+        newCallObject.join({ url });
+      }
       
-      script.onload = () => {
-        // Once the script is loaded, create the iframe
-        if (window.Daily && videoContainerRef.current) {
-          const callFrame = window.Daily.createFrame({
-            iframeStyle: {
-              position: 'relative',
-              width: '100%',
-              height: '100%',
-              border: '0',
-              borderRadius: '8px',
-              backgroundColor: '#ffffff' // White background
-            },
-            showLeaveButton: true,
-            showFullscreenButton: true
-          });
-          
-          callFrame.join({ url });
-          setVideoEmbedded(true);
-          
-          // Add a message to help users understand what to do
-          const messageDiv = document.createElement('div');
-          messageDiv.className = 'absolute bottom-4 left-0 right-0 text-center z-10';
-          messageDiv.innerHTML = `
-            <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
-              Click "Join Call" to interact with your coach
-            </p>
-          `;
-          videoContainerRef.current.appendChild(messageDiv);
-        }
-      };
+      // Create the iframe using Daily.js
+      const frame = DailyIframe.createFrame(videoContainerRef.current, {
+        iframeStyle: {
+          width: '100%',
+          height: '100%',
+          border: '0',
+          borderRadius: '8px',
+          backgroundColor: '#ffffff' // White background
+        },
+        showLeaveButton: true,
+        showFullscreenButton: true
+      });
       
-      // Add the script to the container
-      videoContainerRef.current.appendChild(script);
+      // Join the call
+      frame.join({ url });
+      
+      setVideoGenerated(true);
+      
+      // Add a message to help users understand what to do
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'absolute bottom-4 left-0 right-0 text-center z-10';
+      messageDiv.innerHTML = `
+        <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
+          Click "Join Call" to interact with your coach
+        </p>
+      `;
+      videoContainerRef.current.appendChild(messageDiv);
     } catch (error) {
       console.error('Error embedding Tavus video:', error);
       
@@ -405,7 +372,6 @@ export default function VideoAISessionPage() {
             </p>
           </div>
         `;
-        setVideoEmbedded(true);
       }
     }
   };
@@ -430,6 +396,12 @@ export default function VideoAISessionPage() {
         return;
       }
 
+      // Leave the call if it exists
+      if (callObject) {
+        callObject.leave();
+        setCallObject(null);
+      }
+
       // End Tavus conversation if active
       if (tavusConversationId) {
         await endTavusConversation(tavusConversationId);
@@ -446,11 +418,11 @@ export default function VideoAISessionPage() {
       const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
-        video_url: videoUrl || undefined,
+        video_url: conversationUrl || undefined,
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
         summary: sessionSummary,
-        goals: ['Watched personalized AI video']
+        goals: ['Participated in video AI session']
       };
 
       const updatedSession = await updateCoachingSession(sessionId, sessionUpdate);
@@ -483,7 +455,7 @@ export default function VideoAISessionPage() {
     }
   };
 
-  // Clean up intervals on unmount
+  // Clean up intervals and call object on unmount
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) {
@@ -492,8 +464,11 @@ export default function VideoAISessionPage() {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
+      if (callObject) {
+        callObject.leave();
+      }
     };
-  }, []);
+  }, [callObject]);
 
   if (loading) {
     return (
@@ -621,29 +596,29 @@ export default function VideoAISessionPage() {
               </CardHeader>
 
               <CardContent className="p-8">
-                {!videoUrl ? (
+                {!conversationUrl ? (
                   <div className="text-center py-12">
                     {isGeneratingVideo ? (
                       <div className="space-y-4">
                         <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                         <h3 className="text-2xl font-bold text-gray-900">
-                          Generating Your Personalized Video
+                          Starting Your Video Session
                         </h3>
                         <p className="text-gray-600 max-w-md mx-auto">
-                          {selectedCoach.name} is creating a personalized video message just for you. This usually takes about 30-60 seconds.
+                          {selectedCoach.name} is preparing your personalized video session. This usually takes about 10-15 seconds.
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-6">
                         <Video className="w-16 h-16 text-blue-600 mx-auto" />
                         <h3 className="text-2xl font-bold text-gray-900">
-                          Ready to Generate Your Personalized Video
+                          Ready to Start Your Video Session
                         </h3>
                         <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                          {selectedCoach.name} will create a personalized video message just for you using Tavus AI technology.
+                          {selectedCoach.name} will create a personalized video session just for you using Tavus AI technology.
                         </p>
                         <Button
-                          onClick={generateVideo}
+                          onClick={startVideoSession}
                           className="bg-blue-600 hover:bg-blue-700 text-white"
                           size="lg"
                         >
@@ -660,7 +635,7 @@ export default function VideoAISessionPage() {
                   <div className="space-y-6">
                     <div className="bg-green-50 p-4 rounded-lg flex items-center space-x-3 mb-4">
                       <CheckCircle className="w-5 h-5 text-green-600" />
-                      <p className="text-green-800">Your personalized video is ready!</p>
+                      <p className="text-green-800">Your video session is ready!</p>
                     </div>
                     
                     <div 
@@ -669,7 +644,7 @@ export default function VideoAISessionPage() {
                       style={{ height: '400px', border: '1px solid #e5e7eb' }}
                     >
                       {/* Video will be embedded here by the embedTavusVideo function */}
-                      {!videoEmbedded && (
+                      {!videoGenerated && (
                         <div className="w-full h-full flex items-center justify-center">
                           <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                         </div>
@@ -677,9 +652,9 @@ export default function VideoAISessionPage() {
                     </div>
                     
                     <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">About This Video</h4>
+                      <h4 className="font-medium text-gray-900 mb-2">About This Video Session</h4>
                       <p className="text-gray-700 text-sm">
-                        This personalized video was created by {selectedCoach.name} using Tavus AI technology.
+                        This personalized video session was created by {selectedCoach.name} using Tavus AI technology.
                         It's tailored specifically for you based on your profile and coaching needs.
                       </p>
                     </div>
@@ -698,7 +673,7 @@ export default function VideoAISessionPage() {
                   {!videoGenerated ? (
                     !isGeneratingVideo ? (
                       <Button
-                        onClick={generateVideo}
+                        onClick={startVideoSession}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                         disabled={endingSession || isGeneratingVideo}
                       >
@@ -711,7 +686,7 @@ export default function VideoAISessionPage() {
                         className="w-full"
                       >
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating Video...
+                        Starting Session...
                       </Button>
                     )
                   ) : (
@@ -729,7 +704,7 @@ export default function VideoAISessionPage() {
                     {timerStarted ? (
                       <span>{tokenDisplay.message}</span>
                     ) : (
-                      <span>Video generation uses 2 tokens</span>
+                      <span>Video session uses 2 tokens</span>
                     )}
                   </div>
                 </CardContent>
@@ -744,11 +719,11 @@ export default function VideoAISessionPage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="text-sm text-gray-600 space-y-2">
-                    <li>• Personalized videos are generated using Tavus AI technology</li>
-                    <li>• Each video is tailored to your specific needs</li>
-                    <li>• Videos can be saved and reviewed later</li>
-                    <li>• Each video generation costs 2 tokens</li>
-                    <li>• You can generate multiple videos with different coaches</li>
+                    <li>• Interactive video sessions using Tavus AI technology</li>
+                    <li>• Speak directly with your coach in real-time</li>
+                    <li>• Sessions can be saved and reviewed later</li>
+                    <li>• Each video session costs 2 tokens</li>
+                    <li>• You can have sessions with different coaches</li>
                   </ul>
                 </CardContent>
               </Card>
@@ -774,7 +749,7 @@ export default function VideoAISessionPage() {
             Video AI Session with {selectedCoach.name}
           </h1>
           <p className="text-xl text-gray-600 text-center">
-            Get a personalized video message from your AI coach.
+            Have an interactive video session with your AI coach.
           </p>
         </div>
 
@@ -796,10 +771,10 @@ export default function VideoAISessionPage() {
               <div className="bg-blue-50 p-6 rounded-lg">
                 <h3 className="font-semibold text-gray-900 mb-2">About Video AI Sessions</h3>
                 <ul className="text-sm text-gray-700 space-y-1">
-                  <li>• Personalized video message from {selectedCoach.name}</li>
+                  <li>• Interactive video session with {selectedCoach.name}</li>
                   <li>• Powered by Tavus AI technology</li>
-                  <li>• Tailored to your specific needs</li>
-                  <li>• Each video costs 2 tokens</li>
+                  <li>• Speak directly with your coach</li>
+                  <li>• Each session costs 2 tokens</li>
                 </ul>
               </div>
 

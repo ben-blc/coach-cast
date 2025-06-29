@@ -27,21 +27,12 @@ export async function createTavusConversation(params: TavusConversationParams): 
       throw new Error('User not authenticated');
     }
 
-    // Add user information to custom fields if not provided
-    const customFields = params.custom_fields || {};
-    if (!customFields.user_name && user.user_metadata?.full_name) {
-      customFields.user_name = user.user_metadata.full_name;
-    }
-    if (!customFields.user_email && user.email) {
-      customFields.user_email = user.email;
-    }
-
     // Prepare request body according to Tavus API docs
     const requestBody = {
       replica_id: params.replica_id,
       persona_id: params.persona_id,
-      conversation_name: customFields.conversation_name || `Session with ${customFields.user_name || 'User'}`,
-      conversational_context: customFields.conversational_context || `This is a coaching session with ${customFields.user_name || 'a user'}.`
+      conversation_name: params.custom_fields?.conversation_name || `Session with ${params.custom_fields?.user_name || 'User'}`,
+      conversational_context: params.custom_fields?.conversational_context || `This is a coaching session with ${params.custom_fields?.user_name || 'a user'}.`
     };
 
     console.log('Creating Tavus conversation with:', requestBody);
