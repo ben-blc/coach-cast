@@ -26,7 +26,6 @@ export default function AudioAISessionPage() {
   const [endingSession, setEndingSession] = useState(false);
   const [timeExceeded, setTimeExceeded] = useState(false);
   const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
-  const [isLeavingPage, setIsLeavingPage] = useState(false);
 
   // Microphone permission states
   const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'requesting'>('unknown');
@@ -205,6 +204,13 @@ export default function AudioAISessionPage() {
           // Calculate tokens based on session time
           const calculatedTokens = calculateTokens(newTime);
           setTokensUsed(calculatedTokens);
+          
+          // Maximum session duration: 15 minutes (900 seconds)
+          if (newTime >= 900) {
+            endSession(true).catch(console.error);
+            return 900;
+          }
+          
           return newTime;
         });
       }, 1000);
@@ -245,41 +251,6 @@ export default function AudioAISessionPage() {
       };
     }
   }, [timerStarted, sessionActive, sessionTime, endingSession, tokens, refreshTokens]);
-
-  // beforeunload handler to prevent accidental navigation
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (sessionActive && !endingSession) {
-        // Cancel the event
-        e.preventDefault();
-        // Chrome requires returnValue to be set
-        e.returnValue = '';
-        
-        // Set state to indicate user is trying to leave
-        setIsLeavingPage(true);
-        
-        // Try to end the session gracefully
-        endSession(true).catch(console.error);
-        
-        // Show confirmation dialog
-        return 'You have an active coaching session. Are you sure you want to leave?';
-      }
-    };
-
-    // Add event listener for beforeunload
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      
-      // If component is unmounting with active session, try to end it
-      if (sessionActive && !endingSession) {
-        console.log('Component unmounting with active session, ending session...');
-        endSession(true).catch(console.error);
-      }
-    };
-  }, [sessionActive, endingSession]);
 
   // Calculate tokens based on session time
   const calculateTokens = (seconds: number): number => {
@@ -430,7 +401,7 @@ export default function AudioAISessionPage() {
       console.log('Final tokens calculated:', finalTokens);
 
       // Create session summary
-      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Tokens used: ${finalTokens}.${timeExceeded ? ' Session ended due to token limit.' : ''}${conversationActive ? ' ElevenLabs conversation was active.' : ' No active conversation detected.'}${conversationId ? ` Real ElevenLabs Conversation ID: ${conversationId}` : ''}`;
+      const sessionSummary = `Completed AI coaching session with ${selectedCoach?.name}. Duration: ${formatTime(sessionTime)}. Credits used: ${finalTokens}.${timeExceeded ? ' Session ended due to credit limit.' : ''}${conversationActive ? ' ElevenLabs conversation was active.' : ' No active conversation detected.'}${conversationId ? ` Real ElevenLabs Conversation ID: ${conversationId}` : ''}`;
 
       // Update session with duration and completion
       const sessionUpdate = {
@@ -469,11 +440,9 @@ export default function AudioAISessionPage() {
         timeCheckIntervalRef.current = null;
       }
 
-      // If we're not in the process of leaving the page, navigate to dashboard
-      if (!isLeavingPage) {
-        console.log('Redirecting to dashboard...');
-        router.push('/?tab=sessions&refresh=true');
-      }
+      // Navigate to dashboard with refresh parameter
+      console.log('Redirecting to dashboard...');
+      router.push('/?tab=sessions&refresh=true');
 
     } catch (error) {
       console.error('Error ending session:', error);
@@ -481,9 +450,7 @@ export default function AudioAISessionPage() {
 
       // Even if there's an error, try to redirect to dashboard
       // The user shouldn't be stuck on the session page
-      if (!isLeavingPage) {
-        router.push('/?tab=sessions&refresh=true');
-      }
+      router.push('/?tab=sessions&refresh=true');
     }
   };
 
@@ -626,7 +593,7 @@ export default function AudioAISessionPage() {
                     {renderCoachAvatar('sm')}
                     <div>
                       <CardTitle className="text-xl">{selectedCoach.name}</CardTitle>
-                      <p className="text-blue-100">{selectedCoach.specialty} Specialist</p>
+                      <p className="text-blue-100 text-center">{selectedCoach.specialty}</p>
                     </div>
                   </div>
                   <Badge className="bg-white/20 text-white">
@@ -731,6 +698,7 @@ export default function AudioAISessionPage() {
                     <li>• Be specific about your goals</li>
                     <li>• Ask follow-up questions</li>
                     <li>• Take notes during the session</li>
+                    <li>• Maximum session duration is 15 minutes</li>
                   </ul>
                 </CardContent>
               </Card>
@@ -790,7 +758,7 @@ export default function AudioAISessionPage() {
                 {renderCoachAvatar('lg')}
               </div>
               <CardTitle className="text-2xl">{selectedCoach.name}</CardTitle>
-              <Badge variant="secondary" className="mt-2">{selectedCoach.specialty}</Badge>
+              <Badge variant="secondary" className="mt-2 inline-flex items-center">{selectedCoach.specialty}</Badge>
             </CardHeader>
 
             <CardContent className="text-center space-y-6">
@@ -805,6 +773,7 @@ export default function AudioAISessionPage() {
                   <li>• Powered by ElevenLabs technology</li>
                   <li>• First 15 seconds are free</li>
                   <li>• Available 24/7</li>
+                  <li>• Maximum session duration is 15 minutes</li>
                 </ul>
               </div>
 

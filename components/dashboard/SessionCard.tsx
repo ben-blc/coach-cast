@@ -60,7 +60,7 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
 
   const formatDuration = (minutes: number) => {
     if (minutes < 1) {
-      return `${minutes * 60} sec`;
+      return `${Math.round(minutes * 60)} sec`;
     } else {
       const mins = Math.floor(minutes);
       const secs = Math.round((minutes - mins) * 60);

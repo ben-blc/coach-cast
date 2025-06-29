@@ -22,7 +22,7 @@ import { getAICoaches, createCoachingSession, updateCoachingSession } from '@/li
 import { useToast } from '@/hooks/use-toast';
 import { Navbar } from '@/components/sections/Navbar';
 import { useUserTokens } from '@/hooks/use-tokens';
-import { createTavusConversation, endTavusConversation } from '@/lib/tavus';
+import { createTavusConversation, getTavusConversationStatus } from '@/lib/tavus';
 import type { AICoach } from '@/lib/database';
 
 export default function VideoAISessionPage() {
@@ -35,21 +35,17 @@ export default function VideoAISessionPage() {
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
   const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
-  const [isLeavingPage, setIsLeavingPage] = useState(false);
   
   // Tavus video states
-  const [conversationUrl, setConversationUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoGenerated, setVideoGenerated] = useState(false);
   const [tavusConversationId, setTavusConversationId] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   
-  // Daily.co call object
-  const [callObject, setCallObject] = useState<any>(null);
-  
   // Polling reference
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const videoContainerRef = useRef<HTMLDivElement>(null);
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -142,6 +138,13 @@ export default function VideoAISessionPage() {
           // Calculate tokens based on session time (2 tokens per minute)
           const calculatedTokens = calculateTokens(newTime);
           setTokensUsed(calculatedTokens);
+          
+          // Maximum session duration: 15 minutes (900 seconds)
+          if (newTime >= 900) {
+            endSession(true).catch(console.error);
+            return 900;
+          }
+          
           return newTime;
         });
       }, 1000);
@@ -154,41 +157,6 @@ export default function VideoAISessionPage() {
       }
     };
   }, [timerStarted, sessionActive, endingSession]);
-
-  // beforeunload handler to prevent accidental navigation
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (sessionActive && !endingSession) {
-        // Cancel the event
-        e.preventDefault();
-        // Chrome requires returnValue to be set
-        e.returnValue = '';
-        
-        // Set state to indicate user is trying to leave
-        setIsLeavingPage(true);
-        
-        // Try to end the session gracefully
-        endSession(true).catch(console.error);
-        
-        // Show confirmation dialog
-        return 'You have an active video session. Are you sure you want to leave?';
-      }
-    };
-
-    // Add event listener for beforeunload
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      
-      // If component is unmounting with active session, try to end it
-      if (sessionActive && !endingSession) {
-        console.log('Component unmounting with active session, ending session...');
-        endSession(true).catch(console.error);
-      }
-    };
-  }, [sessionActive, endingSession]);
 
   // Calculate tokens based on session time (2 tokens per minute)
   const calculateTokens = (seconds: number): number => {
@@ -255,7 +223,7 @@ export default function VideoAISessionPage() {
         setTokensUsed(0);
         setEndingSession(false);
         setNoCreditsAvailable(false);
-        setConversationUrl(null);
+        setVideoUrl(null);
         setVideoGenerated(false);
         setTavusConversationId(null);
         setGenerationError(null);
@@ -270,7 +238,7 @@ export default function VideoAISessionPage() {
     }
   };
 
-  const startVideoSession = async () => {
+  const generateVideo = async () => {
     if (!sessionActive || !selectedCoach) return;
     
     setIsGeneratingVideo(true);
@@ -289,20 +257,12 @@ export default function VideoAISessionPage() {
         throw new Error('This coach does not have a Tavus replica ID configured');
       }
 
-      // Prepare conversation data
-      const conversationName = `Session with ${user.user_metadata?.full_name || 'User'}`;
-      const conversationalContext = `This is a coaching session with ${user.user_metadata?.full_name || 'a user'} who is interested in ${selectedCoach.specialty}.`;
-
       // Call Tavus API to generate video
       const result = await createTavusConversation({
         replica_id: selectedCoach.tavus_replica_id,
         persona_id: 'pb9cbf4b27a6', // Default persona ID
         custom_fields: {
-          conversation_name: conversationName,
-          conversational_context: conversationalContext,
           user_id: user.id,
-          user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-          user_email: user.email || '',
           coach_name: selectedCoach.name,
           coach_specialty: selectedCoach.specialty
         }
@@ -320,19 +280,15 @@ export default function VideoAISessionPage() {
       
       // If video URL is already available, use it
       if (result.video_url) {
-        setConversationUrl(result.video_url);
+        setVideoUrl(result.video_url);
         setVideoGenerated(true);
         setIsGeneratingVideo(false);
-        
-        // Wait for the DOM to update before embedding
-        setTimeout(() => {
-          embedTavusVideo(result.video_url!);
-        }, 100);
         return;
       }
 
-      // Show error if no URL is available
-      throw new Error('No conversation URL returned from Tavus API');
+      // Otherwise, start polling for video completion
+      startPollingForVideo(result.id);
+      
     } catch (error) {
       console.error('Error generating video:', error);
       setGenerationError(error instanceof Error ? error.message : 'Unknown error occurred');
@@ -346,82 +302,37 @@ export default function VideoAISessionPage() {
     }
   };
 
-  const embedTavusVideo = (url: string) => {
-    if (!videoContainerRef.current || !window.Daily) return;
-    
-    try {
-      // Clear any existing content
-      videoContainerRef.current.innerHTML = '';
-      
-      // Create the call object if it doesn't exist
-      if (!callObject) {
-        // Use the singleton pattern to avoid multiple instances
-        if (!window._dailyCallObject) {
-          window._dailyCallObject = window.Daily.createCallObject({
-            dailyConfig: {
-              experimentalChromeVideoMuteLightOff: true,
-            }
+  const startPollingForVideo = (conversationId: string) => {
+    // Clear any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Start polling for video completion
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const result = await getTavusConversationStatus(conversationId);
+        
+        if (result.video_url) {
+          setVideoUrl(result.video_url);
+          setVideoGenerated(true);
+          setIsGeneratingVideo(false);
+          
+          // Clear polling interval
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          
+          toast({
+            title: 'Video Generated',
+            description: 'Your personalized video is ready to view!',
           });
         }
-        setCallObject(window._dailyCallObject);
+      } catch (error) {
+        console.error('Error polling for video:', error);
       }
-      
-      // Create the frame with proper styling that fits within container
-      const frame = window.Daily.createFrame(videoContainerRef.current, {
-        iframeStyle: {
-          width: '100%',
-          height: '100%',
-          border: '0',
-          borderRadius: '8px',
-          backgroundColor: '#000000', // Black background to avoid white flash
-          position: 'absolute',
-          top: '0',
-          left: '0',
-          right: '0',
-          bottom: '0'
-        },
-        showLeaveButton: false,
-        showFullscreenButton: false,
-        dailyConfig: {
-          experimentalChromeVideoMuteLightOff: true,
-        }
-      });
-      
-      // Join the call
-      frame.join({ url });
-      
-      setVideoGenerated(true);
-      
-      // Add a message to help users understand what to do
-      const messageDiv = document.createElement('div');
-      messageDiv.className = 'absolute bottom-4 left-0 right-0 text-center z-10';
-      messageDiv.innerHTML = `
-        <p class="text-sm bg-black/70 text-white mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
-          Click "Join Call" to interact with your coach
-        </p>
-      `;
-      videoContainerRef.current.appendChild(messageDiv);
-    } catch (error) {
-      console.error('Error embedding Tavus video:', error);
-      
-      // Fallback to simple iframe if embedding fails
-      if (videoContainerRef.current) {
-        videoContainerRef.current.innerHTML = `
-          <div style="position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 8px;">
-            <iframe 
-              src="${url}" 
-              allow="camera; microphone; fullscreen; display-capture; autoplay" 
-              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; background-color: #000000;"
-            ></iframe>
-            <div style="position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; z-index: 10;">
-              <p style="font-size: 0.875rem; background-color: rgba(0,0,0,0.7); color: white; display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                Click "Join Call" to interact with your coach
-              </p>
-            </div>
-          </div>
-        `;
-      }
-    }
+    }, 3000);
   };
 
   const endSession = async (forceEnd = false) => {
@@ -444,17 +355,6 @@ export default function VideoAISessionPage() {
         return;
       }
 
-      // Leave the call if it exists
-      if (callObject) {
-        callObject.leave();
-        setCallObject(null);
-      }
-
-      // End Tavus conversation if active
-      if (tavusConversationId) {
-        await endTavusConversation(tavusConversationId);
-      }
-
       // Calculate final tokens
       const finalTokens = calculateTokens(sessionTime);
       console.log('Final tokens calculated:', finalTokens);
@@ -466,11 +366,11 @@ export default function VideoAISessionPage() {
       const sessionUpdate = {
         duration_seconds: sessionTime,
         credits_used: finalTokens,
-        video_url: conversationUrl || undefined,
+        video_url: videoUrl || undefined,
         status: 'completed' as const,
         completed_at: new Date().toISOString(),
         summary: sessionSummary,
-        goals: ['Participated in video AI session']
+        goals: ['Watched personalized AI video']
       };
 
       const updatedSession = await updateCoachingSession(sessionId, sessionUpdate);
@@ -484,55 +384,35 @@ export default function VideoAISessionPage() {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
-
-      // If we're not in the process of leaving the page, navigate to dashboard
-      if (!isLeavingPage) {
-        console.log('Redirecting to dashboard...');
-        router.push('/?tab=sessions&refresh=true');
+      
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
+
+      // Navigate to dashboard with refresh parameter
+      console.log('Redirecting to dashboard...');
+      router.push('/?tab=sessions&refresh=true');
 
     } catch (error) {
       console.error('Error ending session:', error);
       setEndingSession(false);
 
       // Even if there's an error, try to redirect to dashboard
-      if (!isLeavingPage) {
-        router.push('/?tab=sessions&refresh=true');
-      }
+      router.push('/?tab=sessions&refresh=true');
     }
   };
 
-  // Clean up intervals and call object on unmount
+  // Clean up intervals on unmount
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
-      if (callObject) {
-        callObject.leave();
-      }
-      
-      // If component is unmounting with active session, try to end it
-      if (sessionActive && !endingSession) {
-        console.log('Component unmounting with active session, ending session...');
-        endSession(true).catch(console.error);
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [callObject, sessionActive, endingSession]);
-
-  // Load Daily.js script
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !window.Daily) {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@daily-co/daily-js';
-      script.crossOrigin = 'anonymous';
-      script.async = true;
-      document.body.appendChild(script);
-      
-      return () => {
-        document.body.removeChild(script);
-      };
-    }
   }, []);
 
   if (loading) {
@@ -651,44 +531,44 @@ export default function VideoAISessionPage() {
                     {renderCoachAvatar('sm')}
                     <div>
                       <CardTitle className="text-xl">{selectedCoach.name}</CardTitle>
-                      <p className="text-blue-100">Video AI Session</p>
+                      <p className="text-blue-100 text-center">{selectedCoach.specialty}</p>
                     </div>
                   </div>
                   <Badge className="bg-white/20 text-white">
-                    Tavus AI Technology
+                    Video AI Session
                   </Badge>
                 </div>
               </CardHeader>
 
               <CardContent className="p-8">
-                {!conversationUrl ? (
+                {!videoUrl ? (
                   <div className="text-center py-12">
                     {isGeneratingVideo ? (
                       <div className="space-y-4">
                         <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                         <h3 className="text-2xl font-bold text-gray-900">
-                          Starting Your Video Session
+                          Generating Your Personalized Video
                         </h3>
                         <p className="text-gray-600 max-w-md mx-auto">
-                          {selectedCoach.name} is preparing your personalized video session. This usually takes about 10-15 seconds.
+                          {selectedCoach.name} is creating a personalized video message just for you. This usually takes about 30-60 seconds.
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-6">
                         <Video className="w-16 h-16 text-blue-600 mx-auto" />
                         <h3 className="text-2xl font-bold text-gray-900">
-                          Ready to Start Your Video Session
+                          Ready to Generate Your Personalized Video
                         </h3>
                         <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                          {selectedCoach.name} will create a personalized video session just for you using Tavus AI technology.
+                          {selectedCoach.name} will create a personalized video message just for you using Tavus AI technology.
                         </p>
                         <Button
-                          onClick={startVideoSession}
+                          onClick={generateVideo}
                           className="bg-blue-600 hover:bg-blue-700 text-white"
                           size="lg"
                         >
                           <Play className="w-5 h-5 mr-2" />
-                          Start Session
+                          Generate Personalized Video
                         </Button>
                         <p className="text-sm text-gray-500 mt-2">
                           This will use 2 tokens from your account
@@ -700,28 +580,25 @@ export default function VideoAISessionPage() {
                   <div className="space-y-6">
                     <div className="bg-green-50 p-4 rounded-lg flex items-center space-x-3 mb-4">
                       <CheckCircle className="w-5 h-5 text-green-600" />
-                      <p className="text-green-800">Your video session is ready!</p>
+                      <p className="text-green-800">Your personalized video is ready!</p>
                     </div>
                     
-                    <div className="relative w-full" style={{ height: '400px' }}>
-                      <div 
-                        ref={videoContainerRef}
-                        className="absolute inset-0 bg-black rounded-lg overflow-hidden"
-                        style={{ border: '1px solid #e5e7eb' }}
+                    <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                      <video 
+                        src={videoUrl} 
+                        controls 
+                        className="w-full h-full"
+                        poster="/video-poster.jpg"
+                        autoPlay
                       >
-                        {/* Video will be embedded here by the embedTavusVideo function */}
-                        {!videoGenerated && (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                          </div>
-                        )}
-                      </div>
+                        Your browser does not support the video tag.
+                      </video>
                     </div>
                     
                     <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">About This Video Session</h4>
+                      <h4 className="font-medium text-gray-900 mb-2">About This Video</h4>
                       <p className="text-gray-700 text-sm">
-                        This personalized video session was created by {selectedCoach.name} using Tavus AI technology.
+                        This personalized video was created by {selectedCoach.name} using Tavus AI technology.
                         It's tailored specifically for you based on your profile and coaching needs.
                       </p>
                     </div>
@@ -740,12 +617,12 @@ export default function VideoAISessionPage() {
                   {!videoGenerated ? (
                     !isGeneratingVideo ? (
                       <Button
-                        onClick={startVideoSession}
+                        onClick={generateVideo}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                         disabled={endingSession || isGeneratingVideo}
                       >
                         <Play className="w-4 h-4 mr-2" />
-                        Start Session
+                        Generate Video
                       </Button>
                     ) : (
                       <Button
@@ -753,7 +630,7 @@ export default function VideoAISessionPage() {
                         className="w-full"
                       >
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Starting Session...
+                        Generating Video...
                       </Button>
                     )
                   ) : (
@@ -771,7 +648,7 @@ export default function VideoAISessionPage() {
                     {timerStarted ? (
                       <span>{tokenDisplay.message}</span>
                     ) : (
-                      <span>Video session uses 2 tokens</span>
+                      <span>Video generation uses 2 tokens</span>
                     )}
                   </div>
                 </CardContent>
@@ -786,11 +663,11 @@ export default function VideoAISessionPage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="text-sm text-gray-600 space-y-2">
-                    <li>• Interactive video sessions using Tavus AI technology</li>
-                    <li>• Speak directly with your coach in real-time</li>
-                    <li>• Sessions can be saved and reviewed later</li>
-                    <li>• Each video session costs 2 tokens</li>
-                    <li>• You can have sessions with different coaches</li>
+                    <li>• Personalized videos are generated using Tavus AI technology</li>
+                    <li>• Each video is tailored to your specific needs</li>
+                    <li>• Videos can be saved and reviewed later</li>
+                    <li>• Each video generation costs 2 tokens</li>
+                    <li>• Maximum session duration is 15 minutes</li>
                   </ul>
                 </CardContent>
               </Card>
@@ -816,7 +693,7 @@ export default function VideoAISessionPage() {
             Video AI Session with {selectedCoach.name}
           </h1>
           <p className="text-xl text-gray-600 text-center">
-            Have an interactive video session with your AI coach.
+            Get a personalized video message from your AI coach.
           </p>
         </div>
 
@@ -827,7 +704,7 @@ export default function VideoAISessionPage() {
                 {renderCoachAvatar('lg')}
               </div>
               <CardTitle className="text-2xl">{selectedCoach.name}</CardTitle>
-              <Badge variant="secondary" className="mt-2">{selectedCoach.specialty}</Badge>
+              <Badge variant="secondary" className="mt-2 inline-flex items-center">{selectedCoach.specialty}</Badge>
             </CardHeader>
 
             <CardContent className="text-center space-y-6">
@@ -838,10 +715,11 @@ export default function VideoAISessionPage() {
               <div className="bg-blue-50 p-6 rounded-lg">
                 <h3 className="font-semibold text-gray-900 mb-2">About Video AI Sessions</h3>
                 <ul className="text-sm text-gray-700 space-y-1">
-                  <li>• Interactive video session with {selectedCoach.name}</li>
+                  <li>• Personalized video message from {selectedCoach.name}</li>
                   <li>• Powered by Tavus AI technology</li>
-                  <li>• Speak directly with your coach</li>
-                  <li>• Each session costs 2 tokens</li>
+                  <li>• Tailored to your specific needs</li>
+                  <li>• Each video costs 2 tokens</li>
+                  <li>• Maximum session duration is 15 minutes</li>
                 </ul>
               </div>
 

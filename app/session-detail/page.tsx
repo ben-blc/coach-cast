@@ -398,7 +398,7 @@ export default function SessionDetailPage() {
                 <Badge className={getSessionTypeColor(session.session_type)}>
                   {getSessionTypeDisplay(session.session_type)}
                 </Badge>
-                <Badge variant="outline">
+                <Badge variant="outline" className="inline-flex items-center">
                   {session.coach_specialty}
                 </Badge>
                 <Badge className={session.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
@@ -759,25 +759,6 @@ export default function SessionDetailPage() {
                     Start Similar Session
                   </a>
                 </Button>
-                
-                {/* <Button variant="outline" className="w-full justify-start">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Contact Coach
-                </Button>
-                
-                <Button variant="outline" className="w-full justify-start" onClick={downloadSessionData}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Session Data
-                </Button>
-
-                {session.conversation_id && (
-                  <Button variant="outline" className="w-full justify-start" asChild>
-                    <a href={`https://elevenlabs.io/conversations/${session.conversation_id}`} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      View in ElevenLabs
-                    </a>
-                  </Button>
-                )} */}
               </CardContent>
             </Card>
           </div>

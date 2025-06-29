@@ -261,6 +261,12 @@ export default function CoachingStudioPage() {
                         variant={coach.coach_type === 'human' ? 'default' : 'secondary'} 
                         className="mt-1 inline-flex items-center"
                       >
+                        {coach.coach_type === 'human' ? 'Human Coach' : 'AI Coach'}
+                      </Badge>
+                      <Badge 
+                        variant="outline" 
+                        className="mt-1 ml-2 inline-flex items-center"
+                      >
                         {coach.specialty}
                       </Badge>
                       {/* Updated: Use flex-row with gap-3 for even spacing */}
