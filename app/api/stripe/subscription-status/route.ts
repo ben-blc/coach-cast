@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const user = await getUserFromAuthHeader(authHeader);
     
     if (!user) {
+      console.error('No user found in subscription-status route');
       return NextResponse.json(
         { error: 'User not authenticated' },
         { status: 401 }

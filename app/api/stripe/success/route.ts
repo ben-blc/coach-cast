@@ -16,10 +16,15 @@ export async function GET(request: NextRequest) {
     const user = await getUserFromAuthHeader(authHeader);
     
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not authenticated' },
-        { status: 401 }
-      );
+      console.error('No user found in success route');
+      // Try to get user from session cookie as fallback
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        return NextResponse.json(
+          { error: 'User not authenticated' },
+          { status: 401 }
+        );
+      }
     }
 
     // Get session ID from query params
@@ -76,7 +81,7 @@ export async function GET(request: NextRequest) {
     const { data: existingCustomer } = await supabase
       .from('stripe_customers')
       .select('customer_id')
-      .eq('user_id', user.id)
+      .eq('user_id', user?.id)
       .single();
 
     if (existingCustomer) {
@@ -86,7 +91,7 @@ export async function GET(request: NextRequest) {
       await supabase
         .from('stripe_customers')
         .insert({
-          user_id: user.id,
+          user_id: user?.id,
           customer_id: session.customer as string,
         });
       
@@ -121,7 +126,7 @@ export async function GET(request: NextRequest) {
       await supabase
         .from('subscriptions')
         .upsert({
-          user_id: user.id,
+          user_id: user?.id,
           plan_type: plan.name.toLowerCase(),
           credits_remaining: plan.tokensPerMonth,
           monthly_limit: plan.tokensPerMonth,

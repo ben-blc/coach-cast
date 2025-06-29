@@ -19,6 +19,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user from Authorization header
+    const authHeader = request.headers.get('authorization');
+    const user = await getUserFromAuthHeader(authHeader);
+    
+    if (!user) {
+      console.error('No user found in create-subscription route');
+      // Try to get user from session cookie as fallback
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        return NextResponse.json(
+          { error: 'User not authenticated' },
+          { status: 401 }
+        );
+      }
+    }
+
     // Validate the plan
     const plan = getPlanByPriceId(priceId);
     if (!plan) {
@@ -28,22 +44,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user from Authorization header
-    const authHeader = request.headers.get('authorization');
-    const user = await getUserFromAuthHeader(authHeader);
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not authenticated' },
-        { status: 401 }
-      );
-    }
-
     // Check if user already has an active subscription
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', user?.id)
       .eq('status', 'active')
       .single();
 
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { data: existingCustomer } = await supabase
       .from('stripe_customers')
       .select('customer_id')
-      .eq('user_id', user.id)
+      .eq('user_id', user?.id)
       .single();
 
     if (existingCustomer) {
@@ -67,9 +72,9 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new Stripe customer
       const customer = await stripe.customers.create({
-        email: user.email,
+        email: user?.email,
         metadata: {
-          supabase_user_id: user.id,
+          supabase_user_id: user?.id,
         },
       });
 
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('stripe_customers')
         .insert({
-          user_id: user.id,
+          user_id: user?.id,
           customer_id: customerId,
         });
     }
@@ -98,7 +103,7 @@ export async function POST(request: NextRequest) {
       success_url: `${request.nextUrl.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${request.nextUrl.origin}/pricing`,
       metadata: {
-        user_id: user.id,
+        user_id: user?.id,
         price_id: priceId,
         plan_name: plan.name,
       },
