@@ -99,8 +99,8 @@ export default function CoachingStudioPage() {
     setFilteredCoaches(filtered);
   }, [coaches, searchTerm, coachFilter, sessionFilter]);
 
-  const formatPrice = (priceInCents: number) => {
-    return `$${(priceInCents / 100).toLocaleString()}`;
+  const formatPrice = (priceInDollars: number) => {
+    return `$${priceInDollars.toLocaleString()}`;
   };
 
   const getAvailableSessionsText = (sessionTypes: string[]) => {
