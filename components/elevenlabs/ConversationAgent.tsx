@@ -297,17 +297,6 @@ export function ConversationAgent({
                     : 'Your coach is responding'}
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <Button 
-                  variant="outline" 
-                  onClick={handleEndConversation}
-                  className="bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
-                  disabled={status === 'disconnecting'}
-                >
-                  <Square className="w-4 h-4 mr-2" />
-                  {status === 'disconnecting' ? 'Ending...' : 'End Conversation'}
-                </Button>
-              </div>
             </div>
           </div>
         </div>

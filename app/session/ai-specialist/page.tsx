@@ -617,16 +617,6 @@ export default function AISpecialistSessionPage() {
                       Click "Start Conversation" below to begin your session.
                     </p>
 
-                    <Button
-                      onClick={startConversationAndTimer}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      size="lg"
-                      disabled={micPermission !== 'granted'}
-                    >
-                      <Play className="w-5 h-5 mr-2" />
-                      {micPermission === 'granted' ? 'Start Conversation' : 'Microphone Required'}
-                    </Button>
-
                     {micPermission !== 'granted' && (
                       <p className="text-sm text-gray-500 mt-4">
                         Microphone access is required for voice coaching sessions
@@ -755,7 +745,9 @@ export default function AISpecialistSessionPage() {
                 {renderCoachAvatar('lg')}
               </div>
               <CardTitle className="text-2xl">{selectedCoach.name}</CardTitle>
-              <Badge variant="secondary" className="mt-2">{selectedCoach.specialty}</Badge>
+              <div className="flex justify-center mt-2">
+                <Badge variant="secondary" className="">{selectedCoach.specialty}hello</Badge>
+              </div>
             </CardHeader>
 
             <CardContent className="text-center space-y-6">
