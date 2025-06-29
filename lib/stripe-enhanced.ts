@@ -1,5 +1,5 @@
-import { getCurrentUser } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { getCurrentUser } from './auth';
+import { supabase } from './supabase';
 import { SUBSCRIPTION_PLANS, formatPrice, type SubscriptionPlan } from './subscription-config';
 import { syncUserTokens } from './tokens';
 

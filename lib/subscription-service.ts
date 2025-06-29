@@ -136,15 +136,11 @@ export async function logSubscriptionTransaction(transactionData: {
   tokens_granted: number;
   event_type: string;
   stripe_event_id?: string;
-  description?: string;
 }): Promise<SubscriptionTransaction | null> {
   try {
     const { data, error } = await supabase
       .from('subscription_transactions')
-      .insert({
-        ...transactionData,
-        created_at: new Date().toISOString()
-      })
+      .insert(transactionData)
       .select()
       .single();
 
