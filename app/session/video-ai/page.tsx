@@ -330,17 +330,19 @@ export default function VideoAISessionPage() {
         setCallObject(window._dailyCallObject);
       }
       
-      // Create the frame with proper styling
+      // Create the frame with proper styling that fits within container
       const frame = window.Daily.createFrame(videoContainerRef.current, {
         iframeStyle: {
-          position: 'absolute',
-          top: 0,
-          left: 0,
           width: '100%',
           height: '100%',
           border: '0',
           borderRadius: '8px',
-          backgroundColor: '#000000' // Black background to avoid white flash
+          backgroundColor: '#000000', // Black background to avoid white flash
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          right: '0',
+          bottom: '0'
         },
         showLeaveButton: true,
         showFullscreenButton: true,
@@ -369,15 +371,17 @@ export default function VideoAISessionPage() {
       // Fallback to simple iframe if embedding fails
       if (videoContainerRef.current) {
         videoContainerRef.current.innerHTML = `
-          <iframe 
-            src="${url}" 
-            allow="camera; microphone; fullscreen; display-capture; autoplay" 
-            style="width: 100%; height: 100%; border: 0; border-radius: 8px; background-color: #000000;"
-          ></iframe>
-          <div class="absolute bottom-4 left-0 right-0 text-center z-10">
-            <p class="text-sm bg-black/70 text-white mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
-              Click "Join Call" to interact with your coach
-            </p>
+          <div style="position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 8px;">
+            <iframe 
+              src="${url}" 
+              allow="camera; microphone; fullscreen; display-capture; autoplay" 
+              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; background-color: #000000;"
+            ></iframe>
+            <div style="position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; z-index: 10;">
+              <p style="font-size: 0.875rem; background-color: rgba(0,0,0,0.7); color: white; display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                Click "Join Call" to interact with your coach
+              </p>
+            </div>
           </div>
         `;
       }
@@ -653,17 +657,19 @@ export default function VideoAISessionPage() {
                       <p className="text-green-800">Your video session is ready!</p>
                     </div>
                     
-                    <div 
-                      ref={videoContainerRef}
-                      className="aspect-video bg-black rounded-lg overflow-hidden relative"
-                      style={{ height: '400px', border: '1px solid #e5e7eb' }}
-                    >
-                      {/* Video will be embedded here by the embedTavusVideo function */}
-                      {!videoGenerated && (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                        </div>
-                      )}
+                    <div className="relative w-full" style={{ height: '400px' }}>
+                      <div 
+                        ref={videoContainerRef}
+                        className="absolute inset-0 bg-black rounded-lg overflow-hidden"
+                        style={{ border: '1px solid #e5e7eb' }}
+                      >
+                        {/* Video will be embedded here by the embedTavusVideo function */}
+                        {!videoGenerated && (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="bg-gray-50 p-4 rounded-lg">
