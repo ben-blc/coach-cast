@@ -32,7 +32,16 @@ export async function createTavusConversation(params: TavusConversationParams): 
       replica_id: params.replica_id,
       persona_id: params.persona_id,
       conversation_name: params.custom_fields?.conversation_name || `Session with ${params.custom_fields?.user_name || 'User'}`,
-      conversational_context: params.custom_fields?.conversational_context || `This is a coaching session with ${params.custom_fields?.user_name || 'a user'}.`
+      conversational_context: params.custom_fields?.conversational_context || `This is a coaching session with ${params.custom_fields?.user_name || 'a user'}.`,
+      properties: {
+        max_call_duration: 3600,
+        participant_left_timeout: 60,
+        participant_absent_timeout: 300,
+        enable_recording: true,
+        enable_closed_captions: true,
+        apply_greenscreen: false,
+        language: "english"
+      }
     };
 
     console.log('Creating Tavus conversation with:', requestBody);
@@ -118,40 +127,6 @@ export async function getTavusVideoUrl(conversationId: string): Promise<string |
     console.error('Error getting Tavus video URL:', error);
     return null;
   }
-}
-
-/**
- * Poll for Tavus video completion
- */
-export async function pollForTavusVideo(
-  conversationId: string, 
-  maxAttempts = 20, 
-  intervalMs = 3000
-): Promise<string | null> {
-  let attempts = 0;
-  
-  while (attempts < maxAttempts) {
-    attempts++;
-    console.log(`Polling for Tavus video (attempt ${attempts}/${maxAttempts})...`);
-    
-    const status = await getTavusConversationStatus(conversationId);
-    
-    if (status.status === 'completed' && status.video_url) {
-      console.log('Tavus video is ready:', status.video_url);
-      return status.video_url;
-    }
-    
-    if (status.status === 'error' || status.error) {
-      console.error('Error in Tavus video generation:', status.error);
-      return null;
-    }
-    
-    // Wait before next attempt
-    await new Promise(resolve => setTimeout(resolve, intervalMs));
-  }
-  
-  console.warn('Tavus video polling timed out after', maxAttempts, 'attempts');
-  return null;
 }
 
 /**

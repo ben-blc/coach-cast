@@ -24,7 +24,6 @@ import { Navbar } from '@/components/sections/Navbar';
 import { useUserTokens } from '@/hooks/use-tokens';
 import { createTavusConversation, endTavusConversation } from '@/lib/tavus';
 import type { AICoach } from '@/lib/database';
-import DailyIframe from '@daily-co/daily-js';
 
 export default function VideoAISessionPage() {
   const [selectedCoach, setSelectedCoach] = useState<AICoach | null>(null);
@@ -48,7 +47,6 @@ export default function VideoAISessionPage() {
   const [callObject, setCallObject] = useState<any>(null);
   
   // Polling reference
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   
@@ -289,7 +287,11 @@ export default function VideoAISessionPage() {
         setConversationUrl(result.video_url);
         setVideoGenerated(true);
         setIsGeneratingVideo(false);
-        embedTavusVideo(result.video_url);
+        
+        // Wait for the DOM to update before embedding
+        setTimeout(() => {
+          embedTavusVideo(result.video_url!);
+        }, 100);
         return;
       }
 
@@ -309,7 +311,7 @@ export default function VideoAISessionPage() {
   };
 
   const embedTavusVideo = (url: string) => {
-    if (!videoContainerRef.current) return;
+    if (!videoContainerRef.current || !window.Daily) return;
     
     try {
       // Clear any existing content
@@ -317,28 +319,34 @@ export default function VideoAISessionPage() {
       
       // Create the call object if it doesn't exist
       if (!callObject) {
-        const newCallObject = DailyIframe.createCallObject({
-          dailyConfig: {
-            experimentalChromeVideoMuteLightOff: true,
-          }
-        });
-        setCallObject(newCallObject);
-        
-        // Join the call
-        newCallObject.join({ url });
+        // Use the singleton pattern to avoid multiple instances
+        if (!window._dailyCallObject) {
+          window._dailyCallObject = window.Daily.createCallObject({
+            dailyConfig: {
+              experimentalChromeVideoMuteLightOff: true,
+            }
+          });
+        }
+        setCallObject(window._dailyCallObject);
       }
       
-      // Create the iframe using Daily.js
-      const frame = DailyIframe.createFrame(videoContainerRef.current, {
+      // Create the frame with proper styling
+      const frame = window.Daily.createFrame(videoContainerRef.current, {
         iframeStyle: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
           width: '100%',
           height: '100%',
           border: '0',
           borderRadius: '8px',
-          backgroundColor: '#ffffff' // White background
+          backgroundColor: '#000000' // Black background to avoid white flash
         },
         showLeaveButton: true,
-        showFullscreenButton: true
+        showFullscreenButton: true,
+        dailyConfig: {
+          experimentalChromeVideoMuteLightOff: true,
+        }
       });
       
       // Join the call
@@ -350,7 +358,7 @@ export default function VideoAISessionPage() {
       const messageDiv = document.createElement('div');
       messageDiv.className = 'absolute bottom-4 left-0 right-0 text-center z-10';
       messageDiv.innerHTML = `
-        <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
+        <p class="text-sm bg-black/70 text-white mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
           Click "Join Call" to interact with your coach
         </p>
       `;
@@ -364,10 +372,10 @@ export default function VideoAISessionPage() {
           <iframe 
             src="${url}" 
             allow="camera; microphone; fullscreen; display-capture; autoplay" 
-            style="width: 100%; height: 100%; border: 0; border-radius: 8px; background-color: #ffffff;"
+            style="width: 100%; height: 100%; border: 0; border-radius: 8px; background-color: #000000;"
           ></iframe>
           <div class="absolute bottom-4 left-0 right-0 text-center z-10">
-            <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
+            <p class="text-sm bg-black/70 text-white mx-auto inline-block px-3 py-1 rounded-full shadow-sm">
               Click "Join Call" to interact with your coach
             </p>
           </div>
@@ -436,11 +444,6 @@ export default function VideoAISessionPage() {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
-      
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
 
       // Navigate to dashboard with refresh parameter
       console.log('Redirecting to dashboard...');
@@ -461,14 +464,26 @@ export default function VideoAISessionPage() {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
       if (callObject) {
         callObject.leave();
       }
     };
   }, [callObject]);
+
+  // Load Daily.js script
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.Daily) {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@daily-co/daily-js';
+      script.crossOrigin = 'anonymous';
+      script.async = true;
+      document.body.appendChild(script);
+      
+      return () => {
+        document.body.removeChild(script);
+      };
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -640,7 +655,7 @@ export default function VideoAISessionPage() {
                     
                     <div 
                       ref={videoContainerRef}
-                      className="aspect-video bg-white rounded-lg overflow-hidden relative"
+                      className="aspect-video bg-black rounded-lg overflow-hidden relative"
                       style={{ height: '400px', border: '1px solid #e5e7eb' }}
                     >
                       {/* Video will be embedded here by the embedTavusVideo function */}
