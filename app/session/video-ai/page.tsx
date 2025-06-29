@@ -704,7 +704,9 @@ export default function VideoAISessionPage() {
                 {renderCoachAvatar('lg')}
               </div>
               <CardTitle className="text-2xl">{selectedCoach.name}</CardTitle>
-              <Badge variant="secondary" className="mt-2 inline-flex items-center">{selectedCoach.specialty}</Badge>
+              <div className="flex justify-center">
+                <Badge variant="secondary" className="mt-2 inline-flex items-center">{selectedCoach.specialty}</Badge>
+              </div>
             </CardHeader>
 
             <CardContent className="text-center space-y-6">
