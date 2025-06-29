@@ -26,6 +26,7 @@ export default function AudioAISessionPage() {
   const [endingSession, setEndingSession] = useState(false);
   const [timeExceeded, setTimeExceeded] = useState(false);
   const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
+  const [isLeavingPage, setIsLeavingPage] = useState(false);
 
   // Microphone permission states
   const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'requesting'>('unknown');
@@ -180,7 +181,7 @@ export default function AudioAISessionPage() {
 
         setSelectedCoach(coach);
 
-        // Check if user has enough tokens
+        // Check if user has tokens
         if (tokens && tokens.tokens_remaining <= 0) {
           setNoCreditsAvailable(true);
         }
@@ -244,6 +245,41 @@ export default function AudioAISessionPage() {
       };
     }
   }, [timerStarted, sessionActive, sessionTime, endingSession, tokens, refreshTokens]);
+
+  // beforeunload handler to prevent accidental navigation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (sessionActive && !endingSession) {
+        // Cancel the event
+        e.preventDefault();
+        // Chrome requires returnValue to be set
+        e.returnValue = '';
+        
+        // Set state to indicate user is trying to leave
+        setIsLeavingPage(true);
+        
+        // Try to end the session gracefully
+        endSession(true).catch(console.error);
+        
+        // Show confirmation dialog
+        return 'You have an active coaching session. Are you sure you want to leave?';
+      }
+    };
+
+    // Add event listener for beforeunload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // If component is unmounting with active session, try to end it
+      if (sessionActive && !endingSession) {
+        console.log('Component unmounting with active session, ending session...');
+        endSession(true).catch(console.error);
+      }
+    };
+  }, [sessionActive, endingSession]);
 
   // Calculate tokens based on session time
   const calculateTokens = (seconds: number): number => {
@@ -433,16 +469,21 @@ export default function AudioAISessionPage() {
         timeCheckIntervalRef.current = null;
       }
 
-      // Navigate to dashboard with refresh parameter
-      console.log('Redirecting to dashboard...');
-      router.push('/?tab=sessions&refresh=true');
+      // If we're not in the process of leaving the page, navigate to dashboard
+      if (!isLeavingPage) {
+        console.log('Redirecting to dashboard...');
+        router.push('/?tab=sessions&refresh=true');
+      }
 
     } catch (error) {
       console.error('Error ending session:', error);
       setEndingSession(false);
 
       // Even if there's an error, try to redirect to dashboard
-      router.push('/?tab=sessions&refresh=true');
+      // The user shouldn't be stuck on the session page
+      if (!isLeavingPage) {
+        router.push('/?tab=sessions&refresh=true');
+      }
     }
   };
 

@@ -35,6 +35,7 @@ export default function VideoAISessionPage() {
   const [tokensUsed, setTokensUsed] = useState(0);
   const [endingSession, setEndingSession] = useState(false);
   const [noCreditsAvailable, setNoCreditsAvailable] = useState(false);
+  const [isLeavingPage, setIsLeavingPage] = useState(false);
   
   // Tavus video states
   const [conversationUrl, setConversationUrl] = useState<string | null>(null);
@@ -153,6 +154,41 @@ export default function VideoAISessionPage() {
       }
     };
   }, [timerStarted, sessionActive, endingSession]);
+
+  // beforeunload handler to prevent accidental navigation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (sessionActive && !endingSession) {
+        // Cancel the event
+        e.preventDefault();
+        // Chrome requires returnValue to be set
+        e.returnValue = '';
+        
+        // Set state to indicate user is trying to leave
+        setIsLeavingPage(true);
+        
+        // Try to end the session gracefully
+        endSession(true).catch(console.error);
+        
+        // Show confirmation dialog
+        return 'You have an active video session. Are you sure you want to leave?';
+      }
+    };
+
+    // Add event listener for beforeunload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // If component is unmounting with active session, try to end it
+      if (sessionActive && !endingSession) {
+        console.log('Component unmounting with active session, ending session...');
+        endSession(true).catch(console.error);
+      }
+    };
+  }, [sessionActive, endingSession]);
 
   // Calculate tokens based on session time (2 tokens per minute)
   const calculateTokens = (seconds: number): number => {
@@ -388,8 +424,8 @@ export default function VideoAISessionPage() {
     }
   };
 
-  const endSession = async () => {
-    if (endingSession) return; // Prevent double-clicking
+  const endSession = async (forceEnd = false) => {
+    if (endingSession && !forceEnd) return; // Prevent double-clicking
 
     try {
       setEndingSession(true);
@@ -449,16 +485,20 @@ export default function VideoAISessionPage() {
         timerIntervalRef.current = null;
       }
 
-      // Navigate to dashboard with refresh parameter
-      console.log('Redirecting to dashboard...');
-      router.push('/?tab=sessions&refresh=true');
+      // If we're not in the process of leaving the page, navigate to dashboard
+      if (!isLeavingPage) {
+        console.log('Redirecting to dashboard...');
+        router.push('/?tab=sessions&refresh=true');
+      }
 
     } catch (error) {
       console.error('Error ending session:', error);
       setEndingSession(false);
 
       // Even if there's an error, try to redirect to dashboard
-      router.push('/?tab=sessions&refresh=true');
+      if (!isLeavingPage) {
+        router.push('/?tab=sessions&refresh=true');
+      }
     }
   };
 
@@ -471,8 +511,14 @@ export default function VideoAISessionPage() {
       if (callObject) {
         callObject.leave();
       }
+      
+      // If component is unmounting with active session, try to end it
+      if (sessionActive && !endingSession) {
+        console.log('Component unmounting with active session, ending session...');
+        endSession(true).catch(console.error);
+      }
     };
-  }, [callObject]);
+  }, [callObject, sessionActive, endingSession]);
 
   // Load Daily.js script
   useEffect(() => {

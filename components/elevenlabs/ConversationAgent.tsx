@@ -38,6 +38,7 @@ export function ConversationAgent({
   const [conversationError, setConversationError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [userEndedConversation, setUserEndedConversation] = useState(false);
+  const [isLeavingPage, setIsLeavingPage] = useState(false);
 
   // Only two states: isCoachSpeaking (coach is speaking), isUserTurn (user should speak)
   // Start with coach is speaking state
@@ -98,6 +99,55 @@ export function ConversationAgent({
       }
     }
   });
+
+  // beforeunload handler to prevent accidental navigation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (conversationActive && !userEndedConversation) {
+        // Cancel the event
+        e.preventDefault();
+        // Chrome requires returnValue to be set
+        e.returnValue = '';
+        
+        // Set state to indicate user is trying to leave
+        setIsLeavingPage(true);
+        
+        // Try to end the conversation gracefully
+        try {
+          conversation.endSession();
+          if (conversationId) {
+            onConversationEnd(conversationId);
+          }
+        } catch (error) {
+          console.error('Error ending conversation during page unload:', error);
+        }
+        
+        // Show confirmation dialog
+        return 'You have an active conversation. Are you sure you want to leave?';
+      }
+    };
+
+    // Add event listener for beforeunload
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // If component is unmounting with active conversation, try to end it
+      if (conversationActive && !userEndedConversation) {
+        console.log('Component unmounting with active conversation, ending conversation...');
+        try {
+          conversation.endSession();
+          if (conversationId) {
+            onConversationEnd(conversationId);
+          }
+        } catch (error) {
+          console.error('Error ending conversation during component unmount:', error);
+        }
+      }
+    };
+  }, [conversationActive, userEndedConversation, conversationId, conversation, onConversationEnd]);
 
   // Handle conversation start
   const handleConversationStart = async (id: string) => {
@@ -178,6 +228,20 @@ export function ConversationAgent({
       handleStartConversation();
     }
   }, [isSessionActive, conversationActive, conversationId, status]);
+
+  // Clean up conversation on unmount
+  useEffect(() => {
+    return () => {
+      if (conversationActive && !userEndedConversation) {
+        console.log('Cleaning up active conversation on unmount');
+        try {
+          conversation.endSession();
+        } catch (error) {
+          console.error('Error ending conversation during cleanup:', error);
+        }
+      }
+    };
+  }, [conversation, conversationActive, userEndedConversation]);
 
   if (!isSessionActive) {
     return (
