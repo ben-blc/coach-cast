@@ -40,7 +40,8 @@ export async function createTavusConversation(params: TavusConversationParams): 
     const requestBody = {
       replica_id: params.replica_id,
       persona_id: params.persona_id,
-      custom_fields: customFields
+      conversation_name: `Session with ${customFields.user_name || 'User'}`,
+      conversational_context: `This is a coaching session with ${customFields.user_name || 'a user'}.`
     };
 
     console.log('Creating Tavus conversation with:', requestBody);
@@ -57,16 +58,16 @@ export async function createTavusConversation(params: TavusConversationParams): 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Tavus API error:', errorData);
-      throw new Error(`Tavus API error: ${response.status} - ${errorData.message || JSON.stringify(errorData)}`);
+      throw new Error(`Tavus API error: ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
     console.log('Tavus conversation created:', data);
     
     return {
-      id: data.id,
+      id: data.conversation_id,
       status: data.status,
-      video_url: data.video_url
+      video_url: data.conversation_url
     };
   } catch (error) {
     console.error('Error creating Tavus conversation:', error);
@@ -94,16 +95,16 @@ export async function getTavusConversationStatus(conversationId: string): Promis
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Tavus API error:', errorData);
-      throw new Error(`Tavus API error: ${response.status} - ${errorData.message || 'Unknown error'}`);
+      throw new Error(`Tavus API error: ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
     console.log('Tavus conversation status:', data);
     
     return {
-      id: data.id,
+      id: data.conversation_id,
       status: data.status,
-      video_url: data.video_url
+      video_url: data.conversation_url
     };
   } catch (error) {
     console.error('Error getting Tavus conversation status:', error);

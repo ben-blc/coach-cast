@@ -31,15 +31,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Prepare custom fields with user information
+    const enhancedCustomFields = {
+      user_id: user.id,
+      user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      user_email: user.email || '',
+      ...(customFields || {})
+    };
+
     // Create Tavus conversation
     const result = await createTavusConversation({
       replica_id: replicaId,
       persona_id: personaId,
-      custom_fields: customFields || {
-        user_id: user.id,
-        user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        user_email: user.email || ''
-      }
+      custom_fields: enhancedCustomFields
     });
 
     if (result.error) {

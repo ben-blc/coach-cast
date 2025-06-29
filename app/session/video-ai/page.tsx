@@ -250,20 +250,23 @@ export default function VideoAISessionPage() {
         throw new Error('This coach does not have a Tavus replica ID configured');
       }
 
-      // Prepare custom fields with user information
-      const customFields: Record<string, string> = {
-        user_id: user.id,
-        user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        user_email: user.email || '',
-        coach_name: selectedCoach.name,
-        coach_specialty: selectedCoach.specialty
-      };
+      // Prepare conversation data
+      const conversationName = `Session with ${user.user_metadata?.full_name || 'User'}`;
+      const conversationalContext = `This is a coaching session with ${user.user_metadata?.full_name || 'a user'} who is interested in ${selectedCoach.specialty}.`;
 
       // Call Tavus API to generate video
       const result = await createTavusConversation({
         replica_id: selectedCoach.tavus_replica_id,
         persona_id: 'pb9cbf4b27a6', // Default persona ID
-        custom_fields: customFields
+        custom_fields: {
+          conversation_name: conversationName,
+          conversational_context: conversationalContext,
+          user_id: user.id,
+          user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          user_email: user.email || '',
+          coach_name: selectedCoach.name,
+          coach_specialty: selectedCoach.specialty
+        }
       });
 
       if (result.error) {
