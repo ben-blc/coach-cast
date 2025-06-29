@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { useUserTokens } from '@/hooks/use-tokens';
 import { syncUserTokens } from './tokens';
 
 export type Profile = {

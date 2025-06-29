@@ -13,8 +13,6 @@ import { getConversationTranscript } from '@/lib/elevenlabs';
 import { ConversationAgent } from '@/components/elevenlabs/ConversationAgent';
 import { Navbar } from '@/components/sections/Navbar';
 import { useUserTokens } from '@/hooks/use-tokens';
-import { useUserTokens } from '@/hooks/use-tokens';
-import { useUserTokens } from '@/hooks/use-tokens';
 import type { AICoach } from '@/lib/database';
 
 export default function AudioAISessionPage() {
