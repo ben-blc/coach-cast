@@ -91,22 +91,10 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
     const user = await getCurrentUser();
     if (!user) return [];
 
-    // Query the token_transactions table directly
-    const { data, error } = await supabase
+    // First, get the basic transaction data
+    const { data: transactions, error } = await supabase
       .from('token_transactions')
-      .select(`
-        *,
-        coaching_sessions:session_id (
-          session_type,
-          duration_seconds,
-          status,
-          ai_coach_id
-        ),
-        coaches:coaching_sessions.ai_coach_id (
-          name,
-          specialty
-        )
-      `)
+      .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -115,20 +103,71 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
       return [];
     }
 
-    // Format the data to match the expected interface
-    return (data || []).map(transaction => ({
-      id: transaction.id,
-      amount: transaction.amount,
-      transaction_type: transaction.transaction_type,
-      description: transaction.description,
-      reference_id: transaction.reference_id,
-      created_at: transaction.created_at,
-      session_type: transaction.coaching_sessions?.session_type,
-      duration_seconds: transaction.coaching_sessions?.duration_seconds,
-      session_status: transaction.coaching_sessions?.status,
-      coach_name: transaction.coaches?.name,
-      coach_specialty: transaction.coaches?.specialty
+    // For transactions with session_id, get additional session data
+    const enhancedTransactions = await Promise.all((transactions || []).map(async (transaction) => {
+      if (!transaction.session_id) {
+        return {
+          id: transaction.id,
+          amount: transaction.amount,
+          transaction_type: transaction.transaction_type,
+          description: transaction.description,
+          reference_id: transaction.reference_id,
+          created_at: transaction.created_at
+        };
+      }
+
+      // Get session data
+      const { data: session, error: sessionError } = await supabase
+        .from('coaching_sessions')
+        .select('session_type, duration_seconds, status, ai_coach_id')
+        .eq('id', transaction.session_id)
+        .single();
+
+      if (sessionError) {
+        console.error(`Error fetching session for transaction ${transaction.id}:`, sessionError);
+        return {
+          id: transaction.id,
+          amount: transaction.amount,
+          transaction_type: transaction.transaction_type,
+          description: transaction.description,
+          reference_id: transaction.reference_id,
+          created_at: transaction.created_at
+        };
+      }
+
+      // If session has a coach, get coach data
+      let coachName = undefined;
+      let coachSpecialty = undefined;
+
+      if (session?.ai_coach_id) {
+        const { data: coach, error: coachError } = await supabase
+          .from('coaches')
+          .select('name, specialty')
+          .eq('id', session.ai_coach_id)
+          .single();
+
+        if (!coachError && coach) {
+          coachName = coach.name;
+          coachSpecialty = coach.specialty;
+        }
+      }
+
+      return {
+        id: transaction.id,
+        amount: transaction.amount,
+        transaction_type: transaction.transaction_type,
+        description: transaction.description,
+        reference_id: transaction.reference_id,
+        created_at: transaction.created_at,
+        session_type: session?.session_type,
+        duration_seconds: session?.duration_seconds,
+        session_status: session?.status,
+        coach_name: coachName,
+        coach_specialty: coachSpecialty
+      };
     }));
+
+    return enhancedTransactions;
   } catch (error) {
     console.error('Error in getUserTokenTransactions:', error);
     return [];
