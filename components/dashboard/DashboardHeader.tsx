@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +12,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Settings, LogOut, User } from 'lucide-react';
+import { Settings, LogOut, User, Home, Users, CreditCard } from 'lucide-react';
 import { signOut, getCurrentUser, onAuthStateChange } from '@/lib/auth';
 import { getUserSubscription } from '@/lib/database';
+import { getUserActiveSubscription } from '@/lib/subscription-service';
 import { useRouter } from 'next/navigation';
+import { useUserSubscription } from '@/hooks/use-subscription';
 import Link from 'next/link';
 
 interface DashboardHeaderProps {
@@ -32,18 +34,27 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   const [user, setUser] = useState(initialUser);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
+  const { activeSubscription } = useUserSubscription();
 
   const refreshCredits = async () => {
     try {
-      const currentUser = await getCurrentUser();
-      if (currentUser) {
-        const subscription = await getUserSubscription(currentUser.id);
-        if (subscription) {
-          setUser(prev => ({
-            ...prev,
-            creditsRemaining: Math.max(0, subscription.credits_remaining),
-            totalCredits: subscription.monthly_limit
-          }));
+      if (activeSubscription) {
+        setUser(prev => ({
+          ...prev,
+          creditsRemaining: Math.max(0, activeSubscription.tokens_remaining),
+          totalCredits: activeSubscription.tokens_allocated
+        }));
+      } else {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          const subscription = await getUserSubscription(currentUser.id);
+          if (subscription) {
+            setUser(prev => ({
+              ...prev,
+              creditsRemaining: Math.max(0, subscription.credits_remaining),
+              totalCredits: subscription.monthly_limit
+            }));
+          }
         }
       }
     } catch (error) {
@@ -75,7 +86,19 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       subscription?.unsubscribe();
     };
-  }, [router]);
+  }, [router, activeSubscription]);
+
+  // Update user data when activeSubscription changes
+  useEffect(() => {
+    if (activeSubscription) {
+      setUser(prev => ({
+        ...prev,
+        plan: activeSubscription.plan_name,
+        creditsRemaining: Math.max(0, activeSubscription.tokens_remaining),
+        totalCredits: activeSubscription.tokens_allocated
+      }));
+    }
+  }, [activeSubscription]);
 
   const handleSignOut = async () => {
     try {
@@ -94,8 +117,17 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   };
 
   const calculateCreditsRemaining = () => {
-    if (!user) return 0;
+    if (activeSubscription) {
+      return Math.max(0, activeSubscription.tokens_remaining);
+    }
     return Math.max(0, user.creditsRemaining);
+  };
+
+  const calculateTotalCredits = () => {
+    if (activeSubscription) {
+      return activeSubscription.tokens_allocated;
+    }
+    return user.totalCredits;
   };
 
   return (
@@ -126,15 +158,26 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
             </a>
             
             <Badge variant="outline" className="text-xs">
-              Free Trial
+              {user.plan}
             </Badge>
           </div>
 
           <div className="flex items-center space-x-4">
+            <nav className="hidden md:flex items-center space-x-6">
+              <Link href="/" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-1 font-medium">
+                <Home className="w-4 h-4" />
+                <span>Home</span>
+              </Link>
+              <Link href="/coaching-studio" className="text-gray-600 hover:text-brand-primary transition-colors flex items-center space-x-1 font-medium">
+                <Users className="w-4 h-4" />
+                <span>Coach Studio</span>
+              </Link>
+            </nav>
+
             <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
-              <span>Credits:</span>
+              <span>Tokens:</span>
               <Badge variant="secondary">
-                {calculateCreditsRemaining()}/{user.totalCredits}
+                {calculateCreditsRemaining()}/{calculateTotalCredits()}
               </Badge>
             </div>
 
@@ -157,18 +200,26 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
                     </p>
                     <div className="flex items-center justify-between mt-2">
                       <Badge variant="outline" className="text-xs w-fit">
-                        Free Trial
+                        {user.plan}
                       </Badge>
                       <div className="text-xs text-muted-foreground">
-                        {calculateCreditsRemaining()}/{user.totalCredits} credits
+                        {calculateCreditsRemaining()}/{calculateTotalCredits()} tokens
                       </div>
                     </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
+                <DropdownMenuItem asChild>
+                  <Link href="/">
+                    <Home className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/billing">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    <span>Billing</span>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />

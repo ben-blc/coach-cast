@@ -271,7 +271,7 @@ export default function CoachingStudioPage() {
                         {coach.hourly_rate && coach.hourly_rate > 0 && coach.coach_type === 'human' && (
                           <div className="flex items-center space-x-1">
                             <span className="text-xs font-medium text-green-600">
-                              {formatPrice(coach.hourly_rate)}/hr
+                              ${coach.hourly_rate}/hr
                             </span>
                           </div>
                         )}

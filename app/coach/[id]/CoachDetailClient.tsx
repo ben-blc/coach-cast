@@ -130,7 +130,7 @@ export default function CoachDetailClient() {
   };
 
   const formatPrice = (priceInDollars: number) => {
-    return `$${priceInDollars.toLocaleString()}`;
+    return `$${priceInDollars}`;
   };
 
   const canStartSession = () => {
@@ -325,7 +325,7 @@ export default function CoachDetailClient() {
                       <div className="flex items-center space-x-2">
                         <DollarSign className="w-6 h-6 text-green-600" />
                         <span className="text-3xl font-bold text-gray-900">
-                          {formatPrice(coach.hourly_rate)}
+                          ${coach.hourly_rate}
                         </span>
                         <span className="text-gray-600">/hour</span>
                       </div>
@@ -402,7 +402,7 @@ export default function CoachDetailClient() {
                             </Badge>
                             {sessionType === 'human_coaching' && coach.hourly_rate && (
                               <div className="text-lg font-bold text-green-600">
-                                {formatPrice(coach.hourly_rate)}
+                                ${coach.hourly_rate}
                               </div>
                             )}
                           </div>

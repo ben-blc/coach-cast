@@ -18,17 +18,18 @@ import { getCurrentUser, signOut, onAuthStateChange } from '@/lib/auth';
 import { getUserProfile } from '@/lib/database';
 import { getUserActiveSubscription } from '@/lib/subscription-service';
 import { useRouter, usePathname } from 'next/navigation';
+import { useUserSubscription } from '@/hooks/use-subscription';
 import type { Profile } from '@/lib/database';
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { activeSubscription } = useUserSubscription();
 
   const isLandingPage = pathname === '/' && !user;
   const shouldShowCredits = !isLandingPage && user && profile;
@@ -38,16 +39,11 @@ export function Navbar() {
       const currentUser = await getCurrentUser();
       if (currentUser) {
         setUser(currentUser);
-        const [userProfile, activeSubscription] = await Promise.all([
-          getUserProfile(currentUser.id),
-          getUserActiveSubscription()
-        ]);
+        const userProfile = await getUserProfile(currentUser.id);
         setProfile(userProfile);
-        setSubscription(activeSubscription);
       } else {
         setUser(null);
         setProfile(null);
-        setSubscription(null);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -58,13 +54,12 @@ export function Navbar() {
 
   useEffect(() => {
     loadUserData();
-    const { data: { subscription } } = onAuthStateChange((user) => {
-      if (user) {
+    const { data: { subscription } } = onAuthStateChange((authUser) => {
+      if (authUser) {
         loadUserData();
       } else {
         setUser(null);
         setProfile(null);
-        setSubscription(null);
         setLoading(false);
       }
     });
@@ -77,7 +72,6 @@ export function Navbar() {
       await signOut();
       setUser(null);
       setProfile(null);
-      setSubscription(null);
       router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -88,9 +82,18 @@ export function Navbar() {
   };
 
   const calculateCreditsRemaining = useCallback(() => {
-    if (!subscription) return 0;
-    return Math.max(0, subscription.tokens_remaining);
-  }, [subscription]);
+    if (activeSubscription) {
+      return Math.max(0, activeSubscription.tokens_remaining);
+    }
+    return 0;
+  }, [activeSubscription]);
+
+  const calculateTotalCredits = useCallback(() => {
+    if (activeSubscription) {
+      return activeSubscription.tokens_allocated;
+    }
+    return 0;
+  }, [activeSubscription]);
 
   const handleSectionNavigation = useCallback((sectionId: string) => {
     if (isLandingPage) {
@@ -161,8 +164,7 @@ export function Navbar() {
                 <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
                   <span>Tokens:</span>
                   <Badge variant="secondary" className="bg-brand-light text-brand-primary">
-                    {subscription ? calculateCreditsRemaining() : 0}
-                    {subscription ? `/${subscription.tokens_allocated}` : '/0'}
+                    {calculateCreditsRemaining()}/{calculateTotalCredits()}
                   </Badge>
                 </div>
               )}
@@ -184,13 +186,13 @@ export function Navbar() {
                       <p className="text-xs leading-none text-muted-foreground">
                         {profile.email}
                       </p>
-                      {subscription && (
+                      {activeSubscription && (
                         <div className="flex items-center justify-between mt-2">
                           <Badge variant="outline" className="text-xs w-fit border-brand-primary text-brand-primary">
-                            {subscription.plan_name}
+                            {activeSubscription.plan_name}
                           </Badge>
                           <div className="text-xs text-muted-foreground">
-                            {calculateCreditsRemaining()}/{subscription.tokens_allocated} tokens
+                            {calculateCreditsRemaining()}/{calculateTotalCredits()} tokens
                           </div>
                         </div>
                       )}
@@ -299,13 +301,12 @@ export function Navbar() {
                   <CreditCard className="w-4 h-4" />
                   <span>Billing</span>
                 </Link>
-                {shouldShowCredits && (
+                {shouldShowCredits && activeSubscription && (
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <span>Tokens:</span>
                       <Badge variant="secondary" className="bg-brand-light text-brand-primary">
-                        {subscription ? calculateCreditsRemaining() : 0}
-                        {subscription ? `/${subscription.tokens_allocated}` : '/0'}
+                        {calculateCreditsRemaining()}/{calculateTotalCredits()}
                       </Badge>
                     </div>
                   </div>
