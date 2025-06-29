@@ -29,6 +29,7 @@ export interface SubscriptionTransaction {
   tokens_granted: number;
   event_type: string;
   stripe_event_id?: string;
+  description?: string;
   created_at: string;
 }
 
@@ -38,6 +39,7 @@ export async function getUserActiveSubscription(): Promise<UserSubscription | nu
     const user = await getCurrentUser();
     if (!user) return null;
 
+    // Query the user_subscriptions table directly
     const { data, error } = await supabase
       .from('user_subscriptions')
       .select('*')
@@ -45,7 +47,7 @@ export async function getUserActiveSubscription(): Promise<UserSubscription | nu
       .eq('status', 'active')
       .single();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error fetching active subscription:', error);
       return null;
     }
@@ -57,36 +59,13 @@ export async function getUserActiveSubscription(): Promise<UserSubscription | nu
   }
 }
 
-// Get user's subscription history
-export async function getUserSubscriptionHistory(): Promise<UserSubscription[]> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return [];
-
-    const { data, error } = await supabase
-      .from('user_subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching subscription history:', error);
-      return [];
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error('Error in getUserSubscriptionHistory:', error);
-    return [];
-  }
-}
-
 // Get user's transaction history
 export async function getUserTransactionHistory(): Promise<SubscriptionTransaction[]> {
   try {
     const user = await getCurrentUser();
     if (!user) return [];
 
+    // Query the subscription_transactions table directly
     const { data, error } = await supabase
       .from('subscription_transactions')
       .select('*')
@@ -157,11 +136,15 @@ export async function logSubscriptionTransaction(transactionData: {
   tokens_granted: number;
   event_type: string;
   stripe_event_id?: string;
+  description?: string;
 }): Promise<SubscriptionTransaction | null> {
   try {
     const { data, error } = await supabase
       .from('subscription_transactions')
-      .insert(transactionData)
+      .insert({
+        ...transactionData,
+        created_at: new Date().toISOString()
+      })
       .select()
       .single();
 
@@ -212,67 +195,21 @@ export async function updateSubscriptionStatus(
 // Use tokens (deduct from remaining balance)
 export async function useTokens(userId: string, tokensToUse: number): Promise<boolean> {
   try {
-    const { data: subscription, error: fetchError } = await supabase
-      .from('user_subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    // Call the RPC function to use tokens
+    const { data, error } = await supabase.rpc('use_user_tokens', {
+      p_user_id: userId,
+      p_amount: tokensToUse,
+      p_description: `Used ${tokensToUse} tokens for coaching session`,
+    });
 
-    if (fetchError || !subscription) {
-      console.error('No active subscription found for user:', userId);
+    if (error) {
+      console.error('Error using tokens:', error);
       return false;
     }
 
-    if (subscription.tokens_remaining < tokensToUse) {
-      console.error('Insufficient tokens:', subscription.tokens_remaining, 'needed:', tokensToUse);
-      return false;
-    }
-
-    const { error: updateError } = await supabase
-      .from('user_subscriptions')
-      .update({
-        tokens_remaining: subscription.tokens_remaining - tokensToUse,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', subscription.id);
-
-    if (updateError) {
-      console.error('Error updating token balance:', updateError);
-      return false;
-    }
-
-    return true;
+    return data;
   } catch (error) {
     console.error('Error in useTokens:', error);
     return false;
-  }
-}
-
-// Get available subscription plans
-export async function getAvailableSubscriptionPlans(): Promise<SubscriptionPlan[]> {
-  try {
-    const { data, error } = await supabase
-      .from('subscription_plans')
-      .select('*')
-      .eq('is_active', true)
-      .order('price_cents');
-
-    if (error) {
-      console.error('Error fetching subscription plans:', error);
-      return [];
-    }
-
-    return data?.map(plan => ({
-      name: plan.plan_name,
-      stripeProductId: plan.stripe_product_id,
-      stripePriceId: plan.stripe_price_id,
-      tokensPerMonth: plan.tokens_per_month,
-      priceCents: plan.price_cents,
-      description: plan.description || ''
-    })) || [];
-  } catch (error) {
-    console.error('Error in getAvailableSubscriptionPlans:', error);
-    return [];
   }
 }

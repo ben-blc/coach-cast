@@ -33,17 +33,50 @@ export async function getUserTokens(): Promise<UserTokens | null> {
     const user = await getCurrentUser();
     if (!user) return null;
 
-    const { data, error } = await supabase
-      .from('user_token_summary')
+    // Query the user_tokens table directly
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('user_tokens')
       .select('*')
+      .eq('user_id', user.id)
       .single();
 
-    if (error) {
-      console.error('Error fetching user tokens:', error);
+    if (tokenError) {
+      console.error('Error fetching user tokens:', tokenError);
       return null;
     }
 
-    return data;
+    // Get subscription data for plan information
+    const { data: subscriptionData, error: subscriptionError } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .single();
+
+    if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+      console.error('Error fetching subscription:', subscriptionError);
+    }
+
+    // Determine plan name based on plan_type
+    let planName = 'Free';
+    if (subscriptionData) {
+      switch (subscriptionData.plan_type) {
+        case 'explorer': planName = 'Explorer'; break;
+        case 'starter': planName = 'Starter'; break;
+        case 'accelerator': planName = 'Accelerator'; break;
+        default: planName = 'Free';
+      }
+    }
+
+    return {
+      total_tokens: tokenData.total_tokens,
+      tokens_remaining: tokenData.tokens_remaining,
+      tokens_used: tokenData.tokens_used,
+      last_updated: tokenData.last_updated,
+      plan_type: subscriptionData?.plan_type || 'free',
+      plan_name: planName,
+      subscription_status: subscriptionData?.status || 'free'
+    };
   } catch (error) {
     console.error('Error in getUserTokens:', error);
     return null;
@@ -58,9 +91,23 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
     const user = await getCurrentUser();
     if (!user) return [];
 
+    // Query the token_transactions table directly
     const { data, error } = await supabase
-      .from('user_token_transactions')
-      .select('*')
+      .from('token_transactions')
+      .select(`
+        *,
+        coaching_sessions:session_id (
+          session_type,
+          duration_seconds,
+          status,
+          ai_coach_id
+        ),
+        coaches:coaching_sessions.ai_coach_id (
+          name,
+          specialty
+        )
+      `)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -68,7 +115,20 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
       return [];
     }
 
-    return data || [];
+    // Format the data to match the expected interface
+    return (data || []).map(transaction => ({
+      id: transaction.id,
+      amount: transaction.amount,
+      transaction_type: transaction.transaction_type,
+      description: transaction.description,
+      reference_id: transaction.reference_id,
+      created_at: transaction.created_at,
+      session_type: transaction.coaching_sessions?.session_type,
+      duration_seconds: transaction.coaching_sessions?.duration_seconds,
+      session_status: transaction.coaching_sessions?.status,
+      coach_name: transaction.coaches?.name,
+      coach_specialty: transaction.coaches?.specialty
+    }));
   } catch (error) {
     console.error('Error in getUserTokenTransactions:', error);
     return [];
@@ -88,6 +148,7 @@ export async function addUserTokens(
     const user = await getCurrentUser();
     if (!user) return false;
 
+    // Call the RPC function to add tokens
     const { data, error } = await supabase.rpc('add_user_tokens', {
       p_user_id: user.id,
       p_amount: amount,
@@ -121,6 +182,7 @@ export async function useUserTokens(
     const user = await getCurrentUser();
     if (!user) return false;
 
+    // Call the RPC function to use tokens
     const { data, error } = await supabase.rpc('use_user_tokens', {
       p_user_id: user.id,
       p_amount: amount,
@@ -149,6 +211,7 @@ export async function syncUserTokens(): Promise<boolean> {
     const user = await getCurrentUser();
     if (!user) return false;
 
+    // Call the RPC function to sync tokens
     const { data, error } = await supabase.rpc('sync_user_tokens', {
       p_user_id: user.id
     });
