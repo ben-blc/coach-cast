@@ -9,6 +9,7 @@ import { CheckCircle, Home, Play, Loader2, Coins } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { useUserTokens } from '@/hooks/use-tokens';
 import { Navbar } from '@/components/sections/Navbar';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function SuccessPage() {
