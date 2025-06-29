@@ -305,12 +305,6 @@ export default function Home() {
                     </Button>
                     <Button variant="outline" className="w-full justify-start border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white" asChild>
                       <a href="/coaching-studio">
-                        <Video className="h-4 w-4 mr-2" />
-                        Watch Coach Previews
-                      </a>
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white" asChild>
-                      <a href="/coaching-studio">
                         <Calendar className="h-4 w-4 mr-2" />
                         Schedule Live Session
                       </a>
@@ -319,6 +313,12 @@ export default function Home() {
                       <a href="/coaching-studio">
                         <Users className="h-4 w-4 mr-2" />
                         Browse All Coaches
+                      </a>
+                    </Button>
+                    <Button variant="outline" className="w-full justify-start border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white" asChild>
+                      <a href="/coach/2bfe82a9-fabf-49d8-a5ce-92bb76d55d0b">
+                        <Video className="h-4 w-4 mr-2" />
+                        Talk with Coach Cast AI!
                       </a>
                     </Button>
                   </CardContent>
