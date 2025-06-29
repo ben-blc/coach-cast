@@ -22,7 +22,7 @@ import { getAICoaches, createCoachingSession, updateCoachingSession } from '@/li
 import { useToast } from '@/hooks/use-toast';
 import { Navbar } from '@/components/sections/Navbar';
 import { useUserTokens } from '@/hooks/use-tokens';
-import { createTavusConversation, pollForTavusVideo } from '@/lib/tavus';
+import { createTavusConversation, pollForTavusVideo, endTavusConversation } from '@/lib/tavus';
 import type { AICoach } from '@/lib/database';
 
 export default function VideoAISessionPage() {
@@ -350,10 +350,11 @@ export default function VideoAISessionPage() {
       // Clear any existing content
       videoContainerRef.current.innerHTML = '';
       
-      // Create script element for Daily.co
+      // Create a script element for Daily.co
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/@daily-co/daily-js';
       script.crossOrigin = 'anonymous';
+      
       script.onload = () => {
         // Once the script is loaded, create the iframe
         if (window.Daily && videoContainerRef.current) {
@@ -363,11 +364,22 @@ export default function VideoAISessionPage() {
               height: '100%',
               border: '0',
               borderRadius: '8px',
+              backgroundColor: '#ffffff' // Set background color to white instead of black
             }
           });
           
           callFrame.join({ url });
           setVideoEmbedded(true);
+          
+          // Add a message to help users understand what to do
+          const messageDiv = document.createElement('div');
+          messageDiv.className = 'absolute bottom-4 left-0 right-0 text-center';
+          messageDiv.innerHTML = `
+            <p class="text-sm bg-white/80 mx-auto inline-block px-3 py-1 rounded-full">
+              Click "Join Call" to interact with your coach
+            </p>
+          `;
+          videoContainerRef.current.appendChild(messageDiv);
         }
       };
       
@@ -382,7 +394,7 @@ export default function VideoAISessionPage() {
           <iframe 
             src="${url}" 
             allow="camera; microphone; fullscreen; display-capture; autoplay" 
-            style="width: 100%; height: 100%; border: 0; border-radius: 8px;"
+            style="width: 100%; height: 100%; border: 0; border-radius: 8px; background-color: #ffffff;"
           ></iframe>
         `;
         setVideoEmbedded(true);
@@ -408,6 +420,11 @@ export default function VideoAISessionPage() {
         console.error('No session ID found when ending session');
         router.push('/?tab=sessions&refresh=true');
         return;
+      }
+
+      // End Tavus conversation if active
+      if (tavusConversationId) {
+        await endTavusConversation(tavusConversationId);
       }
 
       // Calculate final tokens
@@ -640,13 +657,13 @@ export default function VideoAISessionPage() {
                     
                     <div 
                       ref={videoContainerRef}
-                      className="aspect-video bg-black rounded-lg overflow-hidden"
-                      style={{ height: '400px' }}
+                      className="aspect-video bg-white rounded-lg overflow-hidden relative"
+                      style={{ height: '400px', border: '1px solid #e5e7eb' }}
                     >
                       {/* Video will be embedded here by the embedTavusVideo function */}
                       {!videoEmbedded && (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                         </div>
                       )}
                     </div>

@@ -31,19 +31,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare custom fields with user information
-    const enhancedCustomFields = {
-      user_id: user.id,
-      user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-      user_email: user.email || '',
-      ...(customFields || {})
-    };
+    // Prepare conversation data
+    const conversationName = customFields?.conversation_name || `Session with ${user.user_metadata?.full_name || 'User'}`;
+    const conversationalContext = customFields?.conversational_context || 
+      `This is a coaching session with ${user.user_metadata?.full_name || 'a user'}.`;
 
     // Create Tavus conversation
     const result = await createTavusConversation({
       replica_id: replicaId,
       persona_id: personaId,
-      custom_fields: enhancedCustomFields
+      custom_fields: {
+        conversation_name: conversationName,
+        conversational_context: conversationalContext,
+        user_id: user.id,
+        user_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        user_email: user.email || '',
+        ...customFields
+      }
     });
 
     if (result.error) {
