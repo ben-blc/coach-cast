@@ -344,8 +344,8 @@ export default function VideoAISessionPage() {
           right: '0',
           bottom: '0'
         },
-        showLeaveButton: true,
-        showFullscreenButton: true,
+        showLeaveButton: false,
+        showFullscreenButton: false,
         dailyConfig: {
           experimentalChromeVideoMuteLightOff: true,
         }
