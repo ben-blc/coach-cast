@@ -16,14 +16,13 @@ import {
   Star,
   Clock,
   Sparkles,
-  DollarSign,
   ExternalLink
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAICoaches, getUserSubscription } from '@/lib/database';
+import { getAICoaches } from '@/lib/database';
 import { Navbar } from '@/components/sections/Navbar';
-import { useUserSubscription } from '@/hooks/use-subscription';
-import type { AICoach, Subscription } from '@/lib/database';
+import { useUserTokens } from '@/hooks/use-tokens';
+import type { AICoach } from '@/lib/database';
 
 // Extended coach type to include all coach data
 interface Coach extends AICoach {
@@ -39,13 +38,12 @@ type SessionFilter = 'all' | 'audio_ai' | 'video_ai' | 'human_coaching';
 export default function CoachingStudioPage() {
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [filteredCoaches, setFilteredCoaches] = useState<Coach[]>([]);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [coachFilter, setCoachFilter] = useState<CoachFilter>('all');
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
   const router = useRouter();
-  const { activeSubscription } = useUserSubscription();
+  const { tokens } = useUserTokens();
 
   useEffect(() => {
     async function loadData() {
@@ -56,13 +54,8 @@ export default function CoachingStudioPage() {
           return;
         }
 
-        const [coachData, userSubscription] = await Promise.all([
-          getAICoaches(),
-          getUserSubscription(user.id)
-        ]);
-        
+        const coachData = await getAICoaches();
         setCoaches(coachData as Coach[]);
-        setSubscription(userSubscription);
       } catch (error) {
         console.error('Error loading coaching studio data:', error);
       } finally {
@@ -102,7 +95,7 @@ export default function CoachingStudioPage() {
   }, [coaches, searchTerm, coachFilter, sessionFilter]);
 
   const formatPrice = (priceInDollars: number) => {
-    return `$${priceInDollars.toLocaleString()}`;
+    return `$${priceInDollars}`;
   };
 
   const getAvailableSessionsText = (sessionTypes: string[]) => {
@@ -219,6 +212,21 @@ export default function CoachingStudioPage() {
             </div>
           )}
         </div>
+
+        {/* Token Display */}
+        {tokens && (
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span className="font-medium">Available Tokens:</span>
+              </div>
+              <Badge className="bg-blue-100 text-blue-800">
+                {tokens.tokens_remaining} / {tokens.total_tokens}
+              </Badge>
+            </div>
+          </div>
+        )}
 
         {/* Results Count */}
         <div className="mb-6">

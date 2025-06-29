@@ -15,14 +15,13 @@ import {
   AlertCircle, 
   Coins, 
   Loader2,
-  CheckCircle,
-  User
+  CheckCircle
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits } from '@/lib/database';
+import { getAICoaches, createCoachingSession, updateCoachingSession } from '@/lib/database';
 import { useToast } from '@/hooks/use-toast';
 import { Navbar } from '@/components/sections/Navbar';
-import { useUserSubscription } from '@/hooks/use-subscription';
+import { useUserTokens } from '@/hooks/use-tokens';
 import { createTavusConversation, pollForTavusVideo } from '@/lib/tavus';
 import type { AICoach } from '@/lib/database';
 
@@ -52,7 +51,7 @@ export default function VideoAISessionPage() {
   const searchParams = useSearchParams();
   const coachId = searchParams.get('coach');
   const { toast } = useToast();
-  const { activeSubscription, refreshSubscription } = useUserSubscription();
+  const { tokens, refreshTokens } = useUserTokens();
 
   // Helper function to render coach avatar
   const renderCoachAvatar = (size: 'sm' | 'md' | 'lg' = 'md') => {
@@ -117,7 +116,7 @@ export default function VideoAISessionPage() {
         setSelectedCoach(coach);
 
         // Check if user has enough tokens
-        if (activeSubscription && activeSubscription.tokens_remaining < 2) {
+        if (tokens && tokens.tokens_remaining < 2) {
           setNoCreditsAvailable(true);
         }
       } catch (error) {
@@ -128,7 +127,7 @@ export default function VideoAISessionPage() {
     }
 
     loadCoach();
-  }, [router, coachId, activeSubscription]);
+  }, [router, coachId, tokens]);
 
   // Timer effect
   useEffect(() => {
@@ -185,8 +184,8 @@ export default function VideoAISessionPage() {
   };
 
   const canStartSession = () => {
-    if (activeSubscription) {
-      return activeSubscription.tokens_remaining >= 2; // Minimum 2 tokens needed
+    if (tokens) {
+      return tokens.tokens_remaining >= 2; // Minimum 2 tokens needed
     }
     return false;
   };
@@ -372,15 +371,8 @@ export default function VideoAISessionPage() {
       const updatedSession = await updateCoachingSession(sessionId, sessionUpdate);
       console.log('Session updated:', updatedSession);
 
-      // Only deduct tokens if session was over 15 seconds
-      if (finalTokens > 0) {
-        console.log('Deducting tokens:', finalTokens);
-        const creditsUpdated = await updateUserCredits(user.id, finalTokens);
-        console.log('Credits updated:', creditsUpdated);
-        
-        // Refresh subscription data
-        await refreshSubscription();
-      }
+      // Refresh tokens to reflect the changes
+      await refreshTokens();
 
       // Clear intervals
       if (timerIntervalRef.current) {
@@ -452,7 +444,7 @@ export default function VideoAISessionPage() {
   }
 
   // Show no credits message if user has no credits
-  if (noCreditsAvailable || (activeSubscription && activeSubscription.tokens_remaining < 2)) {
+  if (noCreditsAvailable || (tokens && tokens.tokens_remaining < 2)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <Navbar />
@@ -740,8 +732,8 @@ export default function VideoAISessionPage() {
               </Button>
               
               <p className="text-sm text-gray-500">
-                {activeSubscription 
-                  ? `You have ${activeSubscription.tokens_remaining} tokens remaining`
+                {tokens 
+                  ? `You have ${tokens.tokens_remaining} tokens remaining`
                   : 'Loading token information...'}
               </p>
             </CardContent>

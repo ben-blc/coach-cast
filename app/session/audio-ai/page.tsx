@@ -8,18 +8,19 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, Play, Square, ArrowLeft, Clock, AlertCircle, Coins, MicOff } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { getAICoaches, createCoachingSession, updateCoachingSession, updateUserCredits, getUserSubscription } from '@/lib/database';
+import { getAICoaches, createCoachingSession, updateCoachingSession } from '@/lib/database';
 import { getConversationTranscript } from '@/lib/elevenlabs';
 import { ConversationAgent } from '@/components/elevenlabs/ConversationAgent';
 import { Navbar } from '@/components/sections/Navbar';
-import { useUserSubscription } from '@/hooks/use-subscription';
-import type { AICoach, Subscription } from '@/lib/database';
+import { useUserTokens } from '@/hooks/use-tokens';
+import { useUserTokens } from '@/hooks/use-tokens';
+import { useUserTokens } from '@/hooks/use-tokens';
+import type { AICoach } from '@/lib/database';
 
 export default function AudioAISessionPage() {
   const [selectedCoach, setSelectedCoach] = useState<AICoach | null>(null);
   const [sessionTime, setSessionTime] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionActive, setSessionActive] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
@@ -41,7 +42,7 @@ export default function AudioAISessionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const coachId = searchParams.get('coach');
-  const { activeSubscription } = useUserSubscription();
+  const { tokens, refreshTokens } = useUserTokens();
 
   // Helper function to render coach avatar
   const renderCoachAvatar = (size: 'sm' | 'md' | 'lg' = 'md') => {
@@ -170,10 +171,7 @@ export default function AudioAISessionPage() {
           return;
         }
 
-        const [coaches, userSubscription] = await Promise.all([
-          getAICoaches(),
-          getUserSubscription(user.id)
-        ]);
+        const coaches = await getAICoaches();
 
         // Find the specific coach
         const coach = coaches.find(c => c.id === coachId);
@@ -183,10 +181,9 @@ export default function AudioAISessionPage() {
         }
 
         setSelectedCoach(coach);
-        setSubscription(userSubscription);
 
-        // Check if user has credits
-        if (userSubscription && userSubscription.credits_remaining <= 0) {
+        // Check if user has enough tokens
+        if (tokens && tokens.tokens_remaining <= 0) {
           setNoCreditsAvailable(true);
         }
       } catch (error) {
@@ -197,7 +194,7 @@ export default function AudioAISessionPage() {
     }
 
     loadCoach();
-  }, [router, coachId]);
+  }, [router, coachId, tokens]);
 
   // Timer effect - only runs when both conditions are true
   useEffect(() => {
@@ -223,27 +220,19 @@ export default function AudioAISessionPage() {
     if (timerStarted && sessionActive && !endingSession) {
       timeCheckIntervalRef.current = setInterval(async () => {
         try {
-          const user = await getCurrentUser();
-          if (!user) return;
-
-          let tokensRemaining = 0;
+          // Refresh tokens to get latest balance
+          await refreshTokens();
           
-          if (activeSubscription) {
-            tokensRemaining = activeSubscription.tokens_remaining;
-          } else {
-            const currentSubscription = await getUserSubscription(user.id);
-            if (currentSubscription) {
-              tokensRemaining = currentSubscription.credits_remaining;
+          if (tokens) {
+            const tokensRemaining = tokens.tokens_remaining;
+            const tokensWillUse = calculateTokens(sessionTime + 30); // Check 30 seconds ahead
+            
+            // If the user will exceed their limit in the next 30 seconds, end the session
+            if (tokensRemaining <= tokensWillUse && sessionTime > 15) {
+              console.log('User will exceed token limit, ending session...');
+              setTimeExceeded(true);
+              await endSession(true); // Force end with time exceeded flag
             }
-          }
-
-          const tokensWillUse = calculateTokens(sessionTime + 30); // Check 30 seconds ahead
-          
-          // If the user will exceed their limit in the next 30 seconds, end the session
-          if (tokensRemaining <= tokensWillUse && sessionTime > 15) {
-            console.log('User will exceed token limit, ending session...');
-            setTimeExceeded(true);
-            await endSession(true); // Force end with time exceeded flag
           }
         } catch (error) {
           console.error('Error checking token limits:', error);
@@ -256,7 +245,7 @@ export default function AudioAISessionPage() {
         }
       };
     }
-  }, [timerStarted, sessionActive, sessionTime, endingSession, activeSubscription]);
+  }, [timerStarted, sessionActive, sessionTime, endingSession, tokens, refreshTokens]);
 
   // Calculate tokens based on session time
   const calculateTokens = (seconds: number): number => {
@@ -291,10 +280,10 @@ export default function AudioAISessionPage() {
   };
 
   const canStartSession = () => {
-    if (activeSubscription) {
-      return activeSubscription.tokens_remaining > 0;
+    if (tokens) {
+      return tokens.tokens_remaining > 0;
     }
-    return subscription && subscription.credits_remaining > 0;
+    return false;
   };
 
   const startSession = async () => {
@@ -425,12 +414,8 @@ export default function AudioAISessionPage() {
       const updatedSession = await updateCoachingSession(sessionId, sessionUpdate);
       console.log('Session updated:', updatedSession);
 
-      // Only deduct tokens if session was over 15 seconds
-      if (finalTokens > 0) {
-        console.log('Deducting tokens:', finalTokens);
-        const creditsUpdated = await updateUserCredits(user.id, finalTokens);
-        console.log('Credits updated:', creditsUpdated);
-      }
+      // Refresh tokens to reflect the changes
+      await refreshTokens();
 
       // Reset all states
       setSessionActive(false);
@@ -459,7 +444,6 @@ export default function AudioAISessionPage() {
       setEndingSession(false);
 
       // Even if there's an error, try to redirect to dashboard
-      // The user shouldn't be stuck on the session page
       router.push('/?tab=sessions&refresh=true');
     }
   };
@@ -498,9 +482,7 @@ export default function AudioAISessionPage() {
   }
 
   // Show no credits message if user has no credits
-  if (noCreditsAvailable || timeExceeded || 
-      (activeSubscription && activeSubscription.tokens_remaining <= 0) ||
-      (subscription && subscription.credits_remaining <= 0)) {
+  if (noCreditsAvailable || (tokens && tokens.tokens_remaining <= 0)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <Navbar />
@@ -740,8 +722,7 @@ export default function AudioAISessionPage() {
         </div>
 
         {/* Credits Warning */}
-        {((activeSubscription && activeSubscription.tokens_remaining <= 0) ||
-          (subscription && subscription.credits_remaining <= 0)) && (
+        {tokens && tokens.tokens_remaining <= 0 && (
           <Alert className="mb-8 w-full max-w-2xl">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -817,10 +798,8 @@ export default function AudioAISessionPage() {
               </Button>
               
               <p className="text-sm text-gray-500">
-                {activeSubscription 
-                  ? `You have ${activeSubscription.tokens_remaining} tokens remaining`
-                  : subscription
-                  ? `You have ${subscription.credits_remaining} tokens remaining`
+                {tokens 
+                  ? `You have ${tokens.tokens_remaining} tokens remaining`
                   : 'Loading token information...'}
               </p>
             </CardContent>

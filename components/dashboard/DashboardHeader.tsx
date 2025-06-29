@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Settings, LogOut, User, Home, Users, CreditCard } from 'lucide-react';
 import { signOut, getCurrentUser, onAuthStateChange } from '@/lib/auth';
-import { getUserSubscription } from '@/lib/database';
-import { getUserActiveSubscription } from '@/lib/subscription-service';
+import { getUserProfile } from '@/lib/database';
 import { useRouter } from 'next/navigation';
-import { useUserSubscription } from '@/hooks/use-subscription';
+import { useUserTokens } from '@/hooks/use-tokens';
 import Link from 'next/link';
 
 interface DashboardHeaderProps {
@@ -34,31 +33,29 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   const [user, setUser] = useState(initialUser);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
-  const { activeSubscription } = useUserSubscription();
+  const { tokens, refreshTokens } = useUserTokens();
 
-  const refreshCredits = async () => {
+  const refreshUserData = async () => {
     try {
-      if (activeSubscription) {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) return;
+
+      const userProfile = await getUserProfile(currentUser.id);
+      if (!userProfile) return;
+
+      // Update user data from tokens
+      if (tokens) {
         setUser(prev => ({
           ...prev,
-          creditsRemaining: Math.max(0, activeSubscription.tokens_remaining),
-          totalCredits: activeSubscription.tokens_allocated
+          name: userProfile.full_name,
+          email: userProfile.email,
+          plan: tokens.plan_name,
+          creditsRemaining: tokens.tokens_remaining,
+          totalCredits: tokens.total_tokens
         }));
-      } else {
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          const subscription = await getUserSubscription(currentUser.id);
-          if (subscription) {
-            setUser(prev => ({
-              ...prev,
-              creditsRemaining: Math.max(0, subscription.credits_remaining),
-              totalCredits: subscription.monthly_limit
-            }));
-          }
-        }
       }
     } catch (error) {
-      console.error('Error refreshing credits:', error);
+      console.error('Error refreshing user data:', error);
     }
   };
 
@@ -67,7 +64,8 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
 
     const handleVisibilityChange = () => {
       if (!document.hidden && mounted) {
-        refreshCredits();
+        refreshTokens();
+        refreshUserData();
       }
     };
 
@@ -78,7 +76,8 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
       }
     });
 
-    refreshCredits();
+    refreshTokens();
+    refreshUserData();
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
@@ -86,19 +85,19 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       subscription?.unsubscribe();
     };
-  }, [router, activeSubscription]);
+  }, [router, refreshTokens]);
 
-  // Update user data when activeSubscription changes
+  // Update user data when tokens change
   useEffect(() => {
-    if (activeSubscription) {
+    if (tokens) {
       setUser(prev => ({
         ...prev,
-        plan: activeSubscription.plan_name,
-        creditsRemaining: Math.max(0, activeSubscription.tokens_remaining),
-        totalCredits: activeSubscription.tokens_allocated
+        plan: tokens.plan_name,
+        creditsRemaining: tokens.tokens_remaining,
+        totalCredits: tokens.total_tokens
       }));
     }
-  }, [activeSubscription]);
+  }, [tokens]);
 
   const handleSignOut = async () => {
     try {
@@ -117,15 +116,15 @@ export function DashboardHeader({ user: initialUser }: DashboardHeaderProps) {
   };
 
   const calculateCreditsRemaining = () => {
-    if (activeSubscription) {
-      return Math.max(0, activeSubscription.tokens_remaining);
+    if (tokens) {
+      return Math.max(0, tokens.tokens_remaining);
     }
     return Math.max(0, user.creditsRemaining);
   };
 
   const calculateTotalCredits = () => {
-    if (activeSubscription) {
-      return activeSubscription.tokens_allocated;
+    if (tokens) {
+      return tokens.total_tokens;
     }
     return user.totalCredits;
   };

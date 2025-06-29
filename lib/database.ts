@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { useUserTokens } from '@/hooks/use-tokens';
+import { syncUserTokens } from './tokens';
 
 export type Profile = {
   id: string;
@@ -40,6 +42,7 @@ export type AICoach = {
   avatar_url?: string;
   hourly_rate?: number; // in dollars (not cents)
   cal_com_link?: string;
+  tavus_replica_id?: string;
   is_active: boolean;
   created_at: string;
 };
@@ -173,6 +176,10 @@ export async function ensureUserProfile(userId: string, email: string, fullName:
     }
 
     await ensureUserSubscription(userId);
+    
+    // Sync user tokens
+    await syncUserTokens();
+    
     return newProfile;
   } catch (error) {
     console.error('Unexpected error in ensureUserProfile:', error);
@@ -216,6 +223,9 @@ export async function ensureUserSubscription(userId: string): Promise<Subscripti
       console.error('Error creating subscription:', error);
       return null;
     }
+
+    // Sync user tokens after creating subscription
+    await syncUserTokens();
 
     return newSubscription;
   } catch (error) {
@@ -524,49 +534,20 @@ export async function updateUserCredits(userId: string, creditsUsed: number): Pr
       return false;
     }
 
-    const { data: currentSubscription, error: fetchError } = await supabase
-      .from('subscriptions')
-      .select('credits_remaining')
-      .eq('user_id', userId)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching current subscription:', fetchError);
-      return false;
-    }
-
-    if (!currentSubscription) {
-      console.error('No subscription found for user');
-      return false;
-    }
-
-    const newCreditsRemaining = Math.max(0, currentSubscription.credits_remaining - creditsUsed);
-
-    const { error } = await supabase
-      .from('subscriptions')
-      .update({ 
-        credits_remaining: newCreditsRemaining,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId);
+    // Use the new token system instead of directly updating subscriptions
+    const { data, error } = await supabase.rpc('use_user_tokens', {
+      p_user_id: userId,
+      p_amount: creditsUsed,
+      p_description: `Used ${creditsUsed} tokens for coaching session`,
+    });
 
     if (error) {
       console.error('Error updating user credits:', error);
       return false;
     }
 
-    // Record the credit usage transaction
-    await supabase
-      .from('credit_transactions')
-      .insert({
-        user_id: userId,
-        transaction_type: 'usage',
-        credits_amount: -creditsUsed, // Negative for usage
-        description: `Used ${creditsUsed} credits for coaching session`,
-      });
-
-    console.log(`Updated credits for user ${userId}: ${currentSubscription.credits_remaining} -> ${newCreditsRemaining} (used ${creditsUsed})`);
-    return true;
+    console.log(`Updated credits for user ${userId}: used ${creditsUsed}`);
+    return data;
   } catch (error) {
     console.error('Unexpected error in updateUserCredits:', error);
     return false;
@@ -612,6 +593,9 @@ export async function updateUserSubscriptionPlan(
       console.error('Error updating subscription plan:', error);
       return false;
     }
+
+    // Sync user tokens after updating subscription
+    await syncUserTokens();
 
     console.log(`Updated subscription for user ${userId} to ${planType}`);
     return true;

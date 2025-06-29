@@ -14,11 +14,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Menu, X, User, Settings, LogOut, Home, Users, CreditCard } from 'lucide-react';
-import { getCurrentUser, signOut, onAuthStateChange } from '@/lib/auth';
+import { signOut, getCurrentUser, onAuthStateChange } from '@/lib/auth';
 import { getUserProfile } from '@/lib/database';
-import { getUserActiveSubscription } from '@/lib/subscription-service';
 import { useRouter, usePathname } from 'next/navigation';
-import { useUserSubscription } from '@/hooks/use-subscription';
+import { useUserTokens } from '@/hooks/use-tokens';
 import type { Profile } from '@/lib/database';
 
 export function Navbar() {
@@ -29,7 +28,7 @@ export function Navbar() {
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const { activeSubscription } = useUserSubscription();
+  const { tokens, refreshTokens } = useUserTokens();
 
   const isLandingPage = pathname === '/' && !user;
   const shouldShowCredits = !isLandingPage && user && profile;
@@ -41,6 +40,9 @@ export function Navbar() {
         setUser(currentUser);
         const userProfile = await getUserProfile(currentUser.id);
         setProfile(userProfile);
+        
+        // Tokens are loaded via the useUserTokens hook
+        await refreshTokens();
       } else {
         setUser(null);
         setProfile(null);
@@ -50,7 +52,7 @@ export function Navbar() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshTokens]);
 
   useEffect(() => {
     loadUserData();
@@ -82,18 +84,18 @@ export function Navbar() {
   };
 
   const calculateCreditsRemaining = useCallback(() => {
-    if (activeSubscription) {
-      return Math.max(0, activeSubscription.tokens_remaining);
+    if (tokens) {
+      return Math.max(0, tokens.tokens_remaining);
     }
     return 0;
-  }, [activeSubscription]);
+  }, [tokens]);
 
   const calculateTotalCredits = useCallback(() => {
-    if (activeSubscription) {
-      return activeSubscription.tokens_allocated;
+    if (tokens) {
+      return tokens.total_tokens;
     }
     return 0;
-  }, [activeSubscription]);
+  }, [tokens]);
 
   const handleSectionNavigation = useCallback((sectionId: string) => {
     if (isLandingPage) {
@@ -186,10 +188,10 @@ export function Navbar() {
                       <p className="text-xs leading-none text-muted-foreground">
                         {profile.email}
                       </p>
-                      {activeSubscription && (
+                      {tokens && (
                         <div className="flex items-center justify-between mt-2">
                           <Badge variant="outline" className="text-xs w-fit border-brand-primary text-brand-primary">
-                            {activeSubscription.plan_name}
+                            {tokens.plan_name}
                           </Badge>
                           <div className="text-xs text-muted-foreground">
                             {calculateCreditsRemaining()}/{calculateTotalCredits()} tokens
@@ -301,7 +303,7 @@ export function Navbar() {
                   <CreditCard className="w-4 h-4" />
                   <span>Billing</span>
                 </Link>
-                {shouldShowCredits && activeSubscription && (
+                {shouldShowCredits && tokens && (
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <span>Tokens:</span>
