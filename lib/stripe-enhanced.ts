@@ -1,5 +1,4 @@
 import { getCurrentUser } from './auth';
-import { supabase } from './supabase';
 import { SUBSCRIPTION_PLANS, formatPrice, type SubscriptionPlan } from './subscription-config';
 import { syncUserTokens } from './tokens';
 
@@ -23,8 +22,16 @@ export async function createSubscriptionCheckout(priceId: string): Promise<Check
       throw new Error('User not authenticated');
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+    // Get the auth token for the API request
+    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
+    if (!token) {
+      throw new Error('No auth token available');
+    }
+    
+    const parsedToken = JSON.parse(token);
+    const accessToken = parsedToken?.access_token;
+    
+    if (!accessToken) {
       throw new Error('No access token available');
     }
 
@@ -32,7 +39,7 @@ export async function createSubscriptionCheckout(priceId: string): Promise<Check
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ priceId }),
     });
@@ -56,12 +63,22 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus | null
     const user = await getCurrentUser();
     if (!user) return null;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) return null;
+    // Get the auth token for the API request
+    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
+    if (!token) {
+      throw new Error('No auth token available');
+    }
+    
+    const parsedToken = JSON.parse(token);
+    const accessToken = parsedToken?.access_token;
+    
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
 
     const response = await fetch('/api/stripe/subscription-status', {
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
 
@@ -84,8 +101,16 @@ export async function cancelSubscription(): Promise<{success: boolean, message?:
       return { success: false, error: 'User not authenticated' };
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+    // Get the auth token for the API request
+    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
+    if (!token) {
+      return { success: false, error: 'No auth token available' };
+    }
+    
+    const parsedToken = JSON.parse(token);
+    const accessToken = parsedToken?.access_token;
+    
+    if (!accessToken) {
       return { success: false, error: 'No access token available' };
     }
 
@@ -93,7 +118,7 @@ export async function cancelSubscription(): Promise<{success: boolean, message?:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
 
@@ -130,8 +155,16 @@ export async function reactivateSubscription(): Promise<{success: boolean, messa
       return { success: false, error: 'User not authenticated' };
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+    // Get the auth token for the API request
+    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
+    if (!token) {
+      return { success: false, error: 'No auth token available' };
+    }
+    
+    const parsedToken = JSON.parse(token);
+    const accessToken = parsedToken?.access_token;
+    
+    if (!accessToken) {
       return { success: false, error: 'No access token available' };
     }
 
@@ -139,7 +172,7 @@ export async function reactivateSubscription(): Promise<{success: boolean, messa
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
     });
 

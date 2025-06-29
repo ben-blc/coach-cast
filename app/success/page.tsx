@@ -9,7 +9,6 @@ import { CheckCircle, Home, Play, Loader2, Coins } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { useUserTokens } from '@/hooks/use-tokens';
 import { Navbar } from '@/components/sections/Navbar';
-import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function SuccessPage() {
@@ -35,7 +34,7 @@ export default function SuccessPage() {
 
         // If we have a session ID, process the payment success
         if (sessionId) {
-          await processPaymentSuccess(sessionId, currentUser);
+          await processPaymentSuccess(sessionId);
         } else {
           setProcessingPayment(false);
         }
@@ -54,20 +53,10 @@ export default function SuccessPage() {
     loadUserData();
   }, [router, sessionId, refreshTokens]);
 
-  const processPaymentSuccess = async (sessionId: string, user: any) => {
+  const processPaymentSuccess = async (sessionId: string) => {
     try {
-      // Get the session from auth
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('No access token available');
-      }
-
       // Call the success API endpoint
-      const response = await fetch(`/api/stripe/success?session_id=${sessionId}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
+      const response = await fetch(`/api/stripe/success?session_id=${sessionId}`);
 
       if (!response.ok) {
         const errorData = await response.json();
