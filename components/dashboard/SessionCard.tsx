@@ -58,6 +58,16 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
     });
   };
 
+  const formatDuration = (minutes: number) => {
+    if (minutes < 1) {
+      return `${minutes * 60} sec`;
+    } else {
+      const mins = Math.floor(minutes);
+      const secs = Math.round((minutes - mins) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')} min`;
+    }
+  };
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
@@ -74,7 +84,7 @@ export function SessionCard({ session, detailed = false }: SessionCardProps) {
                 </Badge>
                 <div className="flex items-center text-sm text-gray-600">
                   <Clock className="h-3 w-3 mr-1" />
-                  {session.duration} min
+                  {formatDuration(session.duration)}
                 </div>
               </div>
             </div>

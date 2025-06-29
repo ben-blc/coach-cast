@@ -35,6 +35,7 @@ import {
   Coins
 } from 'lucide-react';
 import { getUserProfile, getUserSubscription, getUserSessions, ensureUserProfile, ensureUserSubscription, getPlanDisplayName } from '@/lib/database';
+import { useUserTokens } from '@/hooks/use-tokens';
 import type { Profile, Subscription, CoachingSession } from '@/lib/database';
 
 export default function Home() {
@@ -46,6 +47,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('overview');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { tokens } = useUserTokens();
 
   // Check for tab parameter in URL
   useEffect(() => {
@@ -79,21 +81,18 @@ export default function Home() {
 
   // Format session duration for display
   const formatSessionDuration = (durationSeconds: number): string => {
-    if (durationSeconds <= 15) {
-      return `${durationSeconds}s`;
+    if (durationSeconds < 60) {
+      return `${durationSeconds} sec`;
     } else {
-      const minutes = Math.ceil(durationSeconds / 60);
-      return `${minutes} min`;
+      const minutes = Math.floor(durationSeconds / 60);
+      const seconds = durationSeconds % 60;
+      return `${minutes}:${seconds.toString().padStart(2, '0')} min`;
     }
   };
 
   // Get display minutes for session
   const getSessionDisplayMinutes = (durationSeconds: number): number => {
-    if (durationSeconds <= 15) {
-      return 0;
-    } else {
-      return Math.ceil(durationSeconds / 60);
-    }
+    return durationSeconds / 60;
   };
 
   // Function to load all user data
@@ -175,8 +174,8 @@ export default function Home() {
             name: profile.full_name,
             email: profile.email,
             plan: getPlanDisplayName(subscription.plan_type),
-            creditsRemaining: creditsRemaining,
-            totalCredits: subscription.monthly_limit
+            creditsRemaining: tokens ? tokens.tokens_remaining : creditsRemaining,
+            totalCredits: tokens ? tokens.total_tokens : subscription.monthly_limit
           }}
         />
         
@@ -190,9 +189,11 @@ export default function Home() {
                     Welcome back, {profile.full_name.split(' ')[0]}!
                   </h1>
                   <p className="text-gray-600 text-lg">
-                    {subscription.plan_type === 'free' 
-                      ? `You have ${creditsRemaining} minutes remaining in your free trial.`
-                      : `You have ${creditsRemaining} credits remaining this month.`
+                    {tokens 
+                      ? `You have ${tokens.tokens_remaining} tokens remaining.`
+                      : subscription.plan_type === 'free' 
+                        ? `You have ${creditsRemaining} minutes remaining in your free trial.`
+                        : `You have ${creditsRemaining} credits remaining this month.`
                     }
                   </p>
                   {creditsUsed > 0 && (
@@ -262,9 +263,9 @@ export default function Home() {
                     <CreditCard className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{creditsRemaining}</div>
+                    <div className="text-2xl font-bold">{tokens ? tokens.tokens_remaining : creditsRemaining}</div>
                     <p className="text-xs text-muted-foreground">
-                      of {subscription.monthly_limit} {subscription.plan_type === 'free' ? 'minutes' : 'credits'}
+                      of {tokens ? tokens.total_tokens : subscription.monthly_limit} {subscription.plan_type === 'free' ? 'minutes' : 'credits'}
                     </p>
                   </CardContent>
                 </Card>
@@ -413,7 +414,7 @@ export default function Home() {
                           <p className="text-sm font-medium text-gray-800">Remaining Credits</p>
                           <p className="text-xs text-gray-600">Available for use</p>
                         </div>
-                        <div className="text-gray-800 font-bold">{creditsRemaining} credits</div>
+                        <div className="text-gray-800 font-bold">{tokens ? tokens.tokens_remaining : creditsRemaining} credits</div>
                       </div>
                     </div>
                   </CardContent>

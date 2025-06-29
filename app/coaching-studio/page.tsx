@@ -259,11 +259,10 @@ export default function CoachingStudioPage() {
                       <CardTitle className="text-xl">{coach.name}</CardTitle>
                       <Badge 
                         variant={coach.coach_type === 'human' ? 'default' : 'secondary'} 
-                        className="mt-1"
+                        className="mt-1 inline-flex items-center"
                       >
-                        {coach.coach_type === 'human' ? 'Human Coach' : 'AI Coach'}
+                        {coach.specialty}
                       </Badge>
-                      <p className="text-sm text-gray-600 mt-1">{coach.specialty}</p>
                       {/* Updated: Use flex-row with gap-3 for even spacing */}
                       <div className="flex flex-row items-center gap-3 mt-2">
                         {coach.years_experience && (

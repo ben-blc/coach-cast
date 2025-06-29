@@ -12,8 +12,6 @@ import {
   Video, 
   Users, 
   Clock, 
-  DollarSign,
-  Star,
   CheckCircle,
   AlertCircle,
   Calendar,
@@ -24,7 +22,7 @@ import {
 import { getCurrentUser } from '@/lib/auth';
 import { getAICoaches, getUserSubscription, createCoachingSession } from '@/lib/database';
 import { Navbar } from '@/components/sections/Navbar';
-import { useUserSubscription } from '@/hooks/use-subscription';
+import { useUserTokens } from '@/hooks/use-tokens';
 import type { AICoach, Subscription } from '@/lib/database';
 
 interface Coach extends AICoach {
@@ -43,7 +41,7 @@ export default function CoachDetailClient() {
   const router = useRouter();
   const params = useParams();
   const coachId = params.id as string;
-  const { activeSubscription } = useUserSubscription();
+  const { tokens } = useUserTokens();
 
   useEffect(() => {
     async function loadCoach() {
@@ -134,8 +132,8 @@ export default function CoachDetailClient() {
   };
 
   const canStartSession = () => {
-    if (activeSubscription) {
-      return activeSubscription.tokens_remaining > 0;
+    if (tokens) {
+      return tokens.tokens_remaining > 0;
     }
     return subscription && subscription.credits_remaining > 0;
   };
@@ -310,7 +308,6 @@ export default function CoachDetailClient() {
                         {coach.coach_type === 'human' ? 'Human Coach' : 'AI Coach'}
                       </Badge>
                       <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
                         <span className="text-sm font-medium">4.9</span>
                       </div>
                       {coach.years_experience && (
@@ -323,7 +320,6 @@ export default function CoachDetailClient() {
                     <p className="text-xl text-gray-700 font-medium mb-3">{coach.specialty}</p>
                     {coach.hourly_rate && coach.hourly_rate > 0 && coach.coach_type === 'human' && (
                       <div className="flex items-center space-x-2">
-                        <DollarSign className="w-6 h-6 text-green-600" />
                         <span className="text-3xl font-bold text-gray-900">
                           ${coach.hourly_rate}
                         </span>
@@ -513,12 +509,12 @@ export default function CoachDetailClient() {
               </CardContent>
             </Card>
 
-            {((activeSubscription && activeSubscription.tokens_remaining <= 0) ||
+            {((tokens && tokens.tokens_remaining <= 0) ||
               (subscription && subscription.credits_remaining <= 0)) && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {(activeSubscription?.plan_name === 'Starter' || subscription?.plan_type === 'free') ? (
+                  {(tokens?.plan_name === 'Starter' || subscription?.plan_type === 'free') ? (
                     <>
                       You have no tokens remaining. 
                       <a href="/pricing" className="text-blue-600 hover:underline ml-1">

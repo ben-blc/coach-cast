@@ -61,6 +61,48 @@ export default function SessionDetailPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('id');
 
+  // Helper function to render coach avatar
+  const renderCoachAvatar = (size: 'sm' | 'md' | 'lg' = 'md') => {
+    if (!session?.coach_name) return null;
+
+    const sizeClasses = {
+      sm: 'w-8 h-8',
+      md: 'w-12 h-12',
+      lg: 'w-20 h-20'
+    };
+
+    const textSizeClasses = {
+      sm: 'text-sm',
+      md: 'text-xl',
+      lg: 'text-3xl'
+    };
+
+    return (
+      <div className={`${sizeClasses[size]} rounded-full overflow-hidden bg-gradient-to-r from-blue-400 to-green-600 flex items-center justify-center flex-shrink-0`}>
+        {session.coaches?.avatar_url ? (
+          <img
+            src={session.coaches.avatar_url}
+            alt={session.coach_name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const parent = target.parentElement;
+              if (parent) {
+                parent.innerHTML = `<span class="text-white font-bold ${textSizeClasses[size]}">${session.coach_name.charAt(0)}</span>`;
+              }
+            }}
+          />
+        ) : (
+          <span className={`text-white font-bold ${textSizeClasses[size]}`}>
+            {session.coach_name.charAt(0)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   // Check if ElevenLabs API key is available
   useEffect(() => {
     const hasApiKey = !!(
@@ -207,9 +249,13 @@ export default function SessionDetailPage() {
   };
 
   const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (seconds < 60) {
+      return `${seconds} sec`;
+    } else {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
   };
 
   const formatDate = (dateString: string) => {
