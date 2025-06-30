@@ -91,3 +91,5 @@ Required environment variables:
 ---
 
 *Built with ❤️ using modern web technologies*
+
+Checkpoint payment successful
