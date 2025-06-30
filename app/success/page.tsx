@@ -10,6 +10,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { useUserTokens } from '@/hooks/use-tokens';
 import { Navbar } from '@/components/sections/Navbar';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function SuccessPage() {
   const [user, setUser] = useState<any>(null);
