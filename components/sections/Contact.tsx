@@ -16,6 +16,7 @@ import {
   Clock,
   Users
 } from 'lucide-react';
+import Link from 'next/link';
 
 export function Contact() {
   const [formData, setFormData] = useState({
