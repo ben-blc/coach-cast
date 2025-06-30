@@ -194,6 +194,7 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
 
 /**
  * Add tokens to a user's balance
+ * NOTE: This is a client-side function. For server-side use, use the server action in lib/actions/token-actions.ts
  */
 export async function addUserTokens(
   amount: number,

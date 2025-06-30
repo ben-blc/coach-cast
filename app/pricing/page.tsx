@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,18 +63,24 @@ export default function PricingPage() {
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const { tokens, refreshTokens } = useUserTokens();
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     async function loadUserData() {
       try {
+        console.log('🔍 Loading user data on pricing page');
         const currentUser = await getCurrentUser();
         setUser(currentUser);
         
         if (currentUser) {
+          console.log('✅ User found:', currentUser.id);
           await refreshTokens();
+          console.log('✅ Tokens refreshed');
+        } else {
+          console.log('⚠️ No user found');
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error('❌ Error loading user data:', error);
       } finally {
         setLoading(false);
       }
@@ -85,11 +92,19 @@ export default function PricingPage() {
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     try {
       if (!user) {
+        console.log('⚠️ User not authenticated, saving subscription intent');
+        // Save subscription intent to localStorage
+        localStorage.setItem('pendingSubscription', plan.stripePriceId);
+        localStorage.setItem('redirectAfterAuth', '/pricing');
+        
         toast({
           title: 'Authentication required',
           description: 'Please sign in to subscribe to a plan.',
           variant: 'destructive',
         });
+        
+        // Redirect to auth page
+        router.push('/auth');
         return;
       }
 
@@ -104,14 +119,14 @@ export default function PricingPage() {
       }
 
       setSubscribing(plan.stripePriceId);
-      console.log('Starting subscription process for plan:', plan.name);
+      console.log('🔍 Starting subscription process for plan:', plan.name);
 
       // Redirect to Stripe Checkout
       await redirectToSubscriptionCheckout(plan.stripePriceId);
-      console.log('Redirecting to Stripe checkout...');
+      console.log('🔄 Redirecting to Stripe checkout...');
 
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      console.error('❌ Error creating subscription:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to process subscription. Please try again.',
@@ -280,7 +295,7 @@ export default function PricingPage() {
                       } text-white`}
                       size="lg"
                       onClick={() => handleSubscribe(plan)}
-                      disabled={isCurrent || subscribing === plan.stripePriceId || !user || hasActiveSubscription}
+                      disabled={isCurrent || subscribing === plan.stripePriceId || hasActiveSubscription}
                     >
                       {subscribing === plan.stripePriceId ? (
                         <>

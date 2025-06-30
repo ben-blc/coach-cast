@@ -68,6 +68,7 @@ export default function SuccessPage() {
       // Get auth token for API request
       const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
       if (!token) {
+        console.error('❌ No auth token available');
         throw new Error('No auth token available');
       }
       
@@ -75,6 +76,7 @@ export default function SuccessPage() {
       const accessToken = parsedToken?.access_token;
       
       if (!accessToken) {
+        console.error('❌ No access token available');
         throw new Error('No access token available');
       }
 
