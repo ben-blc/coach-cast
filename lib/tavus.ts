@@ -34,9 +34,9 @@ export async function createTavusConversation(params: TavusConversationParams): 
       conversation_name: params.custom_fields?.conversation_name || `Session with ${params.custom_fields?.user_name || 'User'}`,
       conversational_context: params.custom_fields?.conversational_context || `This is a coaching session with ${params.custom_fields?.user_name || 'a user'}.`,
       properties: {
-        max_call_duration: 3600,
+        max_call_duration: 60,
         participant_left_timeout: 60,
-        participant_absent_timeout: 300,
+        participant_absent_timeout: 60,
         enable_recording: true,
         enable_closed_captions: true,
         apply_greenscreen: false,

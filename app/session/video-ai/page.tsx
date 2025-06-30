@@ -323,7 +323,7 @@ export default function VideoAISessionPage() {
         if (!window._dailyCallObject) {
           window._dailyCallObject = window.Daily.createCallObject({
             dailyConfig: {
-              experimentalChromeVideoMuteLightOff: true,
+              experimentalChromeVideoMuteLightOff: true
             }
           });
         }
