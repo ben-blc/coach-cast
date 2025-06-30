@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { getUserFromAuthHeader } from '@/lib/auth-server';
 import { supabase } from '@/lib/supabase';
 import { addUserTokens } from '@/lib/tokens';
-import { SUBSCRIPTION_PLANS, getPlanByPriceId } from '@/lib/subscription-config';
+import { getPlanByPriceId } from '@/lib/subscription-config';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-06-20',
@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
     console.log('User authenticated:', user.id);
 
     // Retrieve the checkout session from Stripe
+    console.log('Retrieving checkout session from Stripe');
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['subscription', 'line_items']
+      expand: ['line_items']
     });
 
     if (!session) {
@@ -134,8 +135,11 @@ export async function GET(request: NextRequest) {
 
     // If there's a subscription, save it to our database
     if (session.subscription) {
-      console.log('Processing subscription:', session.subscription);
-      const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+      console.log('Processing subscription ID:', session.subscription);
+      
+      // Retrieve the subscription details
+      const subscriptionId = session.subscription as string;
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       
       console.log('Subscription details:', {
         id: subscription.id,
@@ -234,7 +238,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error processing subscription success:', error);
     return NextResponse.json(
-      { error: 'Failed to process subscription' },
+      { error: error instanceof Error ? error.message : 'Failed to process subscription' },
       { status: 500 }
     );
   }
