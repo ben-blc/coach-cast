@@ -62,21 +62,21 @@ export function Contact() {
   };
 
   return (
-    <section id="contact" className="py-20 bg-gradient-to-br from-blue-50 via-white to-green-50 relative overflow-hidden">
+    <section id="contact" className="py-20 bg-gradient-to-br from-brand-light via-content-background to-brand-accent relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 right-10 w-80 h-80 bg-green-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-20 left-10 w-64 h-64 bg-brand-primary/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-10 w-80 h-80 bg-semantic-positive/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center p-2 bg-blue-100 rounded-full mb-4">
-            <MessageSquare className="w-6 h-6 text-blue-600" />
+          <div className="inline-flex items-center justify-center p-2 bg-brand-light rounded-full mb-4">
+            <MessageSquare className="w-6 h-6 text-brand-primary" />
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-content-dark mb-4">
             Get in Touch With{' '}
-            <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-brand-primary to-semantic-positive bg-clip-text text-transparent">
               Our Team
             </span>
           </h2>
@@ -90,20 +90,20 @@ export function Contact() {
             <div className="grid grid-cols-1 lg:grid-cols-5">
               {/* Contact Form */}
               <div className="p-8 lg:p-12 lg:col-span-3">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6">Send Us a Message</h3>
+                <h3 className="text-2xl font-bold text-content-dark mb-6">Send Us a Message</h3>
                 
                 {submitSuccess ? (
-                  <div className="bg-green-50 border border-green-100 rounded-xl p-8 text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="h-8 w-8 text-green-600" />
+                  <div className="bg-semantic-positive/10 border border-semantic-positive/30 rounded-xl p-8 text-center">
+                    <div className="w-16 h-16 bg-semantic-positive/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="h-8 w-8 text-semantic-positive" />
                     </div>
-                    <h4 className="text-xl font-semibold text-gray-900 mb-2">Message Sent!</h4>
+                    <h4 className="text-xl font-semibold text-content-dark mb-2">Message Sent!</h4>
                     <p className="text-gray-600 mb-6">
                       Thank you for reaching out. We'll get back to you as soon as possible.
                     </p>
                     <Button 
                       onClick={() => setSubmitSuccess(false)}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-semantic-positive hover:bg-semantic-positive/90 text-brand-primary"
                     >
                       Send Another Message
                     </Button>
@@ -121,7 +121,7 @@ export function Contact() {
                               value={formData.name}
                               onChange={handleInputChange}
                               placeholder="Enter your name" 
-                              className="pl-10 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                              className="pl-10 bg-gray-50 border-gray-200 focus:border-brand-primary focus:ring-brand-primary"
                               required 
                             />
                             <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -138,7 +138,7 @@ export function Contact() {
                               value={formData.email}
                               onChange={handleInputChange}
                               placeholder="Enter your email" 
-                              className="pl-10 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                              className="pl-10 bg-gray-50 border-gray-200 focus:border-brand-primary focus:ring-brand-primary"
                               required 
                             />
                             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -154,7 +154,7 @@ export function Contact() {
                           value={formData.message}
                           onChange={handleInputChange}
                           placeholder="Tell us about your coaching practice and how we can help" 
-                          className="min-h-[150px] bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                          className="min-h-[150px] bg-gray-50 border-gray-200 focus:border-brand-primary focus:ring-brand-primary"
                           required 
                         />
                       </div>
@@ -168,7 +168,7 @@ export function Contact() {
                     
                     <Button 
                       type="submit" 
-                      className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white py-3"
+                      className="w-full bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 text-white py-3"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? (
@@ -188,7 +188,7 @@ export function Contact() {
               </div>
               
               {/* Contact Information */}
-              <div className="bg-gradient-to-br from-blue-600 to-green-600 p-8 lg:p-12 text-white lg:col-span-2">
+              <div className="bg-gradient-to-br from-brand-primary to-brand-secondary p-8 lg:p-12 text-white lg:col-span-2">
                 <h3 className="text-2xl font-bold mb-6">Contact Information</h3>
                 
                 <div className="space-y-6">
@@ -256,7 +256,7 @@ export function Contact() {
           <div className="text-center mt-8">
             <p className="text-gray-600 text-sm">
               Your data is securely processed in accordance with our{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">
+              <Link href="/privacy" className="text-brand-primary hover:underline">
                 Privacy Policy
               </Link>
             </p>
