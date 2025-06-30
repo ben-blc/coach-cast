@@ -122,6 +122,25 @@ export async function GET(request: NextRequest) {
           onConflict: 'customer_id'
         });
       
+      // Update user's subscription in user_subscriptions table
+      await supabase
+        .from('user_subscriptions')
+        .upsert({
+          user_id: user?.id,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscription.id,
+          stripe_product_id: plan.stripeProductId,
+          plan_name: plan.name,
+          status: subscription.status,
+          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          tokens_allocated: plan.tokensPerMonth,
+          tokens_remaining: plan.tokensPerMonth,
+        }, {
+          onConflict: 'user_id'
+        });
+      
       // Update user's subscription in subscriptions table
       await supabase
         .from('subscriptions')
@@ -162,7 +181,7 @@ export async function GET(request: NextRequest) {
       session: {
         id: session.id,
         customer: session.customer,
-        subscription: session.subscription?.id
+        subscription: session.subscription
       }
     });
 

@@ -23,15 +23,8 @@ export async function createSubscriptionCheckout(priceId: string): Promise<Check
     }
 
     // Get the auth token for the API request
-    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
-    if (!token) {
-      throw new Error('No auth token available');
-    }
-    
-    const parsedToken = JSON.parse(token);
-    const accessToken = parsedToken?.access_token;
-    
-    if (!accessToken) {
+    const { data: { session } } = await user.auth.getSession();
+    if (!session?.access_token) {
       throw new Error('No access token available');
     }
 
@@ -39,7 +32,7 @@ export async function createSubscriptionCheckout(priceId: string): Promise<Check
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ priceId }),
     });
@@ -64,21 +57,14 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus | null
     if (!user) return null;
 
     // Get the auth token for the API request
-    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
-    if (!token) {
-      throw new Error('No auth token available');
-    }
-    
-    const parsedToken = JSON.parse(token);
-    const accessToken = parsedToken?.access_token;
-    
-    if (!accessToken) {
+    const { data: { session } } = await user.auth.getSession();
+    if (!session?.access_token) {
       throw new Error('No access token available');
     }
 
     const response = await fetch('/api/stripe/subscription-status', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
     });
 
@@ -102,15 +88,8 @@ export async function cancelSubscription(): Promise<{success: boolean, message?:
     }
 
     // Get the auth token for the API request
-    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
-    if (!token) {
-      return { success: false, error: 'No auth token available' };
-    }
-    
-    const parsedToken = JSON.parse(token);
-    const accessToken = parsedToken?.access_token;
-    
-    if (!accessToken) {
+    const { data: { session } } = await user.auth.getSession();
+    if (!session?.access_token) {
       return { success: false, error: 'No access token available' };
     }
 
@@ -118,7 +97,7 @@ export async function cancelSubscription(): Promise<{success: boolean, message?:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
     });
 
@@ -156,15 +135,8 @@ export async function reactivateSubscription(): Promise<{success: boolean, messa
     }
 
     // Get the auth token for the API request
-    const token = localStorage.getItem('sb-svqnvgmqrwlkddneqhrk-auth-token');
-    if (!token) {
-      return { success: false, error: 'No auth token available' };
-    }
-    
-    const parsedToken = JSON.parse(token);
-    const accessToken = parsedToken?.access_token;
-    
-    if (!accessToken) {
+    const { data: { session } } = await user.auth.getSession();
+    if (!session?.access_token) {
       return { success: false, error: 'No access token available' };
     }
 
@@ -172,7 +144,7 @@ export async function reactivateSubscription(): Promise<{success: boolean, messa
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
     });
 

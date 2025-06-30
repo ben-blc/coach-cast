@@ -55,8 +55,18 @@ export default function SuccessPage() {
 
   const processPaymentSuccess = async (sessionId: string) => {
     try {
+      // Get the auth token for the API request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No access token available');
+      }
+
       // Call the success API endpoint
-      const response = await fetch(`/api/stripe/success?session_id=${sessionId}`);
+      const response = await fetch(`/api/stripe/success?session_id=${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
 
       if (!response.ok) {
         const errorData = await response.json();

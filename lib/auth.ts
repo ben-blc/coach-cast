@@ -91,7 +91,16 @@ export async function getCurrentUser() {
       return null;
     }
     
-    return session?.user || null;
+    if (session?.user) {
+      // Add auth object to user for convenience
+      const userWithAuth = {
+        ...session.user,
+        auth: supabase.auth
+      };
+      return userWithAuth;
+    }
+    
+    return null;
   } catch (error) {
     console.error('Unexpected error in getCurrentUser:', error);
     return null;
