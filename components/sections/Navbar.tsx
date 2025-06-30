@@ -247,9 +247,11 @@ export function Navbar() {
                 >
                   Features
                 </button>
-                <Link href="/pricing" className="text-gray-600 hover:text-brand-primary transition-colors font-medium">
-                  Pricing
-                </Link>
+                <button 
+                  onClick={() => handleSectionNavigation('pricing')} 
+                  className="text-gray-600 hover:text-brand-primary transition-colors font-medium">
+                    Pricing
+                </button>
                 <button 
                   onClick={() => handleSectionNavigation('coaches')}
                   className="text-gray-600 hover:text-brand-primary transition-colors font-medium"
