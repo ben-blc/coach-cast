@@ -55,6 +55,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if this transaction has already been processed
+    const { data: existingTransaction, error: txError } = await supabase
+      .from('token_transactions')
+      .select('id, amount, created_at')
+      .eq('reference_id', sessionId)
+      .eq('transaction_type', 'purchase')
+      .single();
+
+    if (existingTransaction) {
+      console.log('⚠️ Transaction already processed:', existingTransaction);
+      return NextResponse.json({
+        success: true,
+        message: `Transaction already processed at ${new Date(existingTransaction.created_at).toLocaleString()}`,
+        alreadyProcessed: true,
+        plan: {
+          tokens: existingTransaction.amount
+        }
+      });
+    }
+
     console.log('🔍 Retrieving checkout session:', sessionId);
 
     // Retrieve the checkout session from Stripe
@@ -193,21 +213,63 @@ export async function GET(request: NextRequest) {
       console.log('✅ Subscription saved to subscriptions');
     }
 
-    // Add tokens to the user's account using server-side function
-    console.log('🔍 Adding tokens to user account:', plan.tokensPerMonth);
-    
-    const tokensAdded = await addUserTokensServer(
-      userId,
-      plan.tokensPerMonth,
-      'purchase',
-      `Purchased ${plan.name} plan - ${plan.tokensPerMonth} tokens added`,
-      stripeSession.id
-    );
+    // Check if tokens have already been added for this session
+    const { data: existingTokens } = await supabase
+      .from('token_transactions')
+      .select('id')
+      .eq('reference_id', sessionId)
+      .single();
 
-    if (!tokensAdded) {
-      console.warn('⚠️ Failed to add tokens to user account, but payment was successful');
+    if (existingTokens) {
+      console.log('⚠️ Tokens already added for this session:', existingTokens.id);
     } else {
-      console.log('✅ Tokens added successfully');
+      // Add tokens to the user's account using server-side function
+      console.log('🔍 Adding tokens to user account:', plan.tokensPerMonth);
+      
+      const tokensAdded = await addUserTokensServer(
+        userId,
+        plan.tokensPerMonth,
+        'purchase',
+        `Purchased ${plan.name} plan - ${plan.tokensPerMonth} tokens added`,
+        sessionId
+      );
+
+      if (!tokensAdded) {
+        console.warn('⚠️ Failed to add tokens to user account, but payment was successful');
+      } else {
+        console.log('✅ Tokens added successfully');
+      }
+
+      // Update user_tokens table directly as a backup
+      const { data: userTokens } = await supabase
+        .from('user_tokens')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (userTokens) {
+        await supabase
+          .from('user_tokens')
+          .update({
+            total_tokens: userTokens.total_tokens + plan.tokensPerMonth,
+            tokens_remaining: userTokens.tokens_remaining + plan.tokensPerMonth,
+            last_updated: new Date().toISOString()
+          })
+          .eq('user_id', userId);
+        
+        console.log('✅ User tokens table updated directly');
+      } else {
+        await supabase
+          .from('user_tokens')
+          .insert({
+            user_id: userId,
+            total_tokens: plan.tokensPerMonth,
+            tokens_remaining: plan.tokensPerMonth,
+            tokens_used: 0
+          });
+        
+        console.log('✅ New user tokens record created');
+      }
     }
 
     // Sync user tokens to ensure everything is up to date

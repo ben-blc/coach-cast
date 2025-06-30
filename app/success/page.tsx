@@ -16,6 +16,7 @@ export default function SuccessPage() {
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [transactionDetails, setTransactionDetails] = useState<any>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams?.get('session_id');
@@ -39,7 +40,8 @@ export default function SuccessPage() {
         // If we have a session ID, process the payment success
         if (sessionId) {
           console.log('🔍 Processing payment success for session:', sessionId);
-          await processPaymentSuccess(sessionId);
+          const result = await processPaymentSuccess(sessionId);
+          setTransactionDetails(result);
         } else {
           console.log('⚠️ No session ID found in URL');
           setProcessingPayment(false);
@@ -101,11 +103,14 @@ export default function SuccessPage() {
       // Refresh tokens to get the updated balance
       await refreshTokens();
       console.log('✅ Tokens refreshed after payment success');
+      
+      setProcessingPayment(false);
+      return data;
     } catch (error) {
       console.error('❌ Error processing payment success:', error);
       setError(error instanceof Error ? error.message : 'Failed to process payment');
-    } finally {
       setProcessingPayment(false);
+      return null;
     }
   };
 
@@ -140,9 +145,11 @@ export default function SuccessPage() {
           <p className="text-xl text-gray-600 mb-6">
             {processingPayment 
               ? 'Processing your subscription...'
-              : sessionId 
-                ? 'Your subscription has been successfully activated.'
-                : 'Thank you for joining Coach Bridge!'
+              : transactionDetails?.alreadyProcessed
+                ? 'Your subscription was already processed successfully.'
+                : sessionId 
+                  ? 'Your subscription has been successfully activated.'
+                  : 'Thank you for joining Coach Bridge!'
             }
           </p>
 
