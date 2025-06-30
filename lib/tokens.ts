@@ -30,10 +30,14 @@ export interface TokenTransaction {
  */
 export async function getUserTokens(): Promise<UserTokens | null> {
   try {
+    console.log('🔍 Getting user tokens');
     const user = await getCurrentUser();
-    if (!user) return null;
+    if (!user) {
+      console.log('❌ No user found in getUserTokens');
+      return null;
+    }
 
-    console.log('Getting tokens for user:', user.id);
+    console.log('✅ User found:', user.id);
 
     // Query the user_tokens table directly
     const { data: tokenData, error: tokenError } = await supabase
@@ -43,30 +47,11 @@ export async function getUserTokens(): Promise<UserTokens | null> {
       .single();
 
     if (tokenError) {
-      console.error('Error fetching user tokens:', tokenError);
-      
-      // If the token record doesn't exist, try to sync it
-      if (tokenError.code === 'PGRST116') {
-        console.log('No token record found, syncing tokens');
-        await syncUserTokens();
-        
-        // Try again after syncing
-        const { data: retryData, error: retryError } = await supabase
-          .from('user_tokens')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-          
-        if (retryError) {
-          console.error('Error fetching user tokens after sync:', retryError);
-          return null;
-        }
-        
-        tokenData = retryData;
-      } else {
-        return null;
-      }
+      console.error('❌ Error fetching user tokens:', tokenError);
+      return null;
     }
+
+    console.log('✅ Token data retrieved:', tokenData);
 
     // Get subscription data for plan information
     const { data: subscriptionData, error: subscriptionError } = await supabase
@@ -77,8 +62,10 @@ export async function getUserTokens(): Promise<UserTokens | null> {
       .single();
 
     if (subscriptionError && subscriptionError.code !== 'PGRST116') {
-      console.error('Error fetching subscription:', subscriptionError);
+      console.error('❌ Error fetching subscription:', subscriptionError);
     }
+
+    console.log('✅ Subscription data:', subscriptionData);
 
     // Determine plan name based on plan_type
     let planName = 'Free';
@@ -91,13 +78,6 @@ export async function getUserTokens(): Promise<UserTokens | null> {
       }
     }
 
-    console.log('User tokens retrieved:', {
-      total: tokenData.total_tokens,
-      remaining: tokenData.tokens_remaining,
-      used: tokenData.tokens_used,
-      plan: planName
-    });
-
     return {
       total_tokens: tokenData.total_tokens,
       tokens_remaining: tokenData.tokens_remaining,
@@ -108,7 +88,7 @@ export async function getUserTokens(): Promise<UserTokens | null> {
       subscription_status: subscriptionData?.status || 'free'
     };
   } catch (error) {
-    console.error('Error in getUserTokens:', error);
+    console.error('❌ Error in getUserTokens:', error);
     return null;
   }
 }
@@ -118,10 +98,14 @@ export async function getUserTokens(): Promise<UserTokens | null> {
  */
 export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
   try {
+    console.log('🔍 Getting user token transactions');
     const user = await getCurrentUser();
-    if (!user) return [];
+    if (!user) {
+      console.log('❌ No user found in getUserTokenTransactions');
+      return [];
+    }
 
-    console.log('Getting token transactions for user:', user.id);
+    console.log('✅ User found:', user.id);
 
     // First, get the basic transaction data
     const { data: transactions, error } = await supabase
@@ -131,11 +115,11 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching token transactions:', error);
+      console.error('❌ Error fetching token transactions:', error);
       return [];
     }
 
-    console.log(`Found ${transactions?.length || 0} token transactions`);
+    console.log(`✅ Found ${transactions?.length || 0} transactions`);
 
     // For transactions with session_id, get additional session data
     const enhancedTransactions = await Promise.all((transactions || []).map(async (transaction) => {
@@ -158,7 +142,7 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
         .single();
 
       if (sessionError) {
-        console.error(`Error fetching session for transaction ${transaction.id}:`, sessionError);
+        console.error(`❌ Error fetching session for transaction ${transaction.id}:`, sessionError);
         return {
           id: transaction.id,
           amount: transaction.amount,
@@ -203,7 +187,7 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
 
     return enhancedTransactions;
   } catch (error) {
-    console.error('Error in getUserTokenTransactions:', error);
+    console.error('❌ Error in getUserTokenTransactions:', error);
     return [];
   }
 }
@@ -218,10 +202,14 @@ export async function addUserTokens(
   referenceId?: string
 ): Promise<boolean> {
   try {
+    console.log(`🔍 Adding ${amount} tokens (${transactionType}): ${description}`);
     const user = await getCurrentUser();
-    if (!user) return false;
+    if (!user) {
+      console.log('❌ No user found in addUserTokens');
+      return false;
+    }
 
-    console.log(`Adding ${amount} tokens to user ${user.id} (${transactionType})`);
+    console.log('✅ User found:', user.id);
 
     // Call the RPC function to add tokens
     const { data, error } = await supabase.rpc('add_user_tokens', {
@@ -233,14 +221,14 @@ export async function addUserTokens(
     });
 
     if (error) {
-      console.error('Error adding user tokens:', error);
+      console.error('❌ Error adding user tokens:', error);
       return false;
     }
 
-    console.log('Tokens added successfully');
+    console.log('✅ Tokens added successfully:', data);
     return data;
   } catch (error) {
-    console.error('Error in addUserTokens:', error);
+    console.error('❌ Error in addUserTokens:', error);
     return false;
   }
 }
@@ -255,10 +243,14 @@ export async function useUserTokens(
   referenceId?: string
 ): Promise<boolean> {
   try {
+    console.log(`🔍 Using ${amount} tokens: ${description}`);
     const user = await getCurrentUser();
-    if (!user) return false;
+    if (!user) {
+      console.log('❌ No user found in useUserTokens');
+      return false;
+    }
 
-    console.log(`Using ${amount} tokens from user ${user.id}`);
+    console.log('✅ User found:', user.id);
 
     // Call the RPC function to use tokens
     const { data, error } = await supabase.rpc('use_user_tokens', {
@@ -270,14 +262,14 @@ export async function useUserTokens(
     });
 
     if (error) {
-      console.error('Error using user tokens:', error);
+      console.error('❌ Error using user tokens:', error);
       return false;
     }
 
-    console.log('Tokens used successfully');
+    console.log('✅ Tokens used successfully:', data);
     return data;
   } catch (error) {
-    console.error('Error in useUserTokens:', error);
+    console.error('❌ Error in useUserTokens:', error);
     return false;
   }
 }
@@ -287,10 +279,14 @@ export async function useUserTokens(
  */
 export async function syncUserTokens(): Promise<boolean> {
   try {
+    console.log('🔍 Syncing user tokens with subscription data');
     const user = await getCurrentUser();
-    if (!user) return false;
+    if (!user) {
+      console.log('❌ No user found in syncUserTokens');
+      return false;
+    }
 
-    console.log('Syncing tokens for user:', user.id);
+    console.log('✅ User found:', user.id);
 
     // Call the RPC function to sync tokens
     const { data, error } = await supabase.rpc('sync_user_tokens', {
@@ -298,14 +294,14 @@ export async function syncUserTokens(): Promise<boolean> {
     });
 
     if (error) {
-      console.error('Error syncing user tokens:', error);
+      console.error('❌ Error syncing user tokens:', error);
       return false;
     }
 
-    console.log('Tokens synced successfully');
+    console.log('✅ Tokens synced successfully:', data);
     return data;
   } catch (error) {
-    console.error('Error in syncUserTokens:', error);
+    console.error('❌ Error in syncUserTokens:', error);
     return false;
   }
 }
@@ -315,12 +311,18 @@ export async function syncUserTokens(): Promise<boolean> {
  */
 export async function hasEnoughTokens(requiredAmount: number): Promise<boolean> {
   try {
+    console.log(`🔍 Checking if user has ${requiredAmount} tokens`);
     const tokens = await getUserTokens();
-    if (!tokens) return false;
+    if (!tokens) {
+      console.log('❌ No tokens found');
+      return false;
+    }
     
-    return tokens.tokens_remaining >= requiredAmount;
+    const hasEnough = tokens.tokens_remaining >= requiredAmount;
+    console.log(`✅ User has ${tokens.tokens_remaining} tokens, needs ${requiredAmount}: ${hasEnough ? 'Sufficient' : 'Insufficient'}`);
+    return hasEnough;
   } catch (error) {
-    console.error('Error in hasEnoughTokens:', error);
+    console.error('❌ Error in hasEnoughTokens:', error);
     return false;
   }
 }

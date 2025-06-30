@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,8 +62,6 @@ export default function PricingPage() {
   const [subscribing, setSubscribing] = useState<string | null>(null);
   const { tokens, refreshTokens } = useUserTokens();
   const { toast } = useToast();
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     async function loadUserData() {
@@ -75,16 +72,6 @@ export default function PricingPage() {
         if (currentUser) {
           await refreshTokens();
         }
-
-        // Check for error parameter in URL
-        const errorMsg = searchParams?.get('error');
-        if (errorMsg) {
-          toast({
-            title: 'Error',
-            description: decodeURIComponent(errorMsg),
-            variant: 'destructive',
-          });
-        }
       } catch (error) {
         console.error('Error loading user data:', error);
       } finally {
@@ -93,23 +80,16 @@ export default function PricingPage() {
     }
 
     loadUserData();
-  }, [refreshTokens, searchParams, toast]);
+  }, [refreshTokens]);
 
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     try {
       if (!user) {
-        // Store the plan ID in localStorage to redirect after login
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('pendingSubscription', plan.stripePriceId);
-          localStorage.setItem('redirectAfterAuth', '/pricing');
-        }
-        
         toast({
           title: 'Authentication required',
           description: 'Please sign in to subscribe to a plan.',
+          variant: 'destructive',
         });
-        
-        router.push('/auth?redirect=' + encodeURIComponent('/pricing'));
         return;
       }
 
@@ -124,9 +104,11 @@ export default function PricingPage() {
       }
 
       setSubscribing(plan.stripePriceId);
+      console.log('Starting subscription process for plan:', plan.name);
 
       // Redirect to Stripe Checkout
       await redirectToSubscriptionCheckout(plan.stripePriceId);
+      console.log('Redirecting to Stripe checkout...');
 
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -204,7 +186,7 @@ export default function PricingPage() {
             <Alert className="mb-8 max-w-2xl mx-auto">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <Link href="/auth?redirect=/pricing" className="text-blue-600 hover:underline font-medium">
+                <Link href="/auth" className="text-blue-600 hover:underline font-medium">
                   Sign in
                 </Link>{' '}
                 to subscribe to a plan and start your coaching journey.
@@ -298,7 +280,7 @@ export default function PricingPage() {
                       } text-white`}
                       size="lg"
                       onClick={() => handleSubscribe(plan)}
-                      disabled={isCurrent || subscribing === plan.stripePriceId || hasActiveSubscription}
+                      disabled={isCurrent || subscribing === plan.stripePriceId || !user || hasActiveSubscription}
                     >
                       {subscribing === plan.stripePriceId ? (
                         <>
@@ -325,7 +307,7 @@ export default function PricingPage() {
             </p>
             {!user && !loading && (
               <Button variant="outline" size="lg" asChild>
-                <Link href="/auth?redirect=/pricing">
+                <Link href="/auth">
                   <User className="w-4 h-4 mr-2" />
                   Sign In to Get Started
                 </Link>
