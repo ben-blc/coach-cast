@@ -46,6 +46,12 @@ export default function AuthPage() {
       if (urlRedirect) {
         setRedirectTo(urlRedirect);
       }
+
+      // Check if there's a pending subscription in localStorage
+      const pendingSubscription = localStorage.getItem('pendingSubscription');
+      if (pendingSubscription) {
+        console.log('Found pending subscription:', pendingSubscription);
+      }
     }
   }, [searchParams]);
 
@@ -66,6 +72,7 @@ export default function AuthPage() {
       if (activeTab === 'signup') {
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
+          setIsLoading(false);
           return;
         }
         
@@ -85,8 +92,7 @@ export default function AuthPage() {
         });
         
         // Redirect to the intended page or home
-        const destination = redirectTo || '/';
-        router.push(destination);
+        handleRedirectAfterAuth();
       } else {
         await signIn(formData.email, formData.password);
         toast({
@@ -95,8 +101,7 @@ export default function AuthPage() {
         });
         
         // Redirect to the intended page or home
-        const destination = redirectTo || '/';
-        router.push(destination);
+        handleRedirectAfterAuth();
       }
     } catch (error: any) {
       setError(error.message || 'An error occurred during authentication');
@@ -112,6 +117,25 @@ export default function AuthPage() {
     } catch (error: any) {
       setError(error.message || 'Failed to sign in with Google');
       setIsLoading(false);
+    }
+  };
+
+  const handleRedirectAfterAuth = () => {
+    // Check if there's a pending subscription in localStorage
+    const pendingSubscription = localStorage.getItem('pendingSubscription');
+    const redirectAfterAuth = localStorage.getItem('redirectAfterAuth');
+    
+    if (pendingSubscription && redirectAfterAuth) {
+      console.log('Redirecting to pending subscription page:', redirectAfterAuth);
+      localStorage.removeItem('pendingSubscription');
+      localStorage.removeItem('redirectAfterAuth');
+      router.push(redirectAfterAuth);
+    } else if (redirectTo) {
+      console.log('Redirecting to:', redirectTo);
+      router.push(redirectTo);
+    } else {
+      console.log('Redirecting to home');
+      router.push('/');
     }
   };
 
@@ -192,7 +216,7 @@ export default function AuthPage() {
                     </Alert>
                   )}
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full bg-brand-primary hover:bg-brand-primary/90" disabled={isLoading}>
                     {isLoading ? 'Signing in...' : 'Sign In'}
                   </Button>
                 </form>
@@ -281,7 +305,7 @@ export default function AuthPage() {
                     </p>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full bg-brand-primary hover:bg-brand-primary/90" disabled={isLoading}>
                     {isLoading ? 'Creating account...' : 'Create Account'}
                   </Button>
                 </form>
@@ -317,11 +341,11 @@ export default function AuthPage() {
 
             <p className="text-center text-sm text-gray-600 mt-6">
               By signing up, you agree to our{' '}
-              <Link href="/terms" className="text-blue-600 hover:underline">
+              <Link href="/terms" className="text-brand-primary hover:underline">
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">
+              <Link href="/privacy" className="text-brand-primary hover:underline">
                 Privacy Policy
               </Link>
             </p>

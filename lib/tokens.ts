@@ -33,6 +33,8 @@ export async function getUserTokens(): Promise<UserTokens | null> {
     const user = await getCurrentUser();
     if (!user) return null;
 
+    console.log('Getting tokens for user:', user.id);
+
     // Query the user_tokens table directly
     const { data: tokenData, error: tokenError } = await supabase
       .from('user_tokens')
@@ -42,7 +44,28 @@ export async function getUserTokens(): Promise<UserTokens | null> {
 
     if (tokenError) {
       console.error('Error fetching user tokens:', tokenError);
-      return null;
+      
+      // If the token record doesn't exist, try to sync it
+      if (tokenError.code === 'PGRST116') {
+        console.log('No token record found, syncing tokens');
+        await syncUserTokens();
+        
+        // Try again after syncing
+        const { data: retryData, error: retryError } = await supabase
+          .from('user_tokens')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (retryError) {
+          console.error('Error fetching user tokens after sync:', retryError);
+          return null;
+        }
+        
+        tokenData = retryData;
+      } else {
+        return null;
+      }
     }
 
     // Get subscription data for plan information
@@ -68,6 +91,13 @@ export async function getUserTokens(): Promise<UserTokens | null> {
       }
     }
 
+    console.log('User tokens retrieved:', {
+      total: tokenData.total_tokens,
+      remaining: tokenData.tokens_remaining,
+      used: tokenData.tokens_used,
+      plan: planName
+    });
+
     return {
       total_tokens: tokenData.total_tokens,
       tokens_remaining: tokenData.tokens_remaining,
@@ -91,6 +121,8 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
     const user = await getCurrentUser();
     if (!user) return [];
 
+    console.log('Getting token transactions for user:', user.id);
+
     // First, get the basic transaction data
     const { data: transactions, error } = await supabase
       .from('token_transactions')
@@ -102,6 +134,8 @@ export async function getUserTokenTransactions(): Promise<TokenTransaction[]> {
       console.error('Error fetching token transactions:', error);
       return [];
     }
+
+    console.log(`Found ${transactions?.length || 0} token transactions`);
 
     // For transactions with session_id, get additional session data
     const enhancedTransactions = await Promise.all((transactions || []).map(async (transaction) => {
@@ -187,6 +221,8 @@ export async function addUserTokens(
     const user = await getCurrentUser();
     if (!user) return false;
 
+    console.log(`Adding ${amount} tokens to user ${user.id} (${transactionType})`);
+
     // Call the RPC function to add tokens
     const { data, error } = await supabase.rpc('add_user_tokens', {
       p_user_id: user.id,
@@ -201,6 +237,7 @@ export async function addUserTokens(
       return false;
     }
 
+    console.log('Tokens added successfully');
     return data;
   } catch (error) {
     console.error('Error in addUserTokens:', error);
@@ -221,6 +258,8 @@ export async function useUserTokens(
     const user = await getCurrentUser();
     if (!user) return false;
 
+    console.log(`Using ${amount} tokens from user ${user.id}`);
+
     // Call the RPC function to use tokens
     const { data, error } = await supabase.rpc('use_user_tokens', {
       p_user_id: user.id,
@@ -235,6 +274,7 @@ export async function useUserTokens(
       return false;
     }
 
+    console.log('Tokens used successfully');
     return data;
   } catch (error) {
     console.error('Error in useUserTokens:', error);
@@ -250,6 +290,8 @@ export async function syncUserTokens(): Promise<boolean> {
     const user = await getCurrentUser();
     if (!user) return false;
 
+    console.log('Syncing tokens for user:', user.id);
+
     // Call the RPC function to sync tokens
     const { data, error } = await supabase.rpc('sync_user_tokens', {
       p_user_id: user.id
@@ -260,6 +302,7 @@ export async function syncUserTokens(): Promise<boolean> {
       return false;
     }
 
+    console.log('Tokens synced successfully');
     return data;
   } catch (error) {
     console.error('Error in syncUserTokens:', error);

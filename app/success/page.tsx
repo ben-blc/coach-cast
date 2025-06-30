@@ -11,7 +11,6 @@ import { useUserTokens } from '@/hooks/use-tokens';
 import { Navbar } from '@/components/sections/Navbar';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 
 export default function SuccessPage() {
   const [user, setUser] = useState<any>(null);
@@ -26,18 +25,22 @@ export default function SuccessPage() {
   useEffect(() => {
     async function loadUserData() {
       try {
+        console.log('Loading user data and processing payment');
         const currentUser = await getCurrentUser();
         setUser(currentUser);
         
         if (!currentUser) {
+          console.error('No user found in success page');
           router.push('/auth');
           return;
         }
 
         // If we have a session ID, process the payment success
         if (sessionId) {
+          console.log('Session ID found, processing payment:', sessionId);
           await processPaymentSuccess(sessionId);
         } else {
+          console.log('No session ID found, skipping payment processing');
           setProcessingPayment(false);
         }
 
@@ -57,12 +60,16 @@ export default function SuccessPage() {
 
   const processPaymentSuccess = async (sessionId: string) => {
     try {
+      console.log('Processing payment success for session:', sessionId);
+      
       // Get the auth token for the API request
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No access token available');
       }
-
+      
+      console.log('Auth token retrieved, calling success API');
+      
       // Call the success API endpoint
       const response = await fetch(`/api/stripe/success?session_id=${sessionId}`, {
         headers: {
@@ -70,10 +77,16 @@ export default function SuccessPage() {
         }
       });
 
+      console.log('Success API response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Error response from success API:', errorData);
         throw new Error(errorData.error || 'Failed to process payment');
       }
+
+      const data = await response.json();
+      console.log('Success API response data:', data);
 
       // Refresh tokens to get the updated balance
       await refreshTokens();
@@ -91,7 +104,7 @@ export default function SuccessPage() {
         <Navbar />
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-brand-primary" />
             <p className="text-gray-600">Processing your subscription...</p>
           </div>
         </div>
@@ -190,12 +203,12 @@ export default function SuccessPage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-blue-50 p-6 rounded-lg text-center">
-                <Play className="w-8 h-8 text-blue-600 mx-auto mb-4" />
+                <Play className="w-8 h-8 text-brand-primary mx-auto mb-4" />
                 <h3 className="font-semibold text-gray-900 mb-2">Start Your First Session</h3>
                 <p className="text-gray-600 text-sm mb-4">
                   Explore our coaching studio and begin your transformation journey.
                 </p>
-                <Button asChild className="w-full">
+                <Button asChild className="w-full bg-brand-primary hover:bg-brand-primary/90">
                   <Link href="/coaching-studio">
                     <Play className="w-4 h-4 mr-2" />
                     Explore Coaches
